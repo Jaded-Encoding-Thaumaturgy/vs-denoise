@@ -1,0 +1,13 @@
+.mypy_cache/
+.vscode
+*.cfg
+*.pyc
+*.vpy
+BACK-UP/
+build/
+dist/
+doc/_build
+doc/_static
+doc/_templates
+lvsfunc.egg-info/
+venv/
