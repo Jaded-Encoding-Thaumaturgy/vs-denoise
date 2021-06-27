@@ -1,0 +1,27 @@
+name: lint
+
+on: [push, pull_request]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install VapourSynth
+        uses: Irrational-Encoding-Wizardry/install-vapoursynth-action@v0.1
+        with:
+          version: latest
+          cache: true
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install .
+      - name: Running flake8
+        run: flake8 vsdenoise
+      - name: Running mypy
+        run: mypy -p vsdenoise

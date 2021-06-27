@@ -3,11 +3,12 @@
 *.cfg
 *.pyc
 *.vpy
+*.swp
 BACK-UP/
 build/
 dist/
 doc/_build
 doc/_static
 doc/_templates
-lvsfunc.egg-info/
+vs_denoise.egg-info/
 venv/
