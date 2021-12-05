@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import (Any, ClassVar, Dict, Mapping, NamedTuple, Optional,
-                    Sequence, TypedDict, Union)
+from typing import Any, ClassVar, Dict, NamedTuple, Optional, Sequence, Union
 
 import vapoursynth as vs
 # TODO: Move lvsfunc.kernels to vsutil
@@ -11,7 +10,7 @@ from lvsfunc.kernels import Catrom, Kernel
 from vsutil import Dither as DitherType
 from vsutil import get_depth, get_y, iterate
 
-from .types import (MATRIX, DataArray, PluginBm3dcpuCoreUnbound,
+from .types import (MATRIX, PluginBm3dcpuCoreUnbound,
                     PluginBm3dcuda_rtcCoreUnbound, PluginBm3dcudaCoreUnbound)
 
 core = vs.core
@@ -43,8 +42,8 @@ class AbstractBM3D(ABC):
 
     is_gray: bool
 
-    basic_args: Mapping[str, Any]
-    final_args: Mapping[str, Any]
+    basic_args: Dict[str, Any]
+    final_args: Dict[str, Any]
 
     _refv: vs.VideoNode
     _clip: vs.VideoNode
@@ -187,53 +186,6 @@ class AbstractBM3D(ABC):
 
 
 class BM3D(AbstractBM3D):
-    class BasicArgs(TypedDict, total=False):
-        block_size: Optional[int]
-        block_step: Optional[int]
-        group_size: Optional[int]
-        bm_range: Optional[int]
-        bm_step: Optional[int]
-        th_mse: Optional[float]
-        hard_thr: Optional[float]
-        matrix: Optional[int]
-
-    class FinalArgs(TypedDict, total=False):
-        block_size: Optional[int]
-        block_step: Optional[int]
-        group_size: Optional[int]
-        bm_range: Optional[int]
-        bm_step: Optional[int]
-        th_mse: Optional[float]
-        matrix: Optional[int]
-
-    class VBasicArgs(TypedDict, total=False):
-        block_size: Optional[int]
-        block_step: Optional[int]
-        group_size: Optional[int]
-        bm_range: Optional[int]
-        bm_step: Optional[int]
-        ps_num: Optional[int]
-        ps_range: Optional[int]
-        ps_step: Optional[int]
-        th_mse: Optional[float]
-        hard_thr: Optional[float]
-        matrix: Optional[int]
-
-    class VFinalArgs(TypedDict, total=False):
-        block_size: Optional[int]
-        block_step: Optional[int]
-        group_size: Optional[int]
-        bm_range: Optional[int]
-        bm_step: Optional[int]
-        ps_num: Optional[int]
-        ps_range: Optional[int]
-        ps_step: Optional[int]
-        th_mse: Optional[float]
-        matrix: Optional[int]
-
-    basic_args: BasicArgs | VBasicArgs
-    final_args: FinalArgs | VFinalArgs
-
     pre: Optional[vs.VideoNode]
     fp32: bool = True
 
@@ -369,127 +321,10 @@ class _AbstractBM3DCuda(AbstractBM3D):
 class BM3DCuda(_AbstractBM3DCuda):
     plugin = core.bm3dcuda
 
-    class BasicArgs(TypedDict, total=False):
-        block_step: Optional[int]
-        bm_range: Optional[int]
-        chroma: bool
-        device_id: int
-        fast: bool
-        extractor_exp: int
-
-    class FinalArgs(TypedDict, total=False):
-        block_step: Optional[int]
-        bm_range: Optional[int]
-        chroma: bool
-        device_id: int
-        fast: bool
-        extractor_exp: int
-
-    class VBasicArgs(TypedDict, total=False):
-        block_step: Optional[int]
-        bm_range: Optional[int]
-        ps_num: Optional[int]
-        ps_range: Optional[int]
-        chroma: bool
-        device_id: int
-        fast: bool
-        extractor_exp: int
-
-    class VFinalArgs(TypedDict, total=False):
-        block_step: Optional[int]
-        bm_range: Optional[int]
-        ps_num: Optional[int]
-        ps_range: Optional[int]
-        chroma: bool
-        device_id: int
-        fast: bool
-        extractor_exp: int
-
-    basic_args: BasicArgs | VBasicArgs
-    final_args: FinalArgs | VFinalArgs
-
 
 class BM3DCudaRTC(_AbstractBM3DCuda):
     plugin = core.bm3dcuda_rtc
 
-    class BasicArgs(TypedDict, total=False):
-        block_step: Optional[int]
-        bm_range: Optional[int]
-        chroma: bool
-        device_id: int
-        fast: bool
-        extractor_exp: int
-        bm_error_s: DataArray
-        transform_2d_s: DataArray
-        transform_1d_s: DataArray
-
-    class FinalArgs(TypedDict, total=False):
-        block_step: Optional[int]
-        bm_range: Optional[int]
-        chroma: bool
-        device_id: int
-        fast: bool
-        extractor_exp: int
-        bm_error_s: DataArray
-        transform_2d_s: DataArray
-        transform_1d_s: DataArray
-
-    class VBasicArgs(TypedDict, total=False):
-        block_step: Optional[int]
-        bm_range: Optional[int]
-        ps_num: Optional[int]
-        ps_range: Optional[int]
-        chroma: bool
-        device_id: int
-        fast: bool
-        extractor_exp: int
-        bm_error_s: DataArray
-        transform_2d_s: DataArray
-        transform_1d_s: DataArray
-
-    class VFinalArgs(TypedDict, total=False):
-        block_step: Optional[int]
-        bm_range: Optional[int]
-        ps_num: Optional[int]
-        ps_range: Optional[int]
-        chroma: bool
-        device_id: int
-        fast: bool
-        extractor_exp: int
-        bm_error_s: DataArray
-        transform_2d_s: DataArray
-        transform_1d_s: DataArray
-
-    basic_args: BasicArgs | VBasicArgs
-    final_args: FinalArgs | VFinalArgs
-
 
 class BM3DCPU(_AbstractBM3DCuda):
     plugin = core.bm3dcpu
-
-    class BasicArgs(TypedDict, total=False):
-        block_step: Optional[int]
-        bm_range: Optional[int]
-        chroma: bool
-
-    class FinalArgs(TypedDict, total=False):
-        block_step: Optional[int]
-        bm_range: Optional[int]
-        chroma: bool
-
-    class VBasicArgs(TypedDict, total=False):
-        block_step: Optional[int]
-        bm_range: Optional[int]
-        ps_num: Optional[int]
-        ps_range: Optional[int]
-        chroma: bool
-
-    class VFinalArgs(TypedDict, total=False):
-        block_step: Optional[int]
-        bm_range: Optional[int]
-        ps_num: Optional[int]
-        ps_range: Optional[int]
-        chroma: bool
-
-    basic_args: BasicArgs | VBasicArgs
-    final_args: FinalArgs | VFinalArgs
