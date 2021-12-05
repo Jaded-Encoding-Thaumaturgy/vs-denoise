@@ -17,22 +17,7 @@ from .types import (MATRIX, DataArray, PluginBm3dcpuCoreUnbound,
 core = vs.core
 
 
-class AbstractBM3D(ABC):
-    class Sigma(NamedTuple):
-        y: float
-        u: Optional[float] = None
-        v: Optional[float] = None
-
-    class Radius(NamedTuple):
-        basic: int = 0
-        final: Optional[int] = None
-
-    class Profile(str, Enum):
-        FAST = 'fast'
-        LOW_COMPLEXITY = 'lc'
-        NORMAL = 'np'
-        HIGH = 'high'
-        VERY_NOISY = 'vn'
+class Profile(str, Enum):
 
         F = FAST
         LC = LOW_COMPLEXITY
@@ -40,9 +25,11 @@ class AbstractBM3D(ABC):
         H = HIGH
         VN = VERY_NOISY
 
+
+class AbstractBM3D(ABC):
     wclip: vs.VideoNode
-    sigma: Sigma
-    radius: Radius
+    sigma: _Sigma
+    radius: _Radius
     profile: Optional[Profile]
     ref: Optional[vs.VideoNode]
     refine: int
@@ -58,9 +45,18 @@ class AbstractBM3D(ABC):
     _clip: vs.VideoNode
     _format: vs.VideoFormat
 
+    class _Sigma(NamedTuple):
+        y: float
+        u: float
+        v: float
+
+    class _Radius(NamedTuple):
+        basic: int
+        final: int
+
     def __init__(
         self, clip: vs.VideoNode, /,
-        sigma: Sigma, radius: Optional[Radius] = None,
+        sigma: float | Sequence[float], radius: int | Sequence[int] | None = None,
         profile: Profile = Profile.FAST,
         ref: Optional[vs.VideoNode] = None,
         refine: int = 1,
@@ -76,8 +72,16 @@ class AbstractBM3D(ABC):
         self._check_clips(clip, ref)
 
         self.wclip = clip
-        self.sigma = sigma
-        self.radius = radius if radius else AbstractBM3D.Radius()
+        if not isinstance(sigma, Sequence):
+            self.sigma = self._Sigma(sigma, sigma, sigma)
+        else:
+            self.sigma = self._Sigma(*(list(sigma) + [sigma[-1]] * (3 - len(sigma)))[:3])
+        if radius is None:
+            self.radius = self._Radius(0, 0)
+        elif not isinstance(radius, Sequence):
+            self.radius = self._Radius(radius, radius)
+        else:
+            self.radius = self._Radius(*(list(radius) + [radius[-1]] * (2 - len(radius)))[:2])
         self.profile = profile
         self.ref = ref
         self.refine = refine
@@ -92,16 +96,10 @@ class AbstractBM3D(ABC):
         self.final_args = {}
 
         if self.is_gray:
-            self.sigma = sigma._replace(u=0, v=0)
+            self.sigma = self.sigma._replace(u=0, v=0)
 
-        if self.sigma.u is None:
-            self.sigma = self.sigma._replace(u=self.sigma.y)
-        if self.sigma.v is None:
-            self.sigma = self.sigma._replace(v=self.sigma.y)
         if sum(self.sigma[1:]) == 0:
             self.is_gray = True
-        if self.radius.final is None:
-            self.radius._replace(final=self.radius.basic)
 
     def yuv2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
         return self.rgb2opp(self.yuv2rgb_kernel.scale(clip, clip.width, clip.height))
@@ -160,7 +158,6 @@ class AbstractBM3D(ABC):
                 dither_type=self._get_dither_type()
             )
             if self._format.color_family == vs.YUV:
-                
                 self.wclip = core.std.ShufflePlanes([self.wclip, self._clip], [0, 1, 2], vs.YUV)
         else:
             if 'dither_type' not in self.rgb2yuv_kernel.kwargs:
@@ -237,7 +234,8 @@ class BM3D(AbstractBM3D):
 
     def __init__(
         self, clip: vs.VideoNode, /,
-        sigma: BM3D.Sigma, radius: BM3D.Radius, profile: BM3D.Profile = AbstractBM3D.Profile.FAST,
+        sigma: float | Sequence[float], radius: int | Sequence[int] | None = None,
+        profile: Profile = Profile.FAST,
         pre: Optional[vs.VideoNode] = None, ref: Optional[vs.VideoNode] = None,
         refine: int = 1,
         matrix: vs.MatrixCoefficients | MATRIX = vs.MATRIX_BT709,
