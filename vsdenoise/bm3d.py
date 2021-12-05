@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import (Any, ClassVar, Dict, Mapping, NamedTuple, Optional,
-                    TypedDict, Union)
+                    Sequence, TypedDict, Union)
 
 import vapoursynth as vs
 # TODO: Move lvsfunc.kernels to vsutil
@@ -18,12 +18,17 @@ core = vs.core
 
 
 class Profile(str, Enum):
+    FAST = 'fast'
+    LOW_COMPLEXITY = 'lc'
+    NORMAL = 'np'
+    HIGH = 'high'
+    VERY_NOISY = 'vn'
 
-        F = FAST
-        LC = LOW_COMPLEXITY
-        NP = NORMAL
-        H = HIGH
-        VN = VERY_NOISY
+    F = FAST
+    LC = LOW_COMPLEXITY
+    NP = NORMAL
+    H = HIGH
+    VN = VERY_NOISY
 
 
 class AbstractBM3D(ABC):
@@ -294,34 +299,34 @@ class _AbstractBM3DCuda(AbstractBM3D):
     ]
 
     CUDA_BASIC_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
-        AbstractBM3D.Profile.FAST: dict(block_step=8, bm_range=9),
-        AbstractBM3D.Profile.LC: dict(block_step=6, bm_range=9),
-        AbstractBM3D.Profile.NP: dict(block_step=4, bm_range=16),
-        AbstractBM3D.Profile.HIGH: dict(block_step=3, bm_range=16),
+        Profile.FAST: dict(block_step=8, bm_range=9),
+        Profile.LC: dict(block_step=6, bm_range=9),
+        Profile.NP: dict(block_step=4, bm_range=16),
+        Profile.HIGH: dict(block_step=3, bm_range=16),
         # 'vn': dict(block_step=4, bm_range=16),
         None: {}
     }
     CUDA_FINAL_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
-        AbstractBM3D.Profile.FAST: dict(block_step=7, bm_range=9),
-        AbstractBM3D.Profile.LC: dict(block_step=5, bm_range=9),
-        AbstractBM3D.Profile.NP: dict(block_step=3, bm_range=16),
-        AbstractBM3D.Profile.HIGH: dict(block_step=2, bm_range=16),
+        Profile.FAST: dict(block_step=7, bm_range=9),
+        Profile.LC: dict(block_step=5, bm_range=9),
+        Profile.NP: dict(block_step=3, bm_range=16),
+        Profile.HIGH: dict(block_step=2, bm_range=16),
         # 'vn': dict(block_step=4, bm_range=16),
         None: {}
     }
     CUDA_VBASIC_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
-        AbstractBM3D.Profile.FAST: dict(block_step=8, bm_range=7, ps_num=2, ps_range=4),
-        AbstractBM3D.Profile.LC: dict(block_step=6, bm_range=9, ps_num=2, ps_range=4),
-        AbstractBM3D.Profile.NP: dict(block_step=4, bm_range=12, ps_num=2, ps_range=5),
-        AbstractBM3D.Profile.HIGH: dict(block_step=3, bm_range=16, ps_num=2, ps_range=7),
+        Profile.FAST: dict(block_step=8, bm_range=7, ps_num=2, ps_range=4),
+        Profile.LC: dict(block_step=6, bm_range=9, ps_num=2, ps_range=4),
+        Profile.NP: dict(block_step=4, bm_range=12, ps_num=2, ps_range=5),
+        Profile.HIGH: dict(block_step=3, bm_range=16, ps_num=2, ps_range=7),
         # 'vn': dict(block_step=4, bm_range=16),
         None: {}
     }
     CUDA_VFINAL_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
-        AbstractBM3D.Profile.FAST: dict(block_step=7, bm_range=7, ps_num=2, ps_range=5),
-        AbstractBM3D.Profile.LC: dict(block_step=5, bm_range=9, ps_num=2, ps_range=5),
-        AbstractBM3D.Profile.NP: dict(block_step=3, bm_range=12, ps_num=2, ps_range=6),
-        AbstractBM3D.Profile.HIGH: dict(block_step=2, bm_range=16, ps_num=2, ps_range=8),
+        Profile.FAST: dict(block_step=7, bm_range=7, ps_num=2, ps_range=5),
+        Profile.LC: dict(block_step=5, bm_range=9, ps_num=2, ps_range=5),
+        Profile.NP: dict(block_step=3, bm_range=12, ps_num=2, ps_range=6),
+        Profile.HIGH: dict(block_step=2, bm_range=16, ps_num=2, ps_range=8),
         # 'vn': dict(block_step=4, bm_range=16),
         None: {}
     }
@@ -356,7 +361,7 @@ class _AbstractBM3DCuda(AbstractBM3D):
 
     @property
     def clip(self) -> vs.VideoNode:
-        if self.profile == self.Profile.VERY_NOISY:
+        if self.profile == Profile.VERY_NOISY:
             raise ValueError(f'{self.__class__.__name__}: Profile "vn" is not supported!')
         return super().clip
 
