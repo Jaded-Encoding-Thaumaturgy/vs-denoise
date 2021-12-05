@@ -1,1 +1,3 @@
-VapourSynth>=51
+vsutil>=0.6.0
+VapourSynth>=55
+git+git://github.com/lvsfunc/lvsfunc.git@releases/tag/v0.3.10#egg=lvsfunc
