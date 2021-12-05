@@ -1,165 +1,495 @@
-import sys
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional, Union
+from typing import (Any, ClassVar, Dict, Mapping, NamedTuple, Optional,
+                    TypedDict, Union)
 
 import vapoursynth as vs
+# TODO: Move lvsfunc.kernels to vsutil
+from lvsfunc.kernels import Catrom, Kernel
+from vsutil import Dither as DitherType
+from vsutil import get_depth, get_y, iterate
+
+from .types import (MATRIX, DataArray, PluginBm3dcpuCoreUnbound,
+                    PluginBm3dcuda_rtcCoreUnbound, PluginBm3dcudaCoreUnbound)
+from .util import merge_chroma
 
 core = vs.core
 
 
-class BM3DProfile(Enum):
-    FAST = "fast"
-    LC = "lc"
-    NP = "np"
-    HIGH = "high"
-    VN = "vn"
+class AbstractBM3D(ABC):
+    class Sigma(NamedTuple):
+        y: float
+        u: Optional[float] = None
+        v: Optional[float] = None
 
-    # should this be included in the initialisations? I thought no
-    # because I didn't want to make it too busy, but now im not too sure
+    class Radius(NamedTuple):
+        basic: int = 0
+        final: Optional[int] = None
+
+    class Profile(str, Enum):
+        FAST = 'fast'
+        LOW_COMPLEXITY = 'lc'
+        NORMAL = 'np'
+        HIGH = 'high'
+        VERY_NOISY = 'vn'
+
+        F = FAST
+        LC = LOW_COMPLEXITY
+        NP = NORMAL
+        H = HIGH
+        VN = VERY_NOISY
+
+    wclip: vs.VideoNode
+    sigma: Sigma
+    radius: Radius
+    profile: Optional[Profile]
+    ref: Optional[vs.VideoNode]
+    refine: int
+    yuv2rgb_kernel: Kernel
+    rgb2yuv_kernel: Kernel
+
+    is_gray: bool
+
+    basic_args: Mapping[str, Any]
+    final_args: Mapping[str, Any]
+
+    _refv: vs.VideoNode
+    _clip: vs.VideoNode
+    _format: vs.VideoFormat
+
+    def __init__(
+        self, clip: vs.VideoNode, /,
+        sigma: Sigma, radius: Optional[Radius] = None,
+        profile: Profile = Profile.FAST,
+        ref: Optional[vs.VideoNode] = None,
+        refine: int = 1,
+        matrix: vs.MatrixCoefficients | MATRIX = vs.MATRIX_BT709,
+        yuv2rgb_kernel: Kernel = Catrom(),
+        rgb2yuv_kernel: Kernel = Catrom()
+    ) -> None:
+        if clip.format is None:
+            raise ValueError(f"{self.__class__.__name__}: Variable format clips not supported")
+
+        self._format = clip.format
+        self._clip = clip
+        self._check_clips(clip, ref)
+
+        self.wclip = clip
+        self.sigma = sigma
+        self.radius = radius if radius else AbstractBM3D.Radius()
+        self.profile = profile
+        self.ref = ref
+        self.refine = refine
+        self.yuv2rgb_kernel = yuv2rgb_kernel
+        self.yuv2rgb_kernel.kwargs.update(format=vs.RGBS, matrix_in=matrix)
+        self.rgb2yuv_kernel = rgb2yuv_kernel
+        self.rgb2yuv_kernel.kwargs.update(format=self._format.id, matrix=matrix)
+
+        self.is_gray = clip.format.color_family == vs.GRAY
+
+        self.basic_args = {}
+        self.final_args = {}
+
+        if self.is_gray:
+            self.sigma = sigma._replace(u=0, v=0)
+
+        if self.sigma.u is None:
+            self.sigma = self.sigma._replace(u=self.sigma.y)
+        if self.sigma.v is None:
+            self.sigma = self.sigma._replace(v=self.sigma.y)
+        if sum(self.sigma[1:]) == 0:
+            self.is_gray = True
+        if self.radius.final is None:
+            self.radius._replace(final=self.radius.basic)
+
+    def yuv2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
+        return self.rgb2opp(self.yuv2rgb_kernel.scale(clip, clip.width, clip.height))
+
+    @staticmethod
+    def rgb2opp(clip: vs.VideoNode) -> vs.VideoNode:
+        return clip.bm3d.RGB2OPP(sample=1)
+
+    @staticmethod
+    def opp2rgb(clip: vs.VideoNode) -> vs.VideoNode:
+        return clip.bm3d.OPP2RGB(sample=1)
+
+    @staticmethod
+    def to_fullgray(clip: vs.VideoNode) -> vs.VideoNode:
+        return get_y(clip).resize.Point(format=vs.GRAYS)
+
+    @abstractmethod
+    def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
+        ...
+
+    @abstractmethod
+    def final(self, clip: vs.VideoNode) -> vs.VideoNode:
+        ...
+
     @property
-    def radius(self) -> int:
-        return {"fast": 1, "lc": 2, "np": 3, "high": 4, "vn": 4}[self.name]
+    def clip(self) -> vs.VideoNode:
+        self._preprocessing()
 
-    def _set_vbm3d_args(self, radius: int, args: dict[str, int]) -> dict[str, int]:
-        if radius:
-            args.update({"fast": dict(bm_range=7), "np": dict(bm_range=12), "vn": dict(bm_range=12)}.get(self.name, {}))
-
-    def basic_cuda_args(self, radius: int) -> dict[str, int]:
-        args = {
-            "fast": dict(block_step=8, bm_range=9, ps_range=4),
-            "lc": dict(block_step=6, bm_range=9, ps_range=4),
-            "np": dict(block_step=4, bm_range=16, ps_range=5),
-            "high": dict(block_step=2, bm_range=16, ps_range=7),
-            "vn": dict(block_step=4, bm_range=16, ps_range=5),
-        }[self.name]
-        self._set_vbm3d_args(radius, args)
-        return args
-
-    def final_cuda_args(self, radius: int) -> dict[str, int]:
-        if self.name == "vn":
-            print("WARNING: BM3DCUDA doesn't directly support the vn profile for the final estimate."
-                  "Emulating nearest parameters", file=sys.stderr)
-        args = {
-            "fast": dict(block_step=7, bm_range=9, ps_range=5),
-            "lc": dict(block_step=5, bm_range=9, ps_range=5),
-            "np": dict(block_step=3, bm_range=16, ps_range=6),
-            "high": dict(block_step=2, bm_range=16, ps_range=8),
-            # original vn profile for final uses a block size of 11, where cuda only supports 8. vn used 11,
-            # and 11-4 = an overlap of 7, meaning the closest I can really get with a block size of 8 is a step of 1.
-            # still probably isn't ideal, a larger block size would be far better for noisy content.
-            "vn": dict(block_step=1, bm_range=16, ps_range=6),
-        }[self.name]
-        self._set_vbm3d_args(radius, args)
-        return args
-
-
-def BM3D(clip: vs.VideoNode,
-         sigma: Union[float, list[float], list[list[float]]] = 1.5,
-         profile: Union[Optional[BM3DProfile], list[Optional[BM3DProfile]]] = BM3DProfile.LC,
-         radius: Union[Optional[int], list[Optional[int]]] = None,
-         refine: int = 1,
-         pre: Optional[vs.VideoNode] = None,
-         ref: Optional[vs.VideoNode] = None,
-         matrix: str = "709",
-         CUDA: Optional[Union[bool, list[bool]]] = None) -> vs.VideoNode:
-
-    # TODO: Allow passing args to bm3d/-cuda - how to handle auto detection with bad params?
-    # TODO: Figure out and handle individual plane denoising
-    # TODO: Autodetect matrix / colour range
-    # TODO: Write docstring
-    # TODO: Support for _rtc and new BM3DCPU?
-    # TODO: Actually test this :P
-
-    src = clip
-
-    def is_gray(clip: vs.VideoNode) -> bool:
-        return clip.format.color_family == vs.GRAY
-
-    if CUDA is None:
-        CUDA = [hasattr(core, "bm3dcuda")] * 2
-    elif isinstance(CUDA, bool):
-        CUDA = [CUDA, CUDA]
-
-    if not isinstance(sigma, list):
-        sigma = [sigma]
-    if not all(isinstance(elem, list) for elem in sigma):
-        sigma = [sigma, sigma]
-    sigma: list[list[float]] = [(s + [s[-1]] * 3)[:3] for s in sigma]
-    for i in [0, 1]:
-        # multiply luma sigmas by 0.8, if using BM3DCUDA. This seemed to give closer results to the original.
-        if CUDA[i]:
-            sigma[i] = [s * 0.8 for s in sigma[i]]
-
-    if not isinstance(profile, tuple):
-        profile = (profile, profile)
-
-    if not isinstance(radius, list):
-        radius = [radius, radius]
-    for i, r in enumerate(radius):
-        if r is None:
-            radius[i] = profile[i].radius
-
-    if not (sigma[0][1] or sigma[0][2] or sigma[1][1] or sigma[1][2]) and clip.format.color_family != vs.RGB:
-        clip = core.std.ShufflePlanes(clip, [0], vs.GRAY)
-
-    if CUDA[0] and pre is not None:
-        print("WARNING: BM3DCUDA doesn't accept a pre for the basic estimate, ignoring", file=sys.stderr)
-
-    def to_opp(clip: vs.VideoNode) -> vs.VideoNode:
-        clip = core.resize.Bicubic(clip,
-                                   format=vs.RGBS if not is_gray(clip) else vs.GRAYS,
-                                   filter_param_a=0, filter_param_b=0.5,
-                                   matrix_in_s=matrix)
-        return core.bm3d.RGB2OPP(clip, 1) if not is_gray(clip) else clip
-
-    clips = {k: to_opp(v) for k, v in dict(src=clip, pre=pre, ref=ref).items() if v is not None}
-
-    if all(c not in clips.keys() for c in ["pre", "ref"]):
-        clips["pre"] = clips["src"]
-
-    cudaargs = [None, None]
-    if CUDA[0]:
-        cudaargs[0] = profile[0].basic_cuda_args(radius[0])
-    if CUDA[1]:
-        cudaargs[1] = profile[1].final_cuda_args(radius[1])
-
-    if "ref" in clips.keys():
-        basic = clips["ref"]
-    else:
-        if CUDA[0]:
-            basic = core.bm3dcuda.BM3D(clips["src"], sigma=sigma[0], radius=radius[0], **cudaargs[0])
-            # bm3dcuda seems to set the luma to garbage if it isnt processed
-            if not sigma[0][0] and (sigma[0][1] or sigma[0][2]):
-                basic = core.std.ShufflePlanes([clips["src"], basic], [0, 1, 2], src.format.color_family)
-        if not CUDA[0]:
-            basicargs = dict(input=clips["src"], ref=clips["pre"], profile=profile[0], sigma=sigma[0], matrix=100)
-            if radius[0]:
-                basic = core.bm3d.VBasic(radius=radius[0], **basicargs)
+        # Make basic estimation
+        if self.ref is None:
+            self._refv = self.basic(self.wclip)
+        else:
+            if self.is_gray:
+                self._refv = self.to_fullgray(self.ref)
             else:
-                basic = core.bm3d.Basic(**basicargs)
-        if radius[0]:
-            basic = core.bm3d.VAggregate(basic, radius[0], 1)
+                self._refv = self.yuv2opp(self.ref)
 
-    final = basic
-    for _ in range(refine):
-        if CUDA[1]:
-            final = core.bm3dcuda.BM3D(clips["src"], ref=final, sigma=sigma[1], radius=radius[1], **cudaargs[1])
-            # as before, bm3dcuda seems to set the luma to garbage if it isnt processed
-            if not sigma[1][0] and (sigma[1][1] or sigma[1][2]):
-                final = core.std.ShufflePlanes([clips["src"], final], [0, 1, 2], src.format.color_family)
-        if not CUDA[1]:
-            finalargs = dict(input=clips["src"], ref=final, profile=profile[1], sigma=sigma[1], matrix=100)
-            if radius[1]:
-                final = core.bm3d.VFinal(**finalargs, radius=radius[1])
+        # Make final estimation
+        self.wclip = iterate(self.wclip, self.final, self.refine)
+
+        self._post_processing()
+
+        return self.wclip
+
+    def _preprocessing(self) -> None:
+        # Initialise the input clip
+        if self.is_gray:
+            self.wclip = self.to_fullgray(self.wclip)
+        else:
+            self.wclip = self.yuv2opp(self.wclip)
+
+    def _post_processing(self) -> None:
+        # Resize
+        if self.is_gray:
+            self.wclip = core.resize.Point(
+                self.wclip, format=self._format.replace(
+                    color_family=vs.GRAY, subsampling_w=0, subsampling_h=0
+                ).id,
+                dither_type=self._get_dither_type()
+            )
+            if self._format.color_family == vs.YUV:
+                self.wclip = merge_chroma(self.wclip, self._clip)
+        else:
+            if 'dither_type' not in self.rgb2yuv_kernel.kwargs:
+                self.rgb2yuv_kernel.kwargs.update(dither_type=self._get_dither_type())
+            self.wclip = self.rgb2yuv_kernel.scale(self.opp2rgb(self.wclip), self.wclip.width, self.wclip.height)
+
+        if self.sigma.y == 0:
+            self.wclip = merge_chroma(self._clip, self.wclip)
+
+    def _get_dither_type(self) -> str:
+        return DitherType.ERROR_DIFFUSION  \
+            if self._format.bits_per_sample < get_depth(self.wclip) else DitherType.NONE
+
+    def _check_clips(self, *clips: Optional[vs.VideoNode]) -> None:
+        for c in [c for c in clips if c]:
+            assert c.format
+            if c.format.color_family != vs.RGB and any(
+                p not in c.get_frame(0).props.keys()
+                for p in ['_ColorRange', '_Matrix']
+            ):
+                raise ValueError(f'{self.__class__.__name__}: "_ColorRange" or "_Matrix" prop missing')
+
+
+class BM3D(AbstractBM3D):
+    class BasicArgs(TypedDict, total=False):
+        block_size: Optional[int]
+        block_step: Optional[int]
+        group_size: Optional[int]
+        bm_range: Optional[int]
+        bm_step: Optional[int]
+        th_mse: Optional[float]
+        hard_thr: Optional[float]
+        matrix: Optional[int]
+
+    class FinalArgs(TypedDict, total=False):
+        block_size: Optional[int]
+        block_step: Optional[int]
+        group_size: Optional[int]
+        bm_range: Optional[int]
+        bm_step: Optional[int]
+        th_mse: Optional[float]
+        matrix: Optional[int]
+
+    class VBasicArgs(TypedDict, total=False):
+        block_size: Optional[int]
+        block_step: Optional[int]
+        group_size: Optional[int]
+        bm_range: Optional[int]
+        bm_step: Optional[int]
+        ps_num: Optional[int]
+        ps_range: Optional[int]
+        ps_step: Optional[int]
+        th_mse: Optional[float]
+        hard_thr: Optional[float]
+        matrix: Optional[int]
+
+    class VFinalArgs(TypedDict, total=False):
+        block_size: Optional[int]
+        block_step: Optional[int]
+        group_size: Optional[int]
+        bm_range: Optional[int]
+        bm_step: Optional[int]
+        ps_num: Optional[int]
+        ps_range: Optional[int]
+        ps_step: Optional[int]
+        th_mse: Optional[float]
+        matrix: Optional[int]
+
+    basic_args: BasicArgs | VBasicArgs
+    final_args: FinalArgs | VFinalArgs
+
+    pre: Optional[vs.VideoNode]
+    fp32: bool = True
+
+    def __init__(
+        self, clip: vs.VideoNode, /,
+        sigma: BM3D.Sigma, radius: BM3D.Radius, profile: BM3D.Profile = AbstractBM3D.Profile.FAST,
+        pre: Optional[vs.VideoNode] = None, ref: Optional[vs.VideoNode] = None,
+        refine: int = 1,
+        matrix: vs.MatrixCoefficients | MATRIX = vs.MATRIX_BT709,
+        yuv2rgb_kernel: Kernel = Catrom(),
+        rgb2yuv_kernel: Kernel = Catrom()
+    ) -> None:
+        super().__init__(clip, sigma, radius, profile, ref, refine, matrix, yuv2rgb_kernel, rgb2yuv_kernel)
+        self._check_clips(pre)
+        self.pre = pre
+
+    def rgb2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
+        return clip.bm3d.RGB2OPP(self.fp32)
+
+    def opp2rgb(self, clip: vs.VideoNode) -> vs.VideoNode:
+        return clip.bm3d.OPP2RGB(self.fp32)
+
+    def to_fullgray(self, clip: vs.VideoNode) -> vs.VideoNode:
+        return get_y(clip).resize.Point(format=vs.GRAYS if self.fp32 else vs.GRAY16)
+
+    def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
+        kwargs: Dict[str, Any] = dict(ref=self.pre, profile=self.profile, sigma=self.sigma, matrix=100)
+        if self.radius and self.radius.basic:
+            clip = core.bm3d.VBasic(clip, radius=self.radius.basic, **kwargs | self.basic_args)
+            clip = core.bm3d.VAggregate(clip, self.radius.basic, self.fp32)
+        else:
+            clip = core.bm3d.Basic(clip, **kwargs | self.basic_args)
+        return clip
+
+    def final(self, clip: vs.VideoNode) -> vs.VideoNode:
+        kwargs: Dict[str, Any] = dict(profile=self.profile, sigma=self.sigma, matrix=100)
+        if self.radius.final:
+            clip = core.bm3d.VFinal(clip, ref=self._refv, radius=self.radius.final, **kwargs | self.final_args)
+            clip = core.bm3d.VAggregate(clip, self.radius.final, self.fp32)
+        else:
+            clip = core.bm3d.Final(clip, ref=self._refv, **kwargs | self.final_args)
+        return clip
+
+    def _preprocessing(self) -> None:
+        # Initialise pre
+        if self.pre is not None:
+            if self.is_gray:
+                self.pre = self.to_fullgray(self.pre)
             else:
-                final = core.bm3d.Final(**finalargs)
-        if radius[1]:
-            final = core.bm3d.VAggregate(final, radius[1], 1)
+                self.pre = self.yuv2opp(self.pre)
 
-    out = core.bm3d.OPP2RGB(final, 1) if not is_gray(final) else final
-    out = core.resize.Bicubic(out, format=clip.format, filter_param_a=0, filter_param_b=0.5, matrix_s=matrix)
+        super()._preprocessing()
 
-    if src.format.num_planes == 3 and clip.format.color_family == vs.GRAY:
-        out = core.std.ShufflePlanes([out, src], [0, 1, 2], src.format.color_family)
 
-    return out
+class _AbstractBM3DCuda(AbstractBM3D):
+    plugin: ClassVar[
+        Union[
+            PluginBm3dcudaCoreUnbound,
+            PluginBm3dcuda_rtcCoreUnbound,
+            PluginBm3dcpuCoreUnbound
+        ]
+    ]
+
+    CUDA_BASIC_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
+        AbstractBM3D.Profile.FAST: dict(block_step=8, bm_range=9),
+        AbstractBM3D.Profile.LC: dict(block_step=6, bm_range=9),
+        AbstractBM3D.Profile.NP: dict(block_step=4, bm_range=16),
+        AbstractBM3D.Profile.HIGH: dict(block_step=3, bm_range=16),
+        # 'vn': dict(block_step=4, bm_range=16),
+        None: {}
+    }
+    CUDA_FINAL_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
+        AbstractBM3D.Profile.FAST: dict(block_step=7, bm_range=9),
+        AbstractBM3D.Profile.LC: dict(block_step=5, bm_range=9),
+        AbstractBM3D.Profile.NP: dict(block_step=3, bm_range=16),
+        AbstractBM3D.Profile.HIGH: dict(block_step=2, bm_range=16),
+        # 'vn': dict(block_step=4, bm_range=16),
+        None: {}
+    }
+    CUDA_VBASIC_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
+        AbstractBM3D.Profile.FAST: dict(block_step=8, bm_range=7, ps_num=2, ps_range=4),
+        AbstractBM3D.Profile.LC: dict(block_step=6, bm_range=9, ps_num=2, ps_range=4),
+        AbstractBM3D.Profile.NP: dict(block_step=4, bm_range=12, ps_num=2, ps_range=5),
+        AbstractBM3D.Profile.HIGH: dict(block_step=3, bm_range=16, ps_num=2, ps_range=7),
+        # 'vn': dict(block_step=4, bm_range=16),
+        None: {}
+    }
+    CUDA_VFINAL_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
+        AbstractBM3D.Profile.FAST: dict(block_step=7, bm_range=7, ps_num=2, ps_range=5),
+        AbstractBM3D.Profile.LC: dict(block_step=5, bm_range=9, ps_num=2, ps_range=5),
+        AbstractBM3D.Profile.NP: dict(block_step=3, bm_range=12, ps_num=2, ps_range=6),
+        AbstractBM3D.Profile.HIGH: dict(block_step=2, bm_range=16, ps_num=2, ps_range=8),
+        # 'vn': dict(block_step=4, bm_range=16),
+        None: {}
+    }
+
+    def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
+        kwargs: Dict[str, Any] = dict(sigma=self.sigma)
+        if self.radius.basic > 0:
+            clip = self.plugin.BM3D(
+                clip, radius=self.radius.basic,
+                **kwargs | self.CUDA_VBASIC_PROFILES[self.profile] | self.basic_args
+            ).bm3d.VAggregate(self.radius.basic, 1)
+        else:
+            clip = self.plugin.BM3D(
+                clip, radius=0,
+                **kwargs | self.CUDA_BASIC_PROFILES[self.profile] | self.basic_args
+            )
+        return clip
+
+    def final(self, clip: vs.VideoNode) -> vs.VideoNode:
+        kwargs: Dict[str, Any] = dict(sigma=self.sigma)
+        if self.radius.final:
+            clip = self.plugin.BM3D(
+                clip, self._refv, radius=self.radius.final,
+                **kwargs | self.CUDA_VFINAL_PROFILES[self.profile] | self.final_args
+            ).bm3d.VAggregate(self.radius.final, 1)
+        else:
+            clip = self.plugin.BM3D(
+                clip, ref=self._refv, radius=0,
+                **kwargs | self.CUDA_FINAL_PROFILES[self.profile] | self.final_args
+            )
+        return clip
+
+    @property
+    def clip(self) -> vs.VideoNode:
+        if self.profile == self.Profile.VERY_NOISY:
+            raise ValueError(f'{self.__class__.__name__}: Profile "vn" is not supported!')
+        return super().clip
+
+
+class BM3DCuda(_AbstractBM3DCuda):
+    plugin = core.bm3dcuda
+
+    class BasicArgs(TypedDict, total=False):
+        block_step: Optional[int]
+        bm_range: Optional[int]
+        chroma: bool
+        device_id: int
+        fast: bool
+        extractor_exp: int
+
+    class FinalArgs(TypedDict, total=False):
+        block_step: Optional[int]
+        bm_range: Optional[int]
+        chroma: bool
+        device_id: int
+        fast: bool
+        extractor_exp: int
+
+    class VBasicArgs(TypedDict, total=False):
+        block_step: Optional[int]
+        bm_range: Optional[int]
+        ps_num: Optional[int]
+        ps_range: Optional[int]
+        chroma: bool
+        device_id: int
+        fast: bool
+        extractor_exp: int
+
+    class VFinalArgs(TypedDict, total=False):
+        block_step: Optional[int]
+        bm_range: Optional[int]
+        ps_num: Optional[int]
+        ps_range: Optional[int]
+        chroma: bool
+        device_id: int
+        fast: bool
+        extractor_exp: int
+
+    basic_args: BasicArgs | VBasicArgs
+    final_args: FinalArgs | VFinalArgs
+
+
+class BM3DCudaRTC(_AbstractBM3DCuda):
+    plugin = core.bm3dcuda_rtc
+
+    class BasicArgs(TypedDict, total=False):
+        block_step: Optional[int]
+        bm_range: Optional[int]
+        chroma: bool
+        device_id: int
+        fast: bool
+        extractor_exp: int
+        bm_error_s: DataArray
+        transform_2d_s: DataArray
+        transform_1d_s: DataArray
+
+    class FinalArgs(TypedDict, total=False):
+        block_step: Optional[int]
+        bm_range: Optional[int]
+        chroma: bool
+        device_id: int
+        fast: bool
+        extractor_exp: int
+        bm_error_s: DataArray
+        transform_2d_s: DataArray
+        transform_1d_s: DataArray
+
+    class VBasicArgs(TypedDict, total=False):
+        block_step: Optional[int]
+        bm_range: Optional[int]
+        ps_num: Optional[int]
+        ps_range: Optional[int]
+        chroma: bool
+        device_id: int
+        fast: bool
+        extractor_exp: int
+        bm_error_s: DataArray
+        transform_2d_s: DataArray
+        transform_1d_s: DataArray
+
+    class VFinalArgs(TypedDict, total=False):
+        block_step: Optional[int]
+        bm_range: Optional[int]
+        ps_num: Optional[int]
+        ps_range: Optional[int]
+        chroma: bool
+        device_id: int
+        fast: bool
+        extractor_exp: int
+        bm_error_s: DataArray
+        transform_2d_s: DataArray
+        transform_1d_s: DataArray
+
+    basic_args: BasicArgs | VBasicArgs
+    final_args: FinalArgs | VFinalArgs
+
+
+class BM3DCPU(_AbstractBM3DCuda):
+    plugin = core.bm3dcpu
+
+    class BasicArgs(TypedDict, total=False):
+        block_step: Optional[int]
+        bm_range: Optional[int]
+        chroma: bool
+
+    class FinalArgs(TypedDict, total=False):
+        block_step: Optional[int]
+        bm_range: Optional[int]
+        chroma: bool
+
+    class VBasicArgs(TypedDict, total=False):
+        block_step: Optional[int]
+        bm_range: Optional[int]
+        ps_num: Optional[int]
+        ps_range: Optional[int]
+        chroma: bool
+
+    class VFinalArgs(TypedDict, total=False):
+        block_step: Optional[int]
+        bm_range: Optional[int]
+        ps_num: Optional[int]
+        ps_range: Optional[int]
+        chroma: bool
+
+    basic_args: BasicArgs | VBasicArgs
+    final_args: FinalArgs | VFinalArgs
