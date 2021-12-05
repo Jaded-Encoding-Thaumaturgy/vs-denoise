@@ -178,11 +178,11 @@ class AbstractBM3D(ABC):
     def _check_clips(self, *clips: Optional[vs.VideoNode]) -> None:
         for c in [c for c in clips if c]:
             assert c.format
-            if c.format.color_family != vs.RGB and any(
-                p not in c.get_frame(0).props.keys()
-                for p in ['_ColorRange', '_Matrix']
-            ):
-                raise ValueError(f'{self.__class__.__name__}: "_ColorRange" or "_Matrix" prop missing')
+            with c.get_frame(0) as frame:
+                if c.format.color_family != vs.RGB and any(
+                    p not in frame.props for p in ['_ColorRange', '_Matrix']
+                ):
+                    raise ValueError(f'{self.__class__.__name__}: "_ColorRange" or "_Matrix" prop missing')
 
 
 class BM3D(AbstractBM3D):
