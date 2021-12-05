@@ -107,16 +107,13 @@ class AbstractBM3D(ABC):
     def yuv2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
         return self.rgb2opp(self.yuv2rgb_kernel.scale(clip, clip.width, clip.height))
 
-    @staticmethod
-    def rgb2opp(clip: vs.VideoNode) -> vs.VideoNode:
+    def rgb2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
         return clip.bm3d.RGB2OPP(sample=1)
 
-    @staticmethod
-    def opp2rgb(clip: vs.VideoNode) -> vs.VideoNode:
+    def opp2rgb(self, clip: vs.VideoNode) -> vs.VideoNode:
         return clip.bm3d.OPP2RGB(sample=1)
 
-    @staticmethod
-    def to_fullgray(clip: vs.VideoNode) -> vs.VideoNode:
+    def to_fullgray(self, clip: vs.VideoNode) -> vs.VideoNode:
         return get_y(clip).resize.Point(format=vs.GRAYS)
 
     @abstractmethod
