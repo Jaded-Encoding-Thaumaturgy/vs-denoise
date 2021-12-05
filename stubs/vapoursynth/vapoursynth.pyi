@@ -649,6 +649,26 @@ class _Plugin_bm3d_VideoNode_Bound(Plugin):
 # end implementation
 
 
+# implementation: bm3dcpu
+
+class _Plugin_bm3dcpu_Core_Bound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def BM3D(self, clip: "VideoNode", ref: typing.Optional["VideoNode"] = None, sigma: typing.Union[float, typing.Sequence[float], None] = None, block_step: typing.Union[int, typing.Sequence[int], None] = None, bm_range: typing.Union[int, typing.Sequence[int], None] = None, radius: typing.Optional[int] = None, ps_num: typing.Optional[int] = None, ps_range: typing.Optional[int] = None, chroma: typing.Optional[int] = None) -> "VideoNode": ...
+
+
+class _Plugin_bm3dcpu_VideoNode_Bound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def BM3D(self, ref: typing.Optional["VideoNode"] = None, sigma: typing.Union[float, typing.Sequence[float], None] = None, block_step: typing.Union[int, typing.Sequence[int], None] = None, bm_range: typing.Union[int, typing.Sequence[int], None] = None, radius: typing.Optional[int] = None, ps_num: typing.Optional[int] = None, ps_range: typing.Optional[int] = None, chroma: typing.Optional[int] = None) -> "VideoNode": ...
+
+# end implementation
+
+
 # implementation: bm3dcuda
 
 class _Plugin_bm3dcuda_Core_Bound(Plugin):
@@ -656,7 +676,7 @@ class _Plugin_bm3dcuda_Core_Bound(Plugin):
     This class implements the module definitions for the corresponding VapourSynth plugin.
     This class cannot be imported.
     """
-    def BM3D(self, clip: "VideoNode", ref: typing.Optional["VideoNode"] = None, sigma: typing.Union[float, typing.Sequence[float], None] = None, block_step: typing.Union[int, typing.Sequence[int], None] = None, bm_range: typing.Union[int, typing.Sequence[int], None] = None, radius: typing.Optional[int] = None, ps_num: typing.Union[int, typing.Sequence[int], None] = None, ps_range: typing.Union[int, typing.Sequence[int], None] = None, chroma: typing.Optional[int] = None, device_id: typing.Optional[int] = None, fast: typing.Optional[int] = None) -> "VideoNode": ...
+    def BM3D(self, clip: "VideoNode", ref: typing.Optional["VideoNode"] = None, sigma: typing.Union[float, typing.Sequence[float], None] = None, block_step: typing.Union[int, typing.Sequence[int], None] = None, bm_range: typing.Union[int, typing.Sequence[int], None] = None, radius: typing.Optional[int] = None, ps_num: typing.Union[int, typing.Sequence[int], None] = None, ps_range: typing.Union[int, typing.Sequence[int], None] = None, chroma: typing.Optional[int] = None, device_id: typing.Optional[int] = None, fast: typing.Optional[int] = None, extractor_exp: typing.Optional[int] = None) -> "VideoNode": ...
 
 
 class _Plugin_bm3dcuda_VideoNode_Bound(Plugin):
@@ -664,7 +684,27 @@ class _Plugin_bm3dcuda_VideoNode_Bound(Plugin):
     This class implements the module definitions for the corresponding VapourSynth plugin.
     This class cannot be imported.
     """
-    def BM3D(self, ref: typing.Optional["VideoNode"] = None, sigma: typing.Union[float, typing.Sequence[float], None] = None, block_step: typing.Union[int, typing.Sequence[int], None] = None, bm_range: typing.Union[int, typing.Sequence[int], None] = None, radius: typing.Optional[int] = None, ps_num: typing.Union[int, typing.Sequence[int], None] = None, ps_range: typing.Union[int, typing.Sequence[int], None] = None, chroma: typing.Optional[int] = None, device_id: typing.Optional[int] = None, fast: typing.Optional[int] = None) -> "VideoNode": ...
+    def BM3D(self, ref: typing.Optional["VideoNode"] = None, sigma: typing.Union[float, typing.Sequence[float], None] = None, block_step: typing.Union[int, typing.Sequence[int], None] = None, bm_range: typing.Union[int, typing.Sequence[int], None] = None, radius: typing.Optional[int] = None, ps_num: typing.Union[int, typing.Sequence[int], None] = None, ps_range: typing.Union[int, typing.Sequence[int], None] = None, chroma: typing.Optional[int] = None, device_id: typing.Optional[int] = None, fast: typing.Optional[int] = None, extractor_exp: typing.Optional[int] = None) -> "VideoNode": ...
+
+# end implementation
+
+
+# implementation: bm3dcuda_rtc
+
+class _Plugin_bm3dcuda_rtc_Core_Bound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def BM3D(self, clip: "VideoNode", ref: typing.Optional["VideoNode"] = None, sigma: typing.Union[float, typing.Sequence[float], None] = None, block_step: typing.Union[int, typing.Sequence[int], None] = None, bm_range: typing.Union[int, typing.Sequence[int], None] = None, radius: typing.Optional[int] = None, ps_num: typing.Union[int, typing.Sequence[int], None] = None, ps_range: typing.Union[int, typing.Sequence[int], None] = None, chroma: typing.Optional[int] = None, device_id: typing.Optional[int] = None, fast: typing.Optional[int] = None, extractor_exp: typing.Optional[int] = None, bm_error_s: typing.Union[str, bytes, bytearray, typing.Sequence[typing.Union[str, bytes, bytearray]], None] = None, transform_2d_s: typing.Union[str, bytes, bytearray, typing.Sequence[typing.Union[str, bytes, bytearray]], None] = None, transform_1d_s: typing.Union[str, bytes, bytearray, typing.Sequence[typing.Union[str, bytes, bytearray]], None] = None) -> "VideoNode": ...
+
+
+class _Plugin_bm3dcuda_rtc_VideoNode_Bound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def BM3D(self, ref: typing.Optional["VideoNode"] = None, sigma: typing.Union[float, typing.Sequence[float], None] = None, block_step: typing.Union[int, typing.Sequence[int], None] = None, bm_range: typing.Union[int, typing.Sequence[int], None] = None, radius: typing.Optional[int] = None, ps_num: typing.Union[int, typing.Sequence[int], None] = None, ps_range: typing.Union[int, typing.Sequence[int], None] = None, chroma: typing.Optional[int] = None, device_id: typing.Optional[int] = None, fast: typing.Optional[int] = None, extractor_exp: typing.Optional[int] = None, bm_error_s: typing.Union[str, bytes, bytearray, typing.Sequence[typing.Union[str, bytes, bytearray]], None] = None, transform_2d_s: typing.Union[str, bytes, bytearray, typing.Sequence[typing.Union[str, bytes, bytearray]], None] = None, transform_1d_s: typing.Union[str, bytes, bytearray, typing.Sequence[typing.Union[str, bytes, bytearray]], None] = None) -> "VideoNode": ...
 
 # end implementation
 
@@ -884,11 +924,25 @@ class VideoNode:
         Implementation of BM3D denoising filter for VapourSynth.
         """
 # end instance
+# instance_bound_VideoNode: bm3dcpu
+    @property
+    def bm3dcpu(self) -> _Plugin_bm3dcpu_VideoNode_Bound:
+        """
+        BM3D algorithm implemented in AVX and AVX2 intrinsics
+        """
+# end instance
 # instance_bound_VideoNode: bm3dcuda
     @property
     def bm3dcuda(self) -> _Plugin_bm3dcuda_VideoNode_Bound:
         """
         BM3D algorithm implemented in CUDA
+        """
+# end instance
+# instance_bound_VideoNode: bm3dcuda_rtc
+    @property
+    def bm3dcuda_rtc(self) -> _Plugin_bm3dcuda_rtc_VideoNode_Bound:
+        """
+        BM3D algorithm implemented in CUDA (NVRTC)
         """
 # end instance
 # instance_bound_VideoNode: resize
@@ -1003,11 +1057,25 @@ class Core:
         Implementation of BM3D denoising filter for VapourSynth.
         """
 # end instance
+# instance_bound_Core: bm3dcpu
+    @property
+    def bm3dcpu(self) -> _Plugin_bm3dcpu_Core_Bound:
+        """
+        BM3D algorithm implemented in AVX and AVX2 intrinsics
+        """
+# end instance
 # instance_bound_Core: bm3dcuda
     @property
     def bm3dcuda(self) -> _Plugin_bm3dcuda_Core_Bound:
         """
         BM3D algorithm implemented in CUDA
+        """
+# end instance
+# instance_bound_Core: bm3dcuda_rtc
+    @property
+    def bm3dcuda_rtc(self) -> _Plugin_bm3dcuda_rtc_Core_Bound:
+        """
+        BM3D algorithm implemented in CUDA (NVRTC)
         """
 # end instance
 # instance_bound_Core: resize
