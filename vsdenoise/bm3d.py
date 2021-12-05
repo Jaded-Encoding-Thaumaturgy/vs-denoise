@@ -13,7 +13,6 @@ from vsutil import get_depth, get_y, iterate
 
 from .types import (MATRIX, DataArray, PluginBm3dcpuCoreUnbound,
                     PluginBm3dcuda_rtcCoreUnbound, PluginBm3dcudaCoreUnbound)
-from .util import merge_chroma
 
 core = vs.core
 
@@ -161,14 +160,15 @@ class AbstractBM3D(ABC):
                 dither_type=self._get_dither_type()
             )
             if self._format.color_family == vs.YUV:
-                self.wclip = merge_chroma(self.wclip, self._clip)
+                
+                self.wclip = core.std.ShufflePlanes([self.wclip, self._clip], [0, 1, 2], vs.YUV)
         else:
             if 'dither_type' not in self.rgb2yuv_kernel.kwargs:
                 self.rgb2yuv_kernel.kwargs.update(dither_type=self._get_dither_type())
             self.wclip = self.rgb2yuv_kernel.scale(self.opp2rgb(self.wclip), self.wclip.width, self.wclip.height)
 
         if self.sigma.y == 0:
-            self.wclip = merge_chroma(self._clip, self.wclip)
+            self.wclip = core.std.ShufflePlanes([self._clip, self.wclip], [0, 1, 2], vs.YUV)
 
     def _get_dither_type(self) -> str:
         return DitherType.ERROR_DIFFUSION  \
