@@ -254,12 +254,24 @@ class _AbstractBM3DCuda(AbstractBM3D):
         ]
     ]
 
+    def __init__(
+        self, clip: vs.VideoNode, /,
+        sigma: float | Sequence[float], radius: int | Sequence[int] | None = None,
+        profile: Profile = Profile.FAST,
+        ref: Optional[vs.VideoNode] = None,
+        refine: int = 1,
+        yuv2rgb_kernel: Kernel = Catrom(),
+        rgb2yuv_kernel: Kernel = Catrom()
+    ) -> None:
+        if self.profile == Profile.VERY_NOISY:
+            raise ValueError(f'{self.__class__.__name__}: Profile "vn" is not supported!')
+        super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb_kernel, rgb2yuv_kernel)
+
     CUDA_BASIC_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
         Profile.FAST: dict(block_step=8, bm_range=9),
         Profile.LC: dict(block_step=6, bm_range=9),
         Profile.NP: dict(block_step=4, bm_range=16),
         Profile.HIGH: dict(block_step=3, bm_range=16),
-        # 'vn': dict(block_step=4, bm_range=16),
         None: {}
     }
     CUDA_FINAL_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
@@ -267,7 +279,6 @@ class _AbstractBM3DCuda(AbstractBM3D):
         Profile.LC: dict(block_step=5, bm_range=9),
         Profile.NP: dict(block_step=3, bm_range=16),
         Profile.HIGH: dict(block_step=2, bm_range=16),
-        # 'vn': dict(block_step=4, bm_range=16),
         None: {}
     }
     CUDA_VBASIC_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
@@ -275,7 +286,6 @@ class _AbstractBM3DCuda(AbstractBM3D):
         Profile.LC: dict(block_step=6, bm_range=9, ps_num=2, ps_range=4),
         Profile.NP: dict(block_step=4, bm_range=12, ps_num=2, ps_range=5),
         Profile.HIGH: dict(block_step=3, bm_range=16, ps_num=2, ps_range=7),
-        # 'vn': dict(block_step=4, bm_range=16),
         None: {}
     }
     CUDA_VFINAL_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
@@ -283,7 +293,6 @@ class _AbstractBM3DCuda(AbstractBM3D):
         Profile.LC: dict(block_step=5, bm_range=9, ps_num=2, ps_range=5),
         Profile.NP: dict(block_step=3, bm_range=12, ps_num=2, ps_range=6),
         Profile.HIGH: dict(block_step=2, bm_range=16, ps_num=2, ps_range=8),
-        # 'vn': dict(block_step=4, bm_range=16),
         None: {}
     }
 
@@ -312,12 +321,6 @@ class _AbstractBM3DCuda(AbstractBM3D):
                 **self.CUDA_FINAL_PROFILES[self.profile] | self.final_args
             )
         return clip
-
-    @property
-    def clip(self) -> vs.VideoNode:
-        if self.profile == Profile.VERY_NOISY:
-            raise ValueError(f'{self.__class__.__name__}: Profile "vn" is not supported!')
-        return super().clip
 
 
 class BM3DCuda(_AbstractBM3DCuda):
