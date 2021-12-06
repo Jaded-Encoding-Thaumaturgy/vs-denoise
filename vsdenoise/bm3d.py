@@ -214,9 +214,11 @@ class BM3D(AbstractBM3D):
 
     def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
         kwargs: Dict[str, Any] = dict(ref=self.pre, profile=self.profile, sigma=self.sigma, matrix=100)
-        if self.radius and self.radius.basic:
-            clip = core.bm3d.VBasic(clip, radius=self.radius.basic, **kwargs | self.basic_args)
-            clip = core.bm3d.VAggregate(clip, self.radius.basic, self.fp32)
+        if self.radius.basic:
+            clip = core.bm3d.VBasic(
+                clip, radius=self.radius.basic,
+                **kwargs | self.basic_args
+            ).bm3d.VAggregate(self.radius.basic, self.fp32)
         else:
             clip = core.bm3d.Basic(clip, **kwargs | self.basic_args)
         return clip
@@ -224,8 +226,10 @@ class BM3D(AbstractBM3D):
     def final(self, clip: vs.VideoNode) -> vs.VideoNode:
         kwargs: Dict[str, Any] = dict(profile=self.profile, sigma=self.sigma, matrix=100)
         if self.radius.final:
-            clip = core.bm3d.VFinal(clip, ref=self._refv, radius=self.radius.final, **kwargs | self.final_args)
-            clip = core.bm3d.VAggregate(clip, self.radius.final, self.fp32)
+            clip = core.bm3d.VFinal(
+                clip, ref=self._refv, radius=self.radius.final,
+                **kwargs | self.final_args
+            ).bm3d.VAggregate(self.radius.final, self.fp32)
         else:
             clip = core.bm3d.Final(clip, ref=self._refv, **kwargs | self.final_args)
         return clip
@@ -284,30 +288,28 @@ class _AbstractBM3DCuda(AbstractBM3D):
     }
 
     def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
-        kwargs: Dict[str, Any] = dict(sigma=self.sigma)
-        if self.radius.basic > 0:
+        if self.radius.basic:
             clip = self.plugin.BM3D(
-                clip, radius=self.radius.basic,
-                **kwargs | self.CUDA_VBASIC_PROFILES[self.profile] | self.basic_args
+                clip, sigma=self.sigma, radius=self.radius.basic,
+                **self.CUDA_VBASIC_PROFILES[self.profile] | self.basic_args
             ).bm3d.VAggregate(self.radius.basic, 1)
         else:
             clip = self.plugin.BM3D(
-                clip, radius=0,
-                **kwargs | self.CUDA_BASIC_PROFILES[self.profile] | self.basic_args
+                clip, sigma=self.sigma, radius=0,
+                **self.CUDA_BASIC_PROFILES[self.profile] | self.basic_args
             )
         return clip
 
     def final(self, clip: vs.VideoNode) -> vs.VideoNode:
-        kwargs: Dict[str, Any] = dict(sigma=self.sigma)
         if self.radius.final:
             clip = self.plugin.BM3D(
-                clip, self._refv, radius=self.radius.final,
-                **kwargs | self.CUDA_VFINAL_PROFILES[self.profile] | self.final_args
+                clip, self._refv, self.sigma, radius=self.radius.final,
+                **self.CUDA_VFINAL_PROFILES[self.profile] | self.final_args
             ).bm3d.VAggregate(self.radius.final, 1)
         else:
             clip = self.plugin.BM3D(
-                clip, ref=self._refv, radius=0,
-                **kwargs | self.CUDA_FINAL_PROFILES[self.profile] | self.final_args
+                clip, self._refv, self.sigma, radius=0,
+                **self.CUDA_FINAL_PROFILES[self.profile] | self.final_args
             )
         return clip
 
