@@ -709,6 +709,26 @@ class _Plugin_bm3dcuda_rtc_VideoNode_Bound(Plugin):
 # end implementation
 
 
+# implementation: knlm
+
+class _Plugin_knlm_Core_Bound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def KNLMeansCL(self, clip: "VideoNode", d: typing.Optional[int] = None, a: typing.Optional[int] = None, s: typing.Optional[int] = None, h: typing.Optional[float] = None, channels: typing.Union[str, bytes, bytearray, None] = None, wmode: typing.Optional[int] = None, wref: typing.Optional[float] = None, rclip: typing.Optional["VideoNode"] = None, device_type: typing.Union[str, bytes, bytearray, None] = None, device_id: typing.Optional[int] = None, ocl_x: typing.Optional[int] = None, ocl_y: typing.Optional[int] = None, ocl_r: typing.Optional[int] = None, info: typing.Optional[int] = None) -> "VideoNode": ...
+
+
+class _Plugin_knlm_VideoNode_Bound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def KNLMeansCL(self, d: typing.Optional[int] = None, a: typing.Optional[int] = None, s: typing.Optional[int] = None, h: typing.Optional[float] = None, channels: typing.Union[str, bytes, bytearray, None] = None, wmode: typing.Optional[int] = None, wref: typing.Optional[float] = None, rclip: typing.Optional["VideoNode"] = None, device_type: typing.Union[str, bytes, bytearray, None] = None, device_id: typing.Optional[int] = None, ocl_x: typing.Optional[int] = None, ocl_y: typing.Optional[int] = None, ocl_r: typing.Optional[int] = None, info: typing.Optional[int] = None) -> "VideoNode": ...
+
+# end implementation
+
+
 # implementation: resize
 
 class _Plugin_resize_Core_Bound(Plugin):
@@ -945,6 +965,13 @@ class VideoNode:
         BM3D algorithm implemented in CUDA (NVRTC)
         """
 # end instance
+# instance_bound_VideoNode: knlm
+    @property
+    def knlm(self) -> _Plugin_knlm_VideoNode_Bound:
+        """
+        KNLMeansCL for VapourSynth
+        """
+# end instance
 # instance_bound_VideoNode: resize
     @property
     def resize(self) -> _Plugin_resize_VideoNode_Bound:
@@ -1076,6 +1103,13 @@ class Core:
     def bm3dcuda_rtc(self) -> _Plugin_bm3dcuda_rtc_Core_Bound:
         """
         BM3D algorithm implemented in CUDA (NVRTC)
+        """
+# end instance
+# instance_bound_Core: knlm
+    @property
+    def knlm(self) -> _Plugin_knlm_Core_Bound:
+        """
+        KNLMeansCL for VapourSynth
         """
 # end instance
 # instance_bound_Core: resize
