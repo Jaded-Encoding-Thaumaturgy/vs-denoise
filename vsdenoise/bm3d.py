@@ -10,8 +10,8 @@ from lvsfunc.kernels import Catrom, Kernel
 from vsutil import Dither as DitherType
 from vsutil import get_depth, get_y, iterate
 
-from .types import (MATRIX, PluginBm3dcpuCoreUnbound,
-                    PluginBm3dcuda_rtcCoreUnbound, PluginBm3dcudaCoreUnbound)
+from .types import (PluginBm3dcpuCoreUnbound, PluginBm3dcuda_rtcCoreUnbound,
+                    PluginBm3dcudaCoreUnbound)
 
 core = vs.core
 
@@ -64,7 +64,6 @@ class AbstractBM3D(ABC):
         profile: Profile = Profile.FAST,
         ref: Optional[vs.VideoNode] = None,
         refine: int = 1,
-        matrix: vs.MatrixCoefficients | MATRIX = vs.MATRIX_BT709,
         yuv2rgb_kernel: Kernel = Catrom(),
         rgb2yuv_kernel: Kernel = Catrom()
     ) -> None:
@@ -74,6 +73,8 @@ class AbstractBM3D(ABC):
         self._format = clip.format
         self._clip = clip
         self._check_clips(clip, ref)
+        with clip.get_frame(0) as frame:
+            matrix = frame.props['_Matrix']
 
         self.wclip = clip
         if not isinstance(sigma, Sequence):
@@ -90,7 +91,7 @@ class AbstractBM3D(ABC):
         self.ref = ref
         self.refine = refine
         self.yuv2rgb_kernel = yuv2rgb_kernel
-        self.yuv2rgb_kernel.kwargs.update(format=vs.RGBS, matrix_in=matrix)
+        self.yuv2rgb_kernel.kwargs.update(format=vs.RGBS)
         self.rgb2yuv_kernel = rgb2yuv_kernel
         self.rgb2yuv_kernel.kwargs.update(format=self._format.id, matrix=matrix)
 
@@ -195,11 +196,10 @@ class BM3D(AbstractBM3D):
         profile: Profile = Profile.FAST,
         pre: Optional[vs.VideoNode] = None, ref: Optional[vs.VideoNode] = None,
         refine: int = 1,
-        matrix: vs.MatrixCoefficients | MATRIX = vs.MATRIX_BT709,
         yuv2rgb_kernel: Kernel = Catrom(),
         rgb2yuv_kernel: Kernel = Catrom()
     ) -> None:
-        super().__init__(clip, sigma, radius, profile, ref, refine, matrix, yuv2rgb_kernel, rgb2yuv_kernel)
+        super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb_kernel, rgb2yuv_kernel)
         self._check_clips(pre)
         self.pre = pre
 
