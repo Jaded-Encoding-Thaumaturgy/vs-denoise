@@ -245,7 +245,7 @@ class BM3D(AbstractBM3D):
         super()._preprocessing()
 
 
-class _AbstractBM3DCuda(AbstractBM3D):
+class _AbstractBM3DCuda(AbstractBM3D, ABC):
     plugin: ClassVar[
         Union[
             PluginBm3dcudaCoreUnbound,
