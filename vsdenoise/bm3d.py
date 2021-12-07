@@ -34,7 +34,7 @@ class AbstractBM3D(ABC):
     wclip: vs.VideoNode
     sigma: _Sigma
     radius: _Radius
-    profile: Optional[Profile]
+    profile: Profile
     ref: Optional[vs.VideoNode]
     refine: int
     yuv2rgb_kernel: Kernel
@@ -267,33 +267,29 @@ class _AbstractBM3DCuda(AbstractBM3D):
             raise ValueError(f'{self.__class__.__name__}: Profile "vn" is not supported!')
         super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb_kernel, rgb2yuv_kernel)
 
-    CUDA_BASIC_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
+    CUDA_BASIC_PROFILES: ClassVar[Dict[str, Dict[str, Any]]] = {
         Profile.FAST: dict(block_step=8, bm_range=9),
         Profile.LC: dict(block_step=6, bm_range=9),
         Profile.NP: dict(block_step=4, bm_range=16),
         Profile.HIGH: dict(block_step=3, bm_range=16),
-        None: {}
     }
-    CUDA_FINAL_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
+    CUDA_FINAL_PROFILES: ClassVar[Dict[str, Dict[str, Any]]] = {
         Profile.FAST: dict(block_step=7, bm_range=9),
         Profile.LC: dict(block_step=5, bm_range=9),
         Profile.NP: dict(block_step=3, bm_range=16),
         Profile.HIGH: dict(block_step=2, bm_range=16),
-        None: {}
     }
-    CUDA_VBASIC_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
+    CUDA_VBASIC_PROFILES: ClassVar[Dict[str, Dict[str, Any]]] = {
         Profile.FAST: dict(block_step=8, bm_range=7, ps_num=2, ps_range=4),
         Profile.LC: dict(block_step=6, bm_range=9, ps_num=2, ps_range=4),
         Profile.NP: dict(block_step=4, bm_range=12, ps_num=2, ps_range=5),
         Profile.HIGH: dict(block_step=3, bm_range=16, ps_num=2, ps_range=7),
-        None: {}
     }
-    CUDA_VFINAL_PROFILES: ClassVar[Dict[str | None, Dict[str, Any]]] = {
+    CUDA_VFINAL_PROFILES: ClassVar[Dict[str, Dict[str, Any]]] = {
         Profile.FAST: dict(block_step=7, bm_range=7, ps_num=2, ps_range=5),
         Profile.LC: dict(block_step=5, bm_range=9, ps_num=2, ps_range=5),
         Profile.NP: dict(block_step=3, bm_range=12, ps_num=2, ps_range=6),
         Profile.HIGH: dict(block_step=2, bm_range=16, ps_num=2, ps_range=8),
-        None: {}
     }
 
     def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
