@@ -8,7 +8,7 @@ MATRIX = Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 DataArray = Union[str, bytes, bytearray, Sequence[Union[str, bytes, bytearray]]]
 
 
-class PluginBm3dcudaCoreUnbound(Protocol):
+class _PluginBm3dcudaCoreUnbound(Protocol):
     def BM3D(
         self,
         clip: VideoNode, ref: Optional[VideoNode] = None,
@@ -23,7 +23,7 @@ class PluginBm3dcudaCoreUnbound(Protocol):
         ...
 
 
-class PluginBm3dcuda_rtcCoreUnbound(Protocol):
+class _PluginBm3dcuda_rtcCoreUnbound(Protocol):
     def BM3D(
         self,
         clip: VideoNode, ref: Optional[VideoNode] = None,
@@ -41,7 +41,7 @@ class PluginBm3dcuda_rtcCoreUnbound(Protocol):
         ...
 
 
-class PluginBm3dcpuCoreUnbound(Protocol):
+class _PluginBm3dcpuCoreUnbound(Protocol):
     def BM3D(
         self,
         clip: VideoNode, ref: Optional[VideoNode] = None,

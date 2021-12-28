@@ -15,8 +15,7 @@ from lvsfunc.kernels import Catrom, Kernel
 from vsutil import Dither as DitherType
 from vsutil import get_depth, get_y, iterate
 
-from .types import (PluginBm3dcpuCoreUnbound, PluginBm3dcuda_rtcCoreUnbound,
-                    PluginBm3dcudaCoreUnbound)
+from .types import _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
 
 core = vs.core
 
@@ -292,9 +291,9 @@ class BM3D(AbstractBM3D):
 class _AbstractBM3DCuda(AbstractBM3D, ABC):
     plugin: ClassVar[
         Union[
-            PluginBm3dcudaCoreUnbound,
-            PluginBm3dcuda_rtcCoreUnbound,
-            PluginBm3dcpuCoreUnbound
+            _PluginBm3dcudaCoreUnbound,
+            _PluginBm3dcuda_rtcCoreUnbound,
+            _PluginBm3dcpuCoreUnbound
         ]
     ]
 
