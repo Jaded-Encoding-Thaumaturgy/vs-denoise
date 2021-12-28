@@ -12,3 +12,4 @@ doc/_static
 doc/_templates
 vs_denoise.egg-info/
 venv/
+vsrepo-master/*
