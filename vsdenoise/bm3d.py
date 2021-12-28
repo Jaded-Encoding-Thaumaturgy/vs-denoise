@@ -17,6 +17,11 @@ core = vs.core
 
 
 class Profile(str, Enum):
+    """
+    BM3D profiles that set default parameters for each of them.
+    See the original documentation for more information:
+    https://github.com/HomeOfVapourSynthEvolution/VapourSynth-BM3D#profile-default
+    """
     FAST = 'fast'
     LOW_COMPLEXITY = 'lc'
     NORMAL = 'np'
@@ -31,6 +36,7 @@ class Profile(str, Enum):
 
 
 class AbstractBM3D(ABC):
+    """Abstract BM3D based denoiser interface"""
     wclip: vs.VideoNode
     sigma: _Sigma
     radius: _Radius
@@ -67,6 +73,20 @@ class AbstractBM3D(ABC):
         yuv2rgb_kernel: Kernel = Catrom(),
         rgb2yuv_kernel: Kernel = Catrom()
     ) -> None:
+        """
+        :param clip:                Source clip
+        :param sigma:               Strength of denoising, valid range is [0, +inf)
+        :param radius:              Temporal radius, valid range is [1, 16]
+        :param profile:             Preset profiles
+        :param ref:                 Reference clip used in block-matching, it replaces basic estimate
+                                    If not specified, the input clip is used instead
+        :param refine:              Refinement times:
+                                    * 0 means basic estimate only
+                                    * 1 means basic estimate with one final estimate
+                                    * n means basic estimate refined with final estimate for n times
+        :param yuv2rgb_kernel:      Kernel used for converting the clip from YUV to RGB
+        :param rgb2yuv_kernel:      Kernel used for converting back the clip from RGB to YUV
+        """
         if clip.format is None:
             raise ValueError(f"{self.__class__.__name__}: Variable format clips not supported")
 
@@ -128,6 +148,10 @@ class AbstractBM3D(ABC):
 
     @property
     def clip(self) -> vs.VideoNode:
+        """
+        :return:                    Denoised clip. ``denoised_clip = BM3D(...).clip``
+                                    is the intended use in encoding scripts.
+        """
         self._preprocessing()
 
         # Make basic estimation
@@ -198,6 +222,22 @@ class BM3D(AbstractBM3D):
         yuv2rgb_kernel: Kernel = Catrom(),
         rgb2yuv_kernel: Kernel = Catrom()
     ) -> None:
+        """
+        :param clip:                Source clip
+        :param sigma:               Strength of denoising, valid range is [0, +inf)
+        :param radius:              Temporal radius, valid range is [1, 16]
+        :param profile:             Preset profiles
+        :param pre:                 Pre-filtered clip for basic estimate
+                                    Should be a clip better suited for block-matching than the input clip
+        :param ref:                 Reference clip used in block-matching, it replaces basic estimate
+                                    If not specified, the input clip is used instead.
+        :param refine:              Refinement times:
+                                    * 0 means basic estimate only
+                                    * 1 means basic estimate with one final estimate.
+                                    * n means basic estimate refined with final estimate for n times
+        :param yuv2rgb_kernel:      Kernel used for converting the clip from YUV to RGB
+        :param rgb2yuv_kernel:      Kernel used for converting back the clip from RGB to YUV
+        """
         super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb_kernel, rgb2yuv_kernel)
         self._check_clips(pre)
         self.pre = pre
