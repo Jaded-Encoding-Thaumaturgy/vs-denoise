@@ -155,26 +155,25 @@ class AbstractBM3D(ABC):
 
     def _post_processing(self) -> None:
         # Resize
+        dither = DitherType.ERROR_DIFFUSION  \
+            if self._format.bits_per_sample < get_depth(self.wclip) else DitherType.NONE
+
         if self.is_gray:
             self.wclip = core.resize.Point(
                 self.wclip, format=self._format.replace(
                     color_family=vs.GRAY, subsampling_w=0, subsampling_h=0
                 ).id,
-                dither_type=self._get_dither_type()
+                dither_type=dither
             )
             if self._format.color_family == vs.YUV:
                 self.wclip = core.std.ShufflePlanes([self.wclip, self._clip], [0, 1, 2], vs.YUV)
         else:
             if 'dither_type' not in self.rgb2yuv_kernel.kwargs:
-                self.rgb2yuv_kernel.kwargs.update(dither_type=self._get_dither_type())
+                self.rgb2yuv_kernel.kwargs.update(dither_type=dither)
             self.wclip = self.rgb2yuv_kernel.scale(self.opp2rgb(self.wclip), self.wclip.width, self.wclip.height)
 
         if self.sigma.y == 0:
             self.wclip = core.std.ShufflePlanes([self._clip, self.wclip], [0, 1, 2], vs.YUV)
-
-    def _get_dither_type(self) -> str:
-        return DitherType.ERROR_DIFFUSION  \
-            if self._format.bits_per_sample < get_depth(self.wclip) else DitherType.NONE
 
     def _check_clips(self, *clips: Optional[vs.VideoNode]) -> None:
         for c in [c for c in clips if c]:
@@ -263,9 +262,9 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
         yuv2rgb_kernel: Kernel = Catrom(),
         rgb2yuv_kernel: Kernel = Catrom()
     ) -> None:
+        super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb_kernel, rgb2yuv_kernel)
         if self.profile == Profile.VERY_NOISY:
             raise ValueError(f'{self.__class__.__name__}: Profile "vn" is not supported!')
-        super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb_kernel, rgb2yuv_kernel)
 
     CUDA_BASIC_PROFILES: ClassVar[Dict[str, Dict[str, Any]]] = {
         Profile.FAST: dict(block_step=8, bm_range=9),
