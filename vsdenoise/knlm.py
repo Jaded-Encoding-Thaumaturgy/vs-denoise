@@ -1,22 +1,28 @@
+"""
+This module implements a wrapper for KNLMeansCL
+"""
+
 from __future__ import annotations
 
 __all__ = ['ChannelMode', 'DeviceType', 'knl_means_cl']
 
 import warnings
 from enum import Enum, auto
-from typing import Any, List, Literal, Sequence
+from typing import Any, List, Literal, Sequence, final
 
 import vapoursynth as vs
 
 core = vs.core
 
 
+@final
 class ChannelMode(Enum):
     ALL_PLANES = auto()
     LUMA = auto()
     CHROMA = auto()
 
 
+@final
 class DeviceType(str, Enum):
     ACCELERATOR = 'accelerator'
     CPU = 'cpu'
@@ -34,10 +40,10 @@ def knl_means_cl(
     **kwargs: Any
 ) -> vs.VideoNode:
     """
-    Convenience wrapper for KNLMeansCL.
+    Convenience wrapper for KNLMeansCL.\n
     Parameters that accept Sequences will only use the first two elements of it.
 
-    For more information please refer to the original documentation.
+    For more information, please refer to the original documentation.
     https://github.com/Khanattila/KNLMeansCL/wiki/Filter-description
 
     :param clip:            Source clip.
@@ -54,9 +60,10 @@ def knl_means_cl(
                             Spatial size = (2 * sr + 1)^2.
     :param simr:            Similarity Radius. Set the radius of the similarity neighbourhood window.
                             The impact on performance is low, therefore it depends on the nature of the noise.
-                            Similarity neighborhood size = (2 * simr + 1)^2.
-    :param planes:          Planes to be processed.
+                            Similarity neighbourhood size = (2 * simr + 1)^2.
+    :param channels:        Set the colour channels to be denoised
     :param device_type:     Set the OpenCL device.
+    :param kwargs:          Additional settings
     :return:                Denoised clip.
     """
     if clip.format is None:

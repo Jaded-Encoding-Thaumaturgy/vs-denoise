@@ -1,3 +1,7 @@
+"""
+This module implements wrappers for BM3D
+"""
+
 from __future__ import annotations
 
 __all__ = [
@@ -8,7 +12,7 @@ __all__ = [
 import inspect
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, ClassVar, Dict, NamedTuple, Optional, Sequence, Union, cast
+from typing import Any, ClassVar, Dict, NamedTuple, Optional, Sequence, Union, cast, final
 
 import vapoursynth as vs
 from vsutil import Dither as DitherType
@@ -19,10 +23,11 @@ from .types import ZResizer, _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreU
 core = vs.core
 
 
+@final
 class Profile(str, Enum):
     """
-    BM3D profiles that set default parameters for each of them.
-    See the original documentation for more information:
+    BM3D profiles that set default parameters for each of them.\n
+    See the original documentation for more information:\n
     https://github.com/HomeOfVapourSynthEvolution/VapourSynth-BM3D#profile-default
     """
     FAST = 'fast'
@@ -88,8 +93,8 @@ class AbstractBM3D(ABC):
                                     * 0 means basic estimate only
                                     * 1 means basic estimate with one final estimate
                                     * n means basic estimate refined with final estimate for n times
-        :param yuv2rgb:      Kernel used for converting the clip from YUV to RGB
-        :param rgb2yuv:      Kernel used for converting back the clip from RGB to YUV
+        :param yuv2rgb:             Kernel used for converting the clip from YUV to RGB
+        :param rgb2yuv:             Kernel used for converting back the clip from RGB to YUV
         """
         if clip.format is None:
             raise ValueError(f"{self.__class__.__name__}: Variable format clips not supported")
@@ -215,6 +220,7 @@ class AbstractBM3D(ABC):
 
 
 class BM3D(AbstractBM3D):
+    """BM3D implementation by mawen1250"""
     pre: Optional[vs.VideoNode]
     fp32: bool = True
 
@@ -240,8 +246,8 @@ class BM3D(AbstractBM3D):
                                     * 0 means basic estimate only
                                     * 1 means basic estimate with one final estimate.
                                     * n means basic estimate refined with final estimate for n times
-        :param yuv2rgb:      Kernel used for converting the clip from YUV to RGB
-        :param rgb2yuv:      Kernel used for converting back the clip from RGB to YUV
+        :param yuv2rgb:             Kernel used for converting the clip from YUV to RGB
+        :param rgb2yuv:             Kernel used for converting back the clip from RGB to YUV
         """
         super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb, rgb2yuv)
         self._check_clips(pre)
@@ -290,6 +296,7 @@ class BM3D(AbstractBM3D):
 
 
 class _AbstractBM3DCuda(AbstractBM3D, ABC):
+    """BM3D implementation by WolframRhodium"""
     plugin: ClassVar[
         Union[
             _PluginBm3dcudaCoreUnbound,
