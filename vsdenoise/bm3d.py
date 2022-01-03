@@ -5,17 +5,16 @@ __all__ = [
     'BM3D', 'BM3DCuda', 'BM3DCudaRTC', 'BM3DCPU'
 ]
 
+import inspect
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, ClassVar, Dict, NamedTuple, Optional, Sequence, Union
+from typing import Any, ClassVar, Dict, NamedTuple, Optional, Sequence, Union, cast
 
 import vapoursynth as vs
-# TODO: Move lvsfunc.kernels to vsutil
-from lvsfunc.kernels import Catrom, Kernel
 from vsutil import Dither as DitherType
 from vsutil import get_depth, get_y, iterate
 
-from .types import _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
+from .types import ZResizer, _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
 
 core = vs.core
 
@@ -47,8 +46,8 @@ class AbstractBM3D(ABC):
     profile: Profile
     ref: Optional[vs.VideoNode]
     refine: int
-    yuv2rgb_kernel: Kernel
-    rgb2yuv_kernel: Kernel
+    yuv2rgb: ZResizer
+    rgb2yuv: ZResizer
 
     is_gray: bool
 
@@ -58,6 +57,7 @@ class AbstractBM3D(ABC):
     _refv: vs.VideoNode
     _clip: vs.VideoNode
     _format: vs.VideoFormat
+    _matrix: int
 
     class _Sigma(NamedTuple):
         y: float
@@ -74,8 +74,8 @@ class AbstractBM3D(ABC):
         profile: Profile = Profile.FAST,
         ref: Optional[vs.VideoNode] = None,
         refine: int = 1,
-        yuv2rgb_kernel: Kernel = Catrom(),
-        rgb2yuv_kernel: Kernel = Catrom()
+        yuv2rgb: ZResizer = core.resize.Bicubic,
+        rgb2yuv: ZResizer = core.resize.Bicubic
     ) -> None:
         """
         :param clip:                Source clip
@@ -88,8 +88,8 @@ class AbstractBM3D(ABC):
                                     * 0 means basic estimate only
                                     * 1 means basic estimate with one final estimate
                                     * n means basic estimate refined with final estimate for n times
-        :param yuv2rgb_kernel:      Kernel used for converting the clip from YUV to RGB
-        :param rgb2yuv_kernel:      Kernel used for converting back the clip from RGB to YUV
+        :param yuv2rgb:      Kernel used for converting the clip from YUV to RGB
+        :param rgb2yuv:      Kernel used for converting back the clip from RGB to YUV
         """
         if clip.format is None:
             raise ValueError(f"{self.__class__.__name__}: Variable format clips not supported")
@@ -98,7 +98,7 @@ class AbstractBM3D(ABC):
         self._clip = clip
         self._check_clips(clip, ref)
         with clip.get_frame(0) as frame:
-            matrix = frame.props['_Matrix']
+            self._matrix = cast(int, frame.props['_Matrix'])
 
         self.wclip = clip
         if not isinstance(sigma, Sequence):
@@ -114,10 +114,8 @@ class AbstractBM3D(ABC):
         self.profile = profile
         self.ref = ref
         self.refine = refine
-        self.yuv2rgb_kernel = yuv2rgb_kernel
-        self.yuv2rgb_kernel.kwargs.update(format=vs.RGBS)
-        self.rgb2yuv_kernel = rgb2yuv_kernel
-        self.rgb2yuv_kernel.kwargs.update(format=self._format.id, matrix=matrix)
+        self.yuv2rgb = yuv2rgb
+        self.rgb2yuv = rgb2yuv
 
         self.is_gray = clip.format.color_family == vs.GRAY
 
@@ -131,7 +129,7 @@ class AbstractBM3D(ABC):
             self.is_gray = True
 
     def yuv2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
-        return self.rgb2opp(self.yuv2rgb_kernel.scale(clip, clip.width, clip.height))
+        return self.rgb2opp(self.yuv2rgb(clip, format=vs.RGBS))
 
     def rgb2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
         return clip.bm3d.RGB2OPP(sample=1)
@@ -196,9 +194,12 @@ class AbstractBM3D(ABC):
             if self._format.color_family == vs.YUV:
                 self.wclip = core.std.ShufflePlanes([self.wclip, self._clip], [0, 1, 2], vs.YUV)
         else:
-            if 'dither_type' not in self.rgb2yuv_kernel.kwargs:
-                self.rgb2yuv_kernel.kwargs.update(dither_type=dither)
-            self.wclip = self.rgb2yuv_kernel.scale(self.opp2rgb(self.wclip), self.wclip.width, self.wclip.height)
+            default = inspect.signature(self.rgb2yuv).parameters['dither_type'].default
+            dither = cast(DitherType, default) if default else dither
+            self.wclip = self.rgb2yuv(
+                self.opp2rgb(self.wclip),
+                format=self._format.id, matrix=self._matrix, dither_type=dither
+            )
 
         if self.sigma.y == 0:
             self.wclip = core.std.ShufflePlanes([self._clip, self.wclip], [0, 1, 2], vs.YUV)
@@ -223,8 +224,8 @@ class BM3D(AbstractBM3D):
         profile: Profile = Profile.FAST,
         pre: Optional[vs.VideoNode] = None, ref: Optional[vs.VideoNode] = None,
         refine: int = 1,
-        yuv2rgb_kernel: Kernel = Catrom(),
-        rgb2yuv_kernel: Kernel = Catrom()
+        yuv2rgb: ZResizer = core.resize.Bicubic,
+        rgb2yuv: ZResizer = core.resize.Bicubic
     ) -> None:
         """
         :param clip:                Source clip
@@ -239,10 +240,10 @@ class BM3D(AbstractBM3D):
                                     * 0 means basic estimate only
                                     * 1 means basic estimate with one final estimate.
                                     * n means basic estimate refined with final estimate for n times
-        :param yuv2rgb_kernel:      Kernel used for converting the clip from YUV to RGB
-        :param rgb2yuv_kernel:      Kernel used for converting back the clip from RGB to YUV
+        :param yuv2rgb:      Kernel used for converting the clip from YUV to RGB
+        :param rgb2yuv:      Kernel used for converting back the clip from RGB to YUV
         """
-        super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb_kernel, rgb2yuv_kernel)
+        super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb, rgb2yuv)
         self._check_clips(pre)
         self.pre = pre
 
@@ -303,10 +304,10 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
         profile: Profile = Profile.FAST,
         ref: Optional[vs.VideoNode] = None,
         refine: int = 1,
-        yuv2rgb_kernel: Kernel = Catrom(),
-        rgb2yuv_kernel: Kernel = Catrom()
+        yuv2rgb: ZResizer = core.resize.Bicubic,
+        rgb2yuv: ZResizer = core.resize.Bicubic
     ) -> None:
-        super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb_kernel, rgb2yuv_kernel)
+        super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb, rgb2yuv)
         if self.profile == Profile.VERY_NOISY:
             raise ValueError(f'{self.__class__.__name__}: Profile "vn" is not supported!')
 
