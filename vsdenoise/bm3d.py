@@ -210,7 +210,7 @@ class AbstractBM3D(ABC):
             self.wclip = core.std.ShufflePlanes([self._clip, self.wclip], [0, 1, 2], vs.YUV)
 
     def _check_clips(self, *clips: Optional[vs.VideoNode]) -> None:
-        for c in [c for c in clips if c]:
+        for c in (c for c in clips if c):
             assert c.format
             with c.get_frame(0) as frame:
                 if c.format.color_family != vs.RGB and any(
@@ -297,13 +297,15 @@ class BM3D(AbstractBM3D):
 
 class _AbstractBM3DCuda(AbstractBM3D, ABC):
     """BM3D implementation by WolframRhodium"""
-    plugin: ClassVar[
-        Union[
-            _PluginBm3dcudaCoreUnbound,
-            _PluginBm3dcuda_rtcCoreUnbound,
-            _PluginBm3dcpuCoreUnbound
-        ]
-    ]
+
+    @property
+    @abstractmethod
+    def plugin(self) -> Union[
+        _PluginBm3dcudaCoreUnbound,
+        _PluginBm3dcuda_rtcCoreUnbound,
+        _PluginBm3dcpuCoreUnbound
+    ]:
+        ...
 
     def __init__(
         self, clip: vs.VideoNode, /,
@@ -371,12 +373,18 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
 
 
 class BM3DCuda(_AbstractBM3DCuda):
-    plugin = core.bm3dcuda
+    @property
+    def plugin(self) -> _PluginBm3dcudaCoreUnbound:
+        return core.bm3dcuda
 
 
 class BM3DCudaRTC(_AbstractBM3DCuda):
-    plugin = core.bm3dcuda_rtc
+    @property
+    def plugin(self) -> _PluginBm3dcuda_rtcCoreUnbound:
+        return core.bm3dcuda_rtc
 
 
 class BM3DCPU(_AbstractBM3DCuda):
-    plugin = core.bm3dcpu
+    @property
+    def plugin(self) -> _PluginBm3dcpuCoreUnbound:
+        return core.bm3dcpu
