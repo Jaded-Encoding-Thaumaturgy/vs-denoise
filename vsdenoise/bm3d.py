@@ -213,9 +213,7 @@ class AbstractBM3D(ABC):
         for c in (c for c in clips if c):
             assert c.format
             with c.get_frame(0) as frame:
-                if c.format.color_family != vs.RGB and any(
-                    p not in frame.props for p in ['_ColorRange', '_Matrix']
-                ):
+                if any(p not in frame.props for p in {'_ColorRange', '_Matrix'}):
                     raise ValueError(f'{self.__class__.__name__}: "_ColorRange" or "_Matrix" prop missing')
 
 
