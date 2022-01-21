@@ -69,7 +69,7 @@ def knl_means_cl(
     if clip.format is None:
         raise ValueError("knl_means_cl: Variable format clips not supported")
 
-    if isinstance(strength, float):
+    if isinstance(strength, (float, int)):
         strength = [strength]
     if isinstance(tr, int):
         tr = [tr]
