@@ -18,6 +18,7 @@ import vapoursynth as vs
 from vsutil import Dither as DitherType
 from vsutil import get_depth, get_y, iterate
 
+from .utils import arr_to_len
 from .types import ZResizer, _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
 
 core = vs.core
@@ -75,7 +76,8 @@ class AbstractBM3D(ABC):
 
     def __init__(
         self, clip: vs.VideoNode, /,
-        sigma: float | Sequence[float], radius: int | Sequence[int] | None = None,
+        sigma: float | Sequence[float],
+        radius: int | Sequence[int] | None = None,
         profile: Profile = Profile.FAST,
         ref: Optional[vs.VideoNode] = None,
         refine: int = 1,
@@ -109,13 +111,13 @@ class AbstractBM3D(ABC):
         if not isinstance(sigma, Sequence):
             self.sigma = self._Sigma(sigma, sigma, sigma)
         else:
-            self.sigma = self._Sigma(*(list(sigma) + [sigma[-1]] * (3 - len(sigma)))[:3])
+            self.sigma = self._Sigma(*arr_to_len(sigma, 3))
         if radius is None:
             self.radius = self._Radius(0, 0)
         elif not isinstance(radius, Sequence):
             self.radius = self._Radius(radius, radius)
         else:
-            self.radius = self._Radius(*(list(radius) + [radius[-1]] * (2 - len(radius)))[:2])
+            self.radius = self._Radius(*arr_to_len(radius, 2))
         self.profile = profile
         self.ref = ref
         self.refine = refine
@@ -213,8 +215,9 @@ class AbstractBM3D(ABC):
         for c in (c for c in clips if c):
             assert c.format
             with c.get_frame(0) as frame:
-                if any(p not in frame.props for p in {'_ColorRange', '_Matrix'}):
-                    raise ValueError(f'{self.__class__.__name__}: "_ColorRange" or "_Matrix" prop missing')
+                for prop in {'_ColorRange', '_Matrix'}:
+                    if prop not in frame.props:
+                        raise ValueError(f'{self.__class__.__name__}: "{prop}" prop missing')
 
 
 class BM3D(AbstractBM3D):

@@ -1,4 +1,3 @@
-
 from typing import Literal, Optional, Protocol, Sequence, Union
 
 from vapoursynth import VideoNode
