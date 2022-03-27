@@ -8,10 +8,7 @@ __all__ = ['ChannelMode', 'DeviceType', 'knl_means_cl']
 
 import warnings
 from enum import Enum, auto
-from vsutil import get_subsampling
 from typing import Any, List, Literal, Sequence, final
-
-from .utils import arr_to_len
 
 import vapoursynth as vs
 
@@ -81,8 +78,6 @@ def knl_means_cl(
     if isinstance(simr, int):
         simr = [simr]
 
-    kwargs |= dict(device_type=device_type)
-
     params: List[Sequence[Any]] = [strength, tr, sr, simr]
     params_doc = ['strength', 'tr', 'sr', 'simr']
 
@@ -96,29 +91,39 @@ def knl_means_cl(
                     UserWarning
                 )
         return clip.knlm.KNLMeansCL(
-            h=strength[0], d=tr[0], a=sr[0], s=simr[0], channels='auto', **kwargs
+            h=strength[0], d=tr[0], a=sr[0], s=simr[0],
+            channels='auto', device_type=device_type, **kwargs
         )
 
     # Handle YUV444 here if these conditions are true
-    if all(len(p) < 2 for p in params) and not get_subsampling(clip) and channels == ChannelMode.ALL_PLANES:
+    if all(len(p) < 2 for p in params) and clip.format.subsampling_w == clip.format.subsampling_h == 0 \
+            and channels == ChannelMode.ALL_PLANES:
         return clip.knlm.KNLMeansCL(
-            h=strength[0], d=tr[0], a=sr[0], s=simr[0], channels='YUV', **kwargs
+            h=strength[0], d=tr[0], a=sr[0], s=simr[0],
+            channels='YUV', device_type=device_type, **kwargs
         )
+
+    strength = (list(strength) + [strength[-1]] * (2 - len(strength)))[:2]
+    tr = (list(tr) + [tr[-1]] * (2 - len(tr)))[:2]
+    sr = (list(sr) + [sr[-1]] * (2 - len(sr)))[:2]
+    simr = (list(simr) + [simr[-1]] * (2 - len(simr)))[:2]
 
     if channels == ChannelMode.LUMA:
         return clip.knlm.KNLMeansCL(
-            h=strength[0], d=tr[0], a=sr[0], s=simr[0], channels='Y', **kwargs
+            h=strength[0], d=tr[0], a=sr[0], s=simr[0],
+            channels='Y', device_type=device_type, **kwargs
         )
-
     if channels == ChannelMode.CHROMA:
         return clip.knlm.KNLMeansCL(
-            h=strength[1], d=tr[1], a=sr[1], s=simr[1], channels='UV', **kwargs
+            h=strength[1], d=tr[1], a=sr[1], s=simr[1],
+            channels='UV', device_type=device_type, **kwargs
         )
 
-    normalized_args = [arr_to_len(x, 2) for x in (strength, tr, sr, simr)]
-
-    return core.std.ShufflePlanes([
-        clip.knlm.KNLMeansCL(
-            h=st, d=tr, a=sr, s=simr, channels=ch, **kwargs
-        ) for st, tr, sr, simr, ch in zip(*normalized_args, ('Y', 'UV'))
-    ], [0, 1, 2], vs.YUV)
+    return core.std.ShufflePlanes(
+        [
+            clip.knlm.KNLMeansCL(
+                h=strength[i], d=tr[i], a=sr[i], s=simr[i],
+                channels=('Y', 'UV')[i], device_type=device_type, **kwargs
+            ) for i in range(2)
+        ], [0, 1, 2], vs.YUV
+    )
