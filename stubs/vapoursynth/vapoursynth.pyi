@@ -733,6 +733,20 @@ class _Plugin_knlm_VideoNode_Bound(Plugin):
 # end implementation
 
 
+# implementation: flux
+
+class _Plugin_flux_Core_Bound(Plugin):
+    def SmoothST(self, clip: "VideoNode", temporal_threshold: typing.Optional[int] = None, spatial_threshold: typing.Optional[int] = None, planes: typing.Union[int, typing.Sequence[int], None] = None) -> "VideoNode": ...
+    def SmoothT(self, clip: "VideoNode", temporal_threshold: typing.Optional[int] = None, planes: typing.Union[int, typing.Sequence[int], None] = None) -> "VideoNode": ...
+
+class _Plugin_flux_VideoNode_Bound(Plugin):
+    def SmoothST(self, temporal_threshold: typing.Optional[int] = None, spatial_threshold: typing.Optional[int] = None, planes: typing.Union[int, typing.Sequence[int], None] = None) -> "VideoNode": ...
+    def SmoothT(self, temporal_threshold: typing.Optional[int] = None, planes: typing.Union[int, typing.Sequence[int], None] = None) -> "VideoNode": ...
+
+
+# end implementation
+
+
 # implementation: resize
 
 class _Plugin_resize_Core_Bound(Plugin):
@@ -976,6 +990,13 @@ class VideoNode:
         KNLMeansCL for VapourSynth
         """
 # end instance
+# instance_bound_VideoNode: flux
+    @property
+    def flux(self) -> _Plugin_flux_VideoNode_Bound:
+        """
+        FluxSmooth plugin for VapourSynth
+        """
+# end instance
 # instance_bound_VideoNode: resize
     @property
     def resize(self) -> _Plugin_resize_VideoNode_Bound:
@@ -1114,6 +1135,13 @@ class Core:
     def knlm(self) -> _Plugin_knlm_Core_Bound:
         """
         KNLMeansCL for VapourSynth
+        """
+# end instance
+# instance_bound_Core: flux
+    @property
+    def flux(self) -> _Plugin_flux_Core_bound:
+        """
+        FluxSmooth plugin for VapourSynth
         """
 # end instance
 # instance_bound_Core: resize
