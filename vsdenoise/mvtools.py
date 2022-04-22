@@ -102,6 +102,16 @@ class SMDegrain:
     mvplane: int
     refinemotion: bool
     truemotion: bool
+    temporalSoften: bool
+    rangeConversion: float
+    lowFrequencyRestore: float
+    DCTFlicker: float
+    hpad: int
+    hpadU: int
+    vpad: int
+    vpadU: int
+    mfilter: vs.VideoNode | None
+    rfilter: int
 
     class _SceneAnalyzeThreshold(NamedTuple):
         luma: float
@@ -122,8 +132,8 @@ class SMDegrain:
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
         refinemotion: bool = False, truemotion: bool | None = None,
-        temporalSoften: bool = False, Str: float = 5.0,
-        MFilter: vs.VideoNode | None = None, LFR: float | bool = False,
+        temporalSoften: bool = False, rangeConversion: float = 5.0,
+        MFilter: vs.VideoNode | None = None, lowFrequencyRestore: float | bool = False,
         DCTFlicker: bool = False, fixFades: bool = False,
         hpad: int | None = None, vpad: int | None = None,
         rfilter: int = 3, UHDhalf: bool = True
@@ -195,26 +205,58 @@ class SMDegrain:
             raise ValueError("SMDegrain: 'refinemotion' has to be a boolean!")
         self.refinemotion = refinemotion
 
-        if not isinstance(truemotion, bool) and truemotion is not None:
-            raise ValueError("SMDegrain: 'truemotion' has to be a boolean or None!")
-        self.truemotion = fallback(truemotion, not self.isHD)
-
         if not isinstance(temporalSoften, bool):
             raise ValueError("SMDegrain: 'temporalSoften' has to be a boolean!")
         self.temporalSoften = temporalSoften
 
+        if not isinstance(truemotion, bool) and truemotion is not None:
+            raise ValueError("SMDegrain: 'truemotion' has to be a boolean or None!")
+        self.truemotion = fallback(truemotion, self.temporalSoften or not self.isHD)
+
         if not isinstance(fixFades, bool):
             raise ValueError("SMDegrain: 'fixFades' has to be a boolean!")
 
-        # Str, MFilter, LFR, DCTFlicker, hpad, vpad, rfilter, device_id
+        if not isinstance(rangeConversion, float):
+            raise ValueError("SMDegrain: 'rangeConversion' has to be a float!")
+        self.rangeConversion = rangeConversion
 
-        self._check_ref_clip(MFilter)
+        if not isinstance(lowFrequencyRestore, bool) and not isinstance(lowFrequencyRestore, float):
+            raise ValueError("SMDegrain: 'lowFrequencyRestore' has to be a float or boolean!")
+
+        if isinstance(lowFrequencyRestore, bool):
+            if lowFrequencyRestore:
+                self.lowFrequencyRestore = 3.46 * (clip.width / 1920.)
+            else:
+                self.lowFrequencyRestore = 0
+        else:
+            self.lowFrequencyRestore = (
+                max(clip.width, clip.height) * 2
+            ) / ((sqrt(log(2) / 2) * max(lowFrequencyRestore, 50)) * 2 * pi)
+
+        if not isinstance(DCTFlicker, bool):
+            raise ValueError("SMDegrain: 'DCTFlicker' has to be a boolean!")
+        self.DCTFlicker = DCTFlicker
+
+        if not isinstance(hpad, int) and pel is not None:
+            raise ValueError("SMDegrain: 'hpad' has to be an int or None!")
+        self.hpad = fallback(hpad, 0 if self.isHD else 8)
+        self.hpadU = self.hpad // 2 if self.isUHD else self.hpad
+
+        if not isinstance(vpad, int) and pel is not None:
+            raise ValueError("SMDegrain: 'vpad' has to be an int or None!")
+        self.vpad = fallback(vpad, 0 if self.isHD else 8)
+        self.vpadU = self.vpad // 2 if self.isUHD else self.vpad
+
+        if not isinstance(rfilter, int):
+            raise ValueError("SMDegrain: 'rfilter' has to be an int!")
+        self.rfilter = rfilter
+
+        self.mfilter = self._check_ref_clip(MFilter)
 
         self.scaleCSAD = 2
         self.scaleCSAD -= 1 if clip.format.subsampling_w == 2 and clip.format.subsampling_h == 0 else 0
         self.scaleCSAD -= 1 if not self.isHD else 0
 
-        self.Amp = 1 / 32
         self.DCT = 5 if fixFades else 0
 
     def analyze(
