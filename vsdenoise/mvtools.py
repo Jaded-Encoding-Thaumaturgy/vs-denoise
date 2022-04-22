@@ -60,6 +60,18 @@ class Prefilter(IntEnum):
     NONE = 9
 
 
+class SMDegrainMode(IntEnum):
+    Degrain = auto()
+    Median = auto()
+    FluxSmooth = auto()
+    ML3DEx = auto()
+    Hybrid = auto()
+    TL3D = auto()
+    STWM = auto()
+    IQMT = auto()
+    Gauss = auto()
+
+
 class SMDegrain:
     """Simple MVTools Degrain with motion analysis"""
     analyze_args: Dict[str, Any]
@@ -78,6 +90,7 @@ class SMDegrain:
     isUHD: bool
     tr: int
     refine: int
+    mode: SMDegrainMode
     source_type: SourceType
     prefilter: Prefilter | vs.VideoNode
     range_in: CRange
@@ -102,7 +115,7 @@ class SMDegrain:
     @disallow_variable_resolution
     def __init__(
         self, clip: vs.VideoNode,
-        tr: int = 2, refine: int = 3,
+        tr: int = 2, refine: int = 3, mode: SMDegrainMode = SMDegrainMode.Degrain,
         source_type: SourceType = SourceType.PROGRESSIVE,
         prefilter: Prefilter | vs.VideoNode = Prefilter.AUTO,
         range_in: CRange = CRange.LIMITED,
@@ -137,6 +150,10 @@ class SMDegrain:
         if not isinstance(refine, int):
             raise ValueError("SMDegrain: 'refine' has to be an int!")
         self.refine = max(0, fallback(refine, 3))
+
+        if mode is None or not isinstance(mode, int):
+            raise ValueError("SMDegrain: 'mode' has to be from SMDegrainMode (enum)!")
+        self.mode = mode
 
         if source_type is None or source_type not in SourceType:
             raise ValueError("SMDegrain: 'source_type' has to be from SourceType (enum)!")
