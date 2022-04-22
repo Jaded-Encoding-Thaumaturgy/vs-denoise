@@ -260,15 +260,12 @@ class SMDegrain:
         self.DCT = 5 if fixFades else 0
 
     def analyze(
-        self, ref: vs.VideoNode | None = None, recalculation: bool = False,
+        self, ref: vs.VideoNode | None = None,
         overlap: int | None = None, blksize: int | None = None,
-        search: int = 4, pelsearch: int | None = None,
+        search: int | None = None, pelsearch: int | None = None,
         searchparam: int | None = None
     ) -> None:
         self._check_ref_clip(ref)
-
-        if not isinstance(recalculation, int):
-            raise ValueError("SMDegrain.analyse: 'recalculation' has to be a boolean!")
 
         if not isinstance(blksize, int) and blksize is not None:
             raise ValueError("SMDegrain.analyse: 'blksize' has to be an int or None!")
@@ -276,8 +273,8 @@ class SMDegrain:
         if not isinstance(overlap, int) and overlap is not None:
             raise ValueError("SMDegrain.analyse: 'overlap' has to be an int or None!")
 
-        if not isinstance(search, int):
-            raise ValueError("SMDegrain.analyse: 'search' has to be an int!")
+        if not isinstance(search, int) and search is not None:
+            raise ValueError("SMDegrain.analyse: 'search' has to be an int or None!")
 
         if not isinstance(pelsearch, int) and pelsearch is not None:
             raise ValueError("SMDegrain.analyse: 'pelsearch' has to be an int or None!")
@@ -285,20 +282,22 @@ class SMDegrain:
         if not isinstance(searchparam, int) and searchparam is not None:
             raise ValueError("SMDegrain.analyse: 'searchparam' has to be an int or None!")
 
-        searchparam = fallback(searchparam, 1 if self.isUHD else 2)
+        searchparam = fallback(
+            searchparam, (2 if self.isUHD else 5) if self.refinemotion and self.truemotion else (1 if self.isUHD else 2)
+        )
 
-        pelsearch = fallback(pelsearch, self.pel)
+        searchparamr = max(0, round(exp(0.69 * searchparam - 1.79) - 0.67))
+
+        pelsearch = fallback(pelsearch, max(0, searchparam * 2 - 2))
 
         blocksize = fallback(blksize, max(2 ** (self.refine + 2), 16 if self.isHD else 8))
 
-        halfblocksize = max(2, blocksize // 2)
+        halfblocksize = blocksize // 2
+        halfoverlap = max(2, halfblocksize)
 
-        overlap = fallback(overlap, blocksize // 2)
+        overlap = fallback(overlap, halfblocksize)
 
-        print(
-            overlap, blocksize, halfblocksize, search, self.truemotion, self.DCT, searchparam,
-            pelsearch, self.temporalSoften, self.scaleCSAD
-        )
+        search = fallback(search, 4 if self.refinemotion else 2)
 
     def degrain(
         self,
