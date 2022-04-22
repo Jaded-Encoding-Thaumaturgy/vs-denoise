@@ -9,9 +9,8 @@ from math import exp, sqrt, pi, log, sin, e
 from typing import Dict, Any, NamedTuple, Sequence, Type, Tuple, List
 
 from havsfunc import MinBlur
-from lvsfunc.kernels import BicubicDogWay
 from vsutil import (
-    get_y, get_depth, scale_value, get_peak_value, fallback, Range as CRange,
+    get_y, get_depth, scale_value, fallback, Range as CRange,  # get_peak_value,
     disallow_variable_format, disallow_variable_resolution
 )
 
@@ -21,6 +20,12 @@ from .bm3d import BM3D, AbstractBM3D, _AbstractBM3DCuda, Profile
 import vapoursynth as vs
 
 core = vs.core
+
+
+# here until vsutil gets a new release
+def get_peak_value(clip: vs.VideoNode, chroma: bool = False) -> float:
+    assert clip.format
+    return (0.5 if chroma else 1.) if clip.format.sample_type == vs.FLOAT else (1 << get_depth(clip)) - 1.
 
 
 class Pel(IntEnum):
@@ -290,7 +295,7 @@ class SMDegrain:
             pref_type = Prefilter.MINBLUR3
 
         if self.UHDhalf:
-            return BicubicDogWay().scale(clip, clip.width // 2, clip.height // 2)
+            return clip.resize.Bicubic(clip.width // 2, clip.height // 2, filter_param_a=-0.6, filter_param_b=0.4)
 
         if pref_type == Prefilter.NONE:
             return clip
