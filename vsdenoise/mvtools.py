@@ -16,18 +16,11 @@ from vsutil import (
 )
 
 from .knlm import knl_means_cl, ChannelMode
-from .bm3d import BM3D, AbstractBM3D, Profile
+from .bm3d import BM3D, AbstractBM3D, _AbstractBM3DCuda, Profile
 
 import vapoursynth as vs
 
 core = vs.core
-
-
-class VectorsMode(IntEnum):
-    IGNORE = auto()
-    READ = auto()
-    WRITE = auto()
-    WRITEONLY = auto()
 
 
 class Pel(IntEnum):
@@ -69,12 +62,28 @@ class SMDegrain:
     degrain_args: Dict[str, Any]
 
     bm3d_arch: Type[AbstractBM3D] = BM3D
-
-    _clip: vs.VideoNode
-    _format: vs.VideoFormat
-    _matrix: int
+    device_id: int = 0
 
     __vectors: Dict[str, vs.VideoNode] = {}
+
+    clip: vs.VideoNode
+
+    scaleCSAD: int
+    isHD: bool
+    isUHD: bool
+    tr: int
+    refine: int
+    source_type: SourceType
+    prefilter: Prefilter | vs.VideoNode
+    range_in: CRange
+    pel: int
+    subpixel: int
+    chroma: bool
+    is_gray: bool
+    planes: List[int]
+    mvplane: int
+    refinemotion: bool
+    truemotion: bool
 
     class _SceneAnalyzeThreshold(NamedTuple):
         luma: float
@@ -95,7 +104,6 @@ class SMDegrain:
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
         refinemotion: bool = False, truemotion: bool | None = None,
-        vectors_mode: VectorsMode = VectorsMode.IGNORE,
         temporalSoften: bool = False, Str: float = 5.0,
         MFilter: vs.VideoNode | None = None, LFR: float | bool = False,
         DCTFlicker: bool = False, fixFades: bool = False,
@@ -131,7 +139,7 @@ class SMDegrain:
 
         if prefilter is None or prefilter not in Prefilter and not isinstance(prefilter, vs.VideoNode):
             raise ValueError("SMDegrain: 'prefilter' has to be from Prefilter (enum) or a VideoNode!")
-        if prefilter not in Prefilter:
+        if isinstance(prefilter, vs.VideoNode):
             self._check_ref_clip(prefilter)
         self.prefilter = prefilter
 
@@ -141,7 +149,7 @@ class SMDegrain:
 
         if not isinstance(pel, int) and pel is not None:
             raise ValueError("SMDegrain: 'pel' has to be an int or None!")
-        self.pel = pel
+        self.pel = fallback(pel, 1 + int(self.isHD))
 
         if not isinstance(subpixel, int):
             raise ValueError("SMDegrain: 'subpixel' has to be an int!")
@@ -168,9 +176,6 @@ class SMDegrain:
         if not isinstance(truemotion, bool) and truemotion is not None:
             raise ValueError("SMDegrain: 'truemotion' has to be a boolean or None!")
         self.truemotion = fallback(truemotion, not self.isHD)
-
-        if vectors_mode is None or vectors_mode not in VectorsMode:
-            raise ValueError("SMDegrain: 'vectors_mode' has to be from VectorsMode (enum)!")
 
         if not isinstance(temporalSoften, bool):
             raise ValueError("SMDegrain: 'temporalSoften' has to be a boolean!")
@@ -264,32 +269,28 @@ class SMDegrain:
         if not isinstance(limitS, bool):
             raise ValueError("SMDegrain: 'limitS' has to be a boolean!")
 
-        thSAD = self._SceneAnalyzeThreshold(
+        thrSAD = self._SceneAnalyzeThreshold(
             round(exp(-101. / (thSAD * 0.83)) * 360),
             fallback(thSADC, round(thSAD * 0.18875 * exp(self.scaleCSAD * 0.693)))
 
         )
 
-        thSCD = self._SceneChangeThreshold(
+        thrSCD = self._SceneChangeThreshold(
             fallback(thSCD1, round(pow(16 * 2.5, 2))),
             fallback(thSCD2, 130)
         )
 
-        print(thSAD, thSCD)
+        print(thrSAD, thrSCD)
 
     def _get_subpel_clip(self, pel_type: PelType) -> vs.VideoNode:
         ...
 
     def _get_prefiltered_clip(self, clip: vs.VideoNode, pref_type: Prefilter) -> vs.VideoNode:
         if pref_type == Prefilter.AUTO:
-            if self.vmode == VectorsMode.READ:
-                pref_type = Prefilter.NONE
-            else:
-                pref_type = Prefilter.MINBLUR3
+            pref_type = Prefilter.MINBLUR3
 
-        if self.vmode != VectorsMode.READ:
-            if self.UHDhalf:
-                return BicubicDogWay().scale(clip, clip.width // 2, clip.height // 2)
+        if self.UHDhalf:
+            return BicubicDogWay().scale(clip, clip.width // 2, clip.height // 2)
 
         if pref_type == Prefilter.NONE:
             return clip
@@ -298,7 +299,7 @@ class SMDegrain:
             return MinBlur(clip, pref_type.value, self.planes)
 
         if pref_type == Prefilter.MINBLURFLUX:
-            return MinBlur(clip, 2).flux.SmoothTS(2, 2, self.planes)
+            return MinBlur(clip, 2).flux.SmoothST(2, 2, self.planes)
 
         if pref_type == Prefilter.DFTTEST:
             bits = get_depth(clip)
@@ -320,17 +321,21 @@ class SMDegrain:
         if pref_type == Prefilter.KNLMEANSCL:
             knl = knl_means_cl(
                 clip, 7.0, 1, 2, 2, ChannelMode.ALL_PLANES if self.chroma else ChannelMode.LUMA,
-                device_id=self.device_id)
+                device_id=self.device_id
+            )
 
-            return self.ReplaceLowFrequency(knl, clip, 600 * (clip.width / 1920), chroma=self.chroma)
+            return self._ReplaceLowFrequency(knl, clip, 600 * (clip.width / 1920), chroma=self.chroma)
 
         if pref_type == Prefilter.BM3D:
-            return self.bm3d_arch(clip=clip, radius=1, profile=Profile.LOW_COMPLEXITY).clip
+            return self.bm3d_arch(
+                clip, sigma=10 if isinstance(self.bm3d_arch, _AbstractBM3DCuda) else 8,
+                radius=1, profile=Profile.LOW_COMPLEXITY
+            ).clip
 
         if pref_type == Prefilter.DGDENOISE:
             # dgd = core.dgdecodenv.DGDenoise(pref, 0.10)
 
-            # pref = ReplaceLowFrequency(dgd, pref, w / 2, chroma=chroma)
+            # pref = self._ReplaceLowFrequency(dgd, pref, w / 2, chroma=self.chroma)
             return clip.bilateral.Gaussian(1)
 
         return clip
@@ -339,6 +344,7 @@ class SMDegrain:
     def _ReplaceLowFrequency(
         flt: vs.VideoNode, ref: vs.VideoNode, LFR: float, DCTFlicker: bool = False, chroma: bool = True
     ) -> vs.VideoNode:
+        assert flt.format
         LFR = max(LFR or (300 * flt.width / 1920), 50)
 
         freq_sample = max(flt.width, flt.height) * 2    # Frequency sample rate is resolution * 2 (for Nyquist)
@@ -357,11 +363,9 @@ class SMDegrain:
 
         return final if chroma else core.std.ShufflePlanes([final, flt], [0, 1, 2], vs.YUV)
 
-    def _get_planes(self, planes: int | Sequence[int] | None = None) -> Tuple[List[int], int]:
-        if not isinstance(planes, int) and not (
-            isinstance(planes, Sequence) and isinstance(planes[0], int)
-        ) and planes is not None:
-            raise ValueError("'planes' has to be an int, sequence of ints or None!")
+    def _get_planes(self, planes: Sequence[int]) -> Tuple[List[int], int]:
+        if not (isinstance(planes, Sequence) and isinstance(planes[0], int)):
+            raise ValueError("'planes' has to be a sequence of ints!")
 
         if planes == [0, 1, 2]:
             mvplane = 4
@@ -372,7 +376,7 @@ class SMDegrain:
         else:
             raise ValueError("Invalid planes specified!")
 
-        return planes, mvplane
+        return list(planes), mvplane
 
     def _check_ref_clip(self, ref: vs.VideoNode | None) -> None:
         if not isinstance(ref, vs.VideoNode) and ref is not None:
@@ -380,6 +384,9 @@ class SMDegrain:
 
         if ref is None:
             return
+
+        assert self.clip.format
+        assert ref.format
 
         if ref.format.id != self.clip.format.id:
             raise ValueError("Ref clip format must match the source clip's!")
