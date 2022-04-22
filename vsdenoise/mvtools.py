@@ -441,12 +441,12 @@ class SMDegrain:
 
         return list(planes), mvplane
 
-    def _check_ref_clip(self, ref: vs.VideoNode | None) -> None:
+    def _check_ref_clip(self, ref: vs.VideoNode | None) -> vs.VideoNode | None:
         if not isinstance(ref, vs.VideoNode) and ref is not None:
             raise ValueError('Ref clip has to be a VideoNode or None!')
 
         if ref is None:
-            return
+            return None
 
         assert self.clip.format
         assert ref.format
@@ -456,3 +456,5 @@ class SMDegrain:
 
         if ref.width != self.clip.width or ref.height != self.clip.height:
             raise ValueError("Ref clip sizes must match the source clip's!")
+
+        return ref
