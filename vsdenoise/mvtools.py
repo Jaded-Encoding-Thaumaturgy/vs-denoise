@@ -372,6 +372,38 @@ class SMDegrain:
 
         return None
 
+    def _get_subpel_clip(
+        self, pref: vs.VideoNode, ref: vs.VideoNode
+    ) -> Tuple[vs.VideoNode | None, vs.VideoNode | None]:
+        pel_types = list(self.pel_type)
+
+        for i, val in enumerate(pel_types):
+            if val != PelType.AUTO:
+                continue
+
+            if i == 0:
+                if self.prefilter == Prefilter.NONE:
+                    pel_types[i] = PelType.NONE
+                else:
+                    if self.subpixel == 4:
+                        pel_types[i] = PelType.NNEDI3
+                    else:
+                        pel_types[i] = PelType.BICUBIC
+            else:
+                pel_types[i] = PelType.NNEDI3 if self.subpixel == 4 else PelType.WIENER
+
+        pel_type, pel2_type = pel_types
+
+        return self._get_subpel(pref, pel_type), self._get_subpel(ref, pel2_type)
+
+    def _get_pref(self, clip: vs.VideoNode, pref_type: Prefilter | vs.VideoNode) -> vs.VideoNode:
+        if pref_type == Prefilter.NONE or isinstance(pref_type, vs.VideoNode):
+            return clip
+        elif pref_type.value in {0, 1, 2}:
+            return MinBlur(clip, pref_type.value, self.planes)
+        elif pref_type == Prefilter.MINBLURFLUX:
+            return MinBlur(clip, 2).flux.SmoothST(2, 2, self.planes)
+        elif pref_type == Prefilter.DFTTEST:
             bits = get_depth(clip)
             peak = get_peak_value(clip)
 
@@ -406,6 +438,27 @@ class SMDegrain:
             return clip.bilateral.Gaussian(1)
 
         return clip
+
+    def _get_prefiltered_clip(self, pref: vs.VideoNode) -> vs.VideoNode:
+        if isinstance(self.prefilter, vs.VideoNode):
+            return self.prefilter
+
+        pref = self._get_pref(pref, Prefilter.MINBLUR3 if self.prefilter == Prefilter.AUTO else self.prefilter)
+
+        # Luma expansion TV->PC (up to 16% more values for motion estimation)
+        if self.range_in == CRange.LIMITED:
+            if self.rangeConversion > 1.0:
+                pref = DitherLumaRebuild(pref, self.rangeConversion)
+            elif self.rangeConversion > 0.0:
+                pref = pref.retinex.MSRCP(None, self.rangeConversion, None, False, True)
+            else:
+                pref = depth(pref, 8, range=CRange.FULL, range_in=CRange.LIMITED, dither_type=Dither.NONE)
+
+        # Low Frequency expansion (higher SAD -> more protection)
+        # if self.lowFrequencyRestore > 0.0:
+        #     pref = pref8.ex_unsharp(thSAD / 1800., Fc=w / 8., th=0.0)
+
+        return pref
 
     @staticmethod
     def _ReplaceLowFrequency(
