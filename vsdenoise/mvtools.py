@@ -345,26 +345,33 @@ class SMDegrain:
 
         print(thrSAD, thrSCD)
 
-    def _get_subpel_clip(self, pel_type: PelType) -> vs.VideoNode:
-        ...
+    def _get_subpel(self, clip: vs.VideoNode, pel_type: PelType) -> vs.VideoNode | None:
+        bicubic_args: Dict[str, Any] = dict(width=clip.width * self.pel, height=(clip.height * self.pel))
 
-    def _get_prefiltered_clip(self, clip: vs.VideoNode, pref_type: Prefilter) -> vs.VideoNode:
-        if pref_type == Prefilter.AUTO:
-            pref_type = Prefilter.MINBLUR3
+        if pel_type == PelType.BICUBIC or pel_type == PelType.WIENER:
+            if pel_type == PelType.WIENER:
+                bicubic_args |= blackman_args
+            return clip.resize.Bicubic(**bicubic_args)
+        elif pel_type == PelType.NNEDI3:
+            nnargs = dict(nsize=0, nns=1, qual=1, pscrn=2)
 
-        if self.UHDhalf:
-            return clip.resize.Bicubic(clip.width // 2, clip.height // 2, filter_param_a=-0.6, filter_param_b=0.4)
+            nmsp = 'znedi3' if hasattr(core, 'znedi3') else 'nnedi3'
 
-        if pref_type == Prefilter.NONE:
-            return clip
+            nnedi3_cpu = getattr(
+                getattr(clip.std.Transpose(), nmsp).nnedi3(0, True, **nnargs).std.Transpose(), nmsp
+            ).nnedi3(0, True, **nnargs)
 
-        if pref_type.value in {0, 1, 2}:
-            return MinBlur(clip, pref_type.value, self.planes)
+            if hasattr(core, 'nnedi3cl'):
+                upscale = core.std.Interleave([
+                    nnedi3_cpu[::2], clip[1::2].nnedi3cl.NNEDI3CL(0, True, True, **nnargs)  # type: ignore
+                ])
+            else:
+                upscale = nnedi3_cpu
 
-        if pref_type == Prefilter.MINBLURFLUX:
-            return MinBlur(clip, 2).flux.SmoothST(2, 2, self.planes)
+            return upscale.resize.Bicubic(src_top=.5, src_left=.5)
 
-        if pref_type == Prefilter.DFTTEST:
+        return None
+
             bits = get_depth(clip)
             peak = get_peak_value(clip)
 
@@ -380,22 +387,19 @@ class SMDegrain:
             prefmask = y.std.Expr(f'x {i} < {peak} x {j} > 0 {peak} x {i} - {peak} {j} {i} - / * - ? ?')
 
             return dfft.std.MaskedMerge(clip, prefmask)
-
-        if pref_type == Prefilter.KNLMEANSCL:
+        elif pref_type == Prefilter.KNLMEANSCL:
             knl = knl_means_cl(
                 clip, 7.0, 1, 2, 2, ChannelMode.ALL_PLANES if self.chroma else ChannelMode.LUMA,
                 device_id=self.device_id
             )
 
             return self._ReplaceLowFrequency(knl, clip, 600 * (clip.width / 1920), chroma=self.chroma)
-
-        if pref_type == Prefilter.BM3D:
+        elif pref_type == Prefilter.BM3D:
             return self.bm3d_arch(
                 clip, sigma=10 if isinstance(self.bm3d_arch, _AbstractBM3DCuda) else 8,
                 radius=1, profile=Profile.LOW_COMPLEXITY
             ).clip
-
-        if pref_type == Prefilter.DGDENOISE:
+        elif pref_type == Prefilter.DGDENOISE:
             # dgd = core.dgdecodenv.DGDenoise(pref, 0.10)
 
             # pref = self._ReplaceLowFrequency(dgd, pref, w / 2, chroma=self.chroma)
