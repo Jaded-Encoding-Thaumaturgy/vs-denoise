@@ -283,6 +283,11 @@ class SMDegrain:
 
         self.DCT = 5 if fixFades else 0
 
+        if self.source_type == SourceType.PROGRESSIVE:
+            self.workclip = self.clip
+        else:
+            self.workclip = self.clip.std.SeparateFields(int(self.source_type))
+
         if refine >= 6 or tr > 3:
             self.workclip = depth(self.workclip, 32)
             self.mvtools = self._MVTools.FLOAT_NEW
