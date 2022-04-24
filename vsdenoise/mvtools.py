@@ -159,7 +159,9 @@ class SMDegrain:
 
         if not isinstance(refine, int):
             raise ValueError("SMDegrain: 'refine' has to be an int!")
-        self.refine = max(0, fallback(refine, 3))
+        if refine > 6:
+            raise ValueError("refine > 6 is not supported")
+        self.refine = refine
 
         if mode is None or not isinstance(mode, int):
             raise ValueError("SMDegrain: 'mode' has to be from SMDegrainMode (enum)!")
@@ -211,7 +213,7 @@ class SMDegrain:
 
         if not isinstance(truemotion, bool) and truemotion is not None:
             raise ValueError("SMDegrain: 'truemotion' has to be a boolean or None!")
-        self.truemotion = fallback(truemotion, self.temporalSoften or not self.isHD)
+        self.truemotion = fallback(truemotion, not self.isHD)
 
         if not isinstance(fixFades, bool):
             raise ValueError("SMDegrain: 'fixFades' has to be a boolean!")
@@ -251,13 +253,16 @@ class SMDegrain:
             raise ValueError("SMDegrain: 'rfilter' has to be an int!")
         self.rfilter = rfilter
 
-        self.mfilter = self._check_ref_clip(MFilter)
+        self.DCT = 5 if fixFades else 0
 
         self.scaleCSAD = 2
         self.scaleCSAD -= 1 if clip.format.subsampling_w == 2 and clip.format.subsampling_h == 0 else 0
         self.scaleCSAD -= 1 if not self.isHD else 0
 
-        self.DCT = 5 if fixFades else 0
+        if isinstance(prefilter, vs.VideoNode):
+            self._check_ref_clip(prefilter)
+
+        self.mfilter = self._check_ref_clip(MFilter)
 
     def analyze(
         self, ref: vs.VideoNode | None = None,
@@ -325,21 +330,23 @@ class SMDegrain:
 
         if not isinstance(limit, int) and limit is not None:
             raise ValueError("SMDegrain: 'limit' has to be an int or None!")
+        limit = fallback(limit, 2 if self.isUHD else 255)
 
         if not isinstance(limitC, float) and limitC is not None:
             raise ValueError("SMDegrain: 'limitC' has to be a float or None!")
+        limitC = fallback(limitC, limit)
 
         if not isinstance(limitS, bool):
             raise ValueError("SMDegrain: 'limitS' has to be a boolean!")
 
         thrSAD = self._SceneAnalyzeThreshold(
             round(exp(-101. / (thSAD * 0.83)) * 360),
-            fallback(thSADC, round(thSAD * 0.18875 * exp(self.scaleCSAD * 0.693)))
+            fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)))
 
         )
 
         thrSCD = self._SceneChangeThreshold(
-            fallback(thSCD1, round(pow(16 * 2.5, 2))),
+            fallback(thSCD1, round(0.35 * thSAD + 260)),
             fallback(thSCD2, 130)
         )
 
