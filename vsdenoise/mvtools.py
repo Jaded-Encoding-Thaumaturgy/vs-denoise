@@ -92,6 +92,7 @@ class SMDegrain:
     mode: SMDegrainMode
     source_type: SourceType
     prefilter: Prefilter | vs.VideoNode
+    pel_type: Tuple[PelType, PelType]
     range_in: CRange
     pel: int
     subpixel: int
@@ -127,6 +128,7 @@ class SMDegrain:
         mode: SMDegrainMode = SMDegrainMode.Degrain,
         source_type: SourceType = SourceType.PROGRESSIVE,
         prefilter: Prefilter | vs.VideoNode = Prefilter.AUTO,
+        pel_type: Tuple[PelType, PelType] = (PelType.AUTO, PelType.AUTO),
         range_in: CRange = CRange.LIMITED,
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
@@ -166,6 +168,10 @@ class SMDegrain:
         if prefilter is None or prefilter not in Prefilter and not isinstance(prefilter, vs.VideoNode):
             raise ValueError("SMDegrain: 'prefilter' has to be from Prefilter (enum) or a VideoNode!")
         self.prefilter = prefilter
+
+        if pel_type is None or not isinstance(pel_type, tuple) or any(p is None or p not in PelType for p in pel_type):
+            raise ValueError("SMDegrain: 'source_type' has to be a tuple of PelType (enum)!")
+        self.pel_type = pel_type
 
         if range_in is None or range_in not in CRange:
             raise ValueError("SMDegrain: 'range_in' has to be 0 (limited) or 1 (full)!")
