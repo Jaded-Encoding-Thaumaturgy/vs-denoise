@@ -448,13 +448,13 @@ class SMDegrain:
         if ref is None:
             return None
 
-        assert self.clip.format
+        assert self.workclip.format
         assert ref.format
 
-        if ref.format.id != self.clip.format.id:
+        if ref.format.id != self.workclip.format.id:
             raise ValueError("Ref clip format must match the source clip's!")
 
-        if ref.width != self.clip.width or ref.height != self.clip.height:
+        if ref.width != self.workclip.width or ref.height != self.workclip.height:
             raise ValueError("Ref clip sizes must match the source clip's!")
 
         return ref
