@@ -20,6 +20,7 @@ from .bm3d import BM3D, AbstractBM3D, _AbstractBM3DCuda, Profile
 import vapoursynth as vs
 
 core = vs.core
+blackman_args: Dict[str, Any] = dict(filter_param_a=-0.6, filter_param_b=0.4)
 
 
 # here until vsutil gets a new release
@@ -28,20 +29,19 @@ def get_peak_value(clip: vs.VideoNode, chroma: bool = False) -> float:
     return (0.5 if chroma else 1.) if clip.format.sample_type == vs.FLOAT else (1 << get_depth(clip)) - 1.
 
 
-class Pel(IntEnum):
-    FULL = 1
-    HALF = 2
-    QUARTER = 4
-
-
 class SourceType(IntEnum):
-    BFF = auto()
-    TFF = auto()
-    PROGRESSIVE = auto()
+    BFF = 0
+    TFF = 1
+    PROGRESSIVE = 2
+
+    @property
+    def is_inter(self) -> bool:
+        return self != SourceType.PROGRESSIVE
 
 
 class PelType(IntEnum):
     AUTO = auto()
+    NONE = auto()
     BICUBIC = auto()
     WIENER = auto()
     NNEDI3 = auto()
@@ -81,11 +81,10 @@ class SMDegrain:
     bm3d_arch: Type[AbstractBM3D] = BM3D
     device_id: int = 0
 
-    __vectors: Dict[str, vs.VideoNode] = {}
+    vectors: Dict[str, Any]
 
     clip: vs.VideoNode
 
-    scaleCSAD: int
     isHD: bool
     isUHD: bool
     tr: int
@@ -124,7 +123,8 @@ class SMDegrain:
     @disallow_variable_resolution
     def __init__(
         self, clip: vs.VideoNode,
-        tr: int = 2, refine: int = 3, mode: SMDegrainMode = SMDegrainMode.Degrain,
+        tr: int = 2, refine: int = 3,
+        mode: SMDegrainMode = SMDegrainMode.Degrain,
         source_type: SourceType = SourceType.PROGRESSIVE,
         prefilter: Prefilter | vs.VideoNode = Prefilter.AUTO,
         range_in: CRange = CRange.LIMITED,
@@ -165,8 +165,6 @@ class SMDegrain:
 
         if prefilter is None or prefilter not in Prefilter and not isinstance(prefilter, vs.VideoNode):
             raise ValueError("SMDegrain: 'prefilter' has to be from Prefilter (enum) or a VideoNode!")
-        if isinstance(prefilter, vs.VideoNode):
-            self._check_ref_clip(prefilter)
         self.prefilter = prefilter
 
         if range_in is None or range_in not in CRange:
@@ -213,6 +211,8 @@ class SMDegrain:
         if not isinstance(lowFrequencyRestore, bool) and not isinstance(lowFrequencyRestore, float):
             raise ValueError("SMDegrain: 'lowFrequencyRestore' has to be a float or boolean!")
 
+        self.vectors = vectors
+
         if isinstance(lowFrequencyRestore, bool):
             if lowFrequencyRestore:
                 self.lowFrequencyRestore = 3.46 * (clip.width / 1920.)
@@ -255,6 +255,8 @@ class SMDegrain:
         search: int | None = None, pelsearch: int | None = None,
         searchparam: int | None = None
     ) -> None:
+        ref = fallback(ref, self.workclip)
+
         self._check_ref_clip(ref)
 
         if not isinstance(blksize, int) and blksize is not None:
