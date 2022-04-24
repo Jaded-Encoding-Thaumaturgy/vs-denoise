@@ -111,6 +111,7 @@ class SMDegrain:
     vpadU: int
     mfilter: vs.VideoNode | None
     rfilter: int
+    mvtools: _MVTools
 
     class _SceneAnalyzeThreshold(NamedTuple):
         luma: float
@@ -119,6 +120,39 @@ class SMDegrain:
     class _SceneChangeThreshold(NamedTuple):
         first: int
         second: int
+
+    class _MVTools(Enum):
+        INTEGER = 0
+        FLOAT_OLD = 1
+        FLOAT_NEW = 2
+
+        @property
+        def namespace(self) -> Any:
+            if self == SMDegrain._MVTools.INTEGER:
+                return core.mv
+            else:
+                return core.mvsf
+
+        @property
+        def Super(self) -> Callable[..., vs.VideoNode]:
+            return cast(Callable[..., vs.VideoNode], self.namespace.Super)
+
+        @property
+        def Analyse(self) -> Callable[..., vs.VideoNode]:
+            return cast(Callable[..., vs.VideoNode], self.namespace.Analyse)
+
+        @property
+        def Recalculate(self) -> Callable[..., vs.VideoNode]:
+            return cast(Callable[..., vs.VideoNode], self.namespace.Recalculate)
+
+        def Degrain(self, radius: int | None = None) -> Callable[..., vs.VideoNode]:
+            if radius is None and self != SMDegrain._MVTools.FLOAT_NEW:
+                raise ValueError(f"{self.name}.Degrain needs radius")
+
+            try:
+                return cast(Callable[..., vs.VideoNode], getattr(self, f"Degrain{fallback(radius, '')}"))
+            except BaseException:
+                raise ValueError(f"{self.name}.Degrain doesn't support a radius of {radius}")
 
     @disallow_variable_format
     @disallow_variable_resolution
@@ -249,6 +283,29 @@ class SMDegrain:
 
         self.DCT = 5 if fixFades else 0
 
+        if refine >= 6 or tr > 3:
+            self.workclip = depth(self.workclip, 32)
+            self.mvtools = self._MVTools.FLOAT_NEW
+            if not hasattr(core, 'mvsf'):
+                raise ImportError(
+                    "SMDegrain: With the current settings, the processing has to be done in float precision, but you're"
+                    "missing mvsf.\n\tPlease download it from: https://github.com/IFeelBloated/vapoursynth-mvtools-sf"
+                )
+            if not hasattr(core.mvsf, 'Degrain'):
+                if tr > 24:
+                    raise ImportError(
+                        "SMDegrain: With the current settings, (temporal radius > 24) you're gonna need the latest "
+                        "master of mvsf and you're using an older version."
+                        "\n\tPlease build it from: https://github.com/IFeelBloated/vapoursynth-mvtools-sf"
+                    )
+                self.mvtools = self._MVTools.FLOAT_OLD
+        else:
+            if not hasattr(core, 'mv'):
+                raise ImportError(
+                    "SMDegrain: You're missing mvtools."
+                    "\n\tPlease download it from: https://github.com/dubhater/vapoursynth-mvtools"
+                )
+            self.mvtools = self._MVTools.INTEGER
 
         if isinstance(prefilter, vs.VideoNode):
             self._check_ref_clip(prefilter)
