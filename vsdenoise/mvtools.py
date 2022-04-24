@@ -102,7 +102,6 @@ class SMDegrain:
     mvplane: int
     refinemotion: bool
     truemotion: bool
-    temporalSoften: bool
     rangeConversion: float
     lowFrequencyRestore: float
     DCTFlicker: float
@@ -131,12 +130,11 @@ class SMDegrain:
         range_in: CRange = CRange.LIMITED,
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
-        refinemotion: bool = False, truemotion: bool | None = None,
-        temporalSoften: bool = False, rangeConversion: float = 5.0,
+        refinemotion: bool = False, truemotion: bool | None = None, rangeConversion: float = 5.0,
         MFilter: vs.VideoNode | None = None, lowFrequencyRestore: float | bool = False,
         DCTFlicker: bool = False, fixFades: bool = False,
         hpad: int | None = None, vpad: int | None = None,
-        rfilter: int = 3, UHDhalf: bool = True
+        rfilter: int = 3, vectors: Dict[str, Any] = {}
     ) -> None:
         assert clip.format
 
@@ -144,14 +142,8 @@ class SMDegrain:
             raise ValueError("SMDegrain: Only GRAY or YUV format clips supported")
         self.clip = clip
 
-        if not isinstance(UHDhalf, bool):
-            raise ValueError("SMDegrain: 'UHDhalf' has to be a boolean!")
-
         self.isHD = clip.width >= 1100 or clip.height >= 600
-        if self.clip.width >= 2600 or self.clip.height >= 1500:
-            self.isUHD, self.UHDhalf = True, UHDhalf
-        else:
-            self.isUHD = self.UHDhalf = False
+        self.isUHD = self.clip.width >= 2600 or self.clip.height >= 1500
 
         if not isinstance(tr, int):
             raise ValueError("SMDegrain: 'tr' has to be an int!")
@@ -207,10 +199,6 @@ class SMDegrain:
             raise ValueError("SMDegrain: 'refinemotion' has to be a boolean!")
         self.refinemotion = refinemotion
 
-        if not isinstance(temporalSoften, bool):
-            raise ValueError("SMDegrain: 'temporalSoften' has to be a boolean!")
-        self.temporalSoften = temporalSoften
-
         if not isinstance(truemotion, bool) and truemotion is not None:
             raise ValueError("SMDegrain: 'truemotion' has to be a boolean or None!")
         self.truemotion = fallback(truemotion, not self.isHD)
@@ -255,9 +243,6 @@ class SMDegrain:
 
         self.DCT = 5 if fixFades else 0
 
-        self.scaleCSAD = 2
-        self.scaleCSAD -= 1 if clip.format.subsampling_w == 2 and clip.format.subsampling_h == 0 else 0
-        self.scaleCSAD -= 1 if not self.isHD else 0
 
         if isinstance(prefilter, vs.VideoNode):
             self._check_ref_clip(prefilter)
