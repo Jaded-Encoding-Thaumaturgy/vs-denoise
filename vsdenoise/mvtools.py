@@ -4,14 +4,14 @@ This module implements wrappers for mvtool
 
 from __future__ import annotations
 
-from enum import IntEnum, auto
+from enum import Enum, IntEnum, auto
 from math import exp, sqrt, pi, log, sin, e
-from typing import Dict, Any, NamedTuple, Sequence, Type, Tuple, List
+from typing import Dict, Any, NamedTuple, Sequence, Type, Tuple, List, Callable, cast
 
-from havsfunc import MinBlur
+from havsfunc import MinBlur, DitherLumaRebuild
 from vsutil import (
-    get_y, get_depth, scale_value, fallback, Range as CRange,  # get_peak_value,
-    disallow_variable_format, disallow_variable_resolution
+    Dither, get_y, get_depth, scale_value, fallback, Range as CRange,  # get_peak_value,
+    disallow_variable_format, disallow_variable_resolution, depth
 )
 
 from .knlm import knl_means_cl, ChannelMode
