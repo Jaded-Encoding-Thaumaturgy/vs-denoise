@@ -416,51 +416,18 @@ class MVTools:
         if self.mvtools == MVTools._MVTools.FLOAT_NEW:
             vmulti = self.mvtools.Analyse(super_search, radius=t2, **analyse_args)
 
-            if self.refinemotion:
-                for i in range(self.refine):
-                    vmulti = self.mvtools.Recalculate(
-                        super_recalculate, vmulti, tr=t2, **(
-                            recalculate_args | dict(blksize=halfblocksize ** i, overlap=halfblocksize ** (i + 1))
-                        )
-                    )
-
             if self.source_type.is_inter:
                 vmulti = vmulti.std.SelectEvery(4, 2, 3)
 
-            self.vectors['bv1'] = vmulti.std.SelectEvery(self.tr * 2, 0)
-            self.vectors['fv1'] = vmulti.std.SelectEvery(self.tr * 2, 1)
-            self.vectors['bv3'] = vmulti.std.SelectEvery(self.tr * 2, 4)
-            self.vectors['fv3'] = vmulti.std.SelectEvery(self.tr * 2, 5)
-            self.vectors['bv5'] = vmulti.std.SelectEvery(self.tr * 2, 8)
-            self.vectors['fv5'] = vmulti.std.SelectEvery(self.tr * 2, 9)
-
-            if self.source_type.is_inter:
-                self.vectors['bv2'] = self.vectors['bv1']
-                self.vectors['fv2'] = self.vectors['fv1']
-                self.vectors['bv6'] = self.vectors['bv3']
-                self.vectors['fv6'] = self.vectors['fv3']
-                self.vectors['bv10'] = self.vectors['bv5']
-                self.vectors['fv10'] = self.vectors['fv5']
-
-                self.vectors['bv4'] = vmulti.std.SelectEvery(self.tr * 2, 2)
-                self.vectors['fv4'] = vmulti.std.SelectEvery(self.tr * 2, 3)
-                self.vectors['bv8'] = vmulti.std.SelectEvery(self.tr * 2, 6)
-                self.vectors['fv8'] = vmulti.std.SelectEvery(self.tr * 2, 7)
-                self.vectors['bv12'] = vmulti.std.SelectEvery(self.tr * 2, 10)
-                self.vectors['fv12'] = vmulti.std.SelectEvery(self.tr * 2, 11)
-            else:
-                self.vectors['bv8'] = self.vectors['fv8'] = None
-                self.vectors['bv10'] = self.vectors['fv10'] = None
-                self.vectors['bv12'] = self.vectors['fv12'] = None
-
-                self.vectors['bv2'] = vmulti.std.SelectEvery(self.tr * 2, 2)
-                self.vectors['fv2'] = vmulti.std.SelectEvery(self.tr * 2, 3)
-                self.vectors['bv4'] = vmulti.std.SelectEvery(self.tr * 2, 6)
-                self.vectors['fv4'] = vmulti.std.SelectEvery(self.tr * 2, 7)
-                self.vectors['bv6'] = vmulti.std.SelectEvery(self.tr * 2, 10)
-                self.vectors['fv6'] = vmulti.std.SelectEvery(self.tr * 2, 11)
-
             self.vectors['vmulti'] = vmulti
+
+            for i in range(self.refine):
+                recalculate_args.update(
+                    blksize=blocksize / 2 ** i, overlap=blocksize / 2 ** (i + 1)
+                )
+                self.vectors['vmulti'] = self.mvtools.Recalculate(
+                    super_recalculate, self.vectors['vmulti'], **recalculate_args
+                )
         else:
             def _add_vector(delta: int, recalculate: bool = False) -> None:
                 if recalculate:
