@@ -561,9 +561,7 @@ class MVTools:
         self, ref: vs.VideoNode | None = None,
         thSAD: int = 300, thSADC: int | None = None,
         thSCD1: int | None = None, thSCD2: int = 130,
-        limit: int | None = None, limitC: float | None = None,
-        lowFrequencyRestore: float | bool = False,
-        DCTFlicker: bool = False, fixFades: bool = False,
+        limit: int | None = None, limitC: float | None = None
     ) -> vs.VideoNode:
         self._check_ref_clip(ref)
 
@@ -586,22 +584,6 @@ class MVTools:
         if not isinstance(limitC, float) and limitC is not None:
             raise ValueError("MVTools.degrain: 'limitC' has to be a float or None!")
         limitC = fallback(limitC, limit)
-
-        if not isinstance(DCTFlicker, bool):
-            raise ValueError("MVTools: 'DCTFlicker' has to be a boolean!")
-
-        if not isinstance(lowFrequencyRestore, bool) and not isinstance(lowFrequencyRestore, float):
-            raise ValueError("MVTools: 'lowFrequencyRestore' has to be a float or boolean!")
-
-        if isinstance(lowFrequencyRestore, bool):
-            if lowFrequencyRestore:
-                lowFrequencyRestore = 3.46 * (self.workclip.width / 1920.)
-            else:
-                lowFrequencyRestore = 0
-        else:
-            lowFrequencyRestore = (
-                max(self.workclip.width, self.workclip.height) * 2
-            ) / ((sqrt(log(2) / 2) * max(lowFrequencyRestore, 50)) * 2 * pi)
 
         thrSAD = self._SceneAnalyzeThreshold(
             round(exp(-101. / (thSAD * 0.83)) * 360),
@@ -766,10 +748,6 @@ class MVTools:
                 pref = pref.retinex.MSRCP(None, self.rangeConversion, None, False, True)
             else:
                 pref = depth(pref, 8, range=CRange.FULL, range_in=CRange.LIMITED, dither_type=Dither.NONE)
-
-        # Low Frequency expansion (higher SAD -> more protection)
-        # if self.lowFrequencyRestore > 0.0:
-        #     pref = pref8.ex_unsharp(thSAD / 1800., Fc=w / 8., th=0.0)
 
         return pref
 
