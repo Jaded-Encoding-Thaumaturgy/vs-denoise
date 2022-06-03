@@ -5,20 +5,19 @@ This module implements wrappers for mvtool
 from __future__ import annotations
 
 from enum import Enum, IntEnum, auto
-from math import exp, sqrt, pi, log, sin, e, ceil
-from typing import Dict, Any, NamedTuple, Sequence, Type, Tuple, List, Callable, cast
-
-from havsfunc import MinBlur, DitherLumaRebuild
-from vsutil import (
-    Dither, get_y, get_depth, scale_value, fallback, Range as CRange,  # get_peak_value,
-    disallow_variable_format, disallow_variable_resolution, depth
-)
-
-from .types import LambdaVSFunction, KwArgsT
-from .knlm import knl_means_cl, ChannelMode
-from .bm3d import BM3D, AbstractBM3D, _AbstractBM3DCuda, Profile
+from math import ceil, e, exp, log, pi, sin, sqrt
+from typing import Any, Callable, Dict, List, NamedTuple, Sequence, Tuple, Type, cast
 
 import vapoursynth as vs
+from havsfunc import DitherLumaRebuild, MinBlur
+from vsutil import (
+    Dither, depth, disallow_variable_format, disallow_variable_resolution,
+    fallback, get_depth, get_y, scale_value, Range as CRange  # get_peak_value,
+)
+
+from .bm3d import BM3D, AbstractBM3D, Profile, _AbstractBM3DCuda
+from .knlm import ChannelMode, knl_means_cl
+from .types import KwArgsT, LambdaVSFunction
 
 core = vs.core
 blackman_args: Dict[str, Any] = dict(filter_param_a=-0.6, filter_param_b=0.4)
