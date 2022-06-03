@@ -507,12 +507,18 @@ class MVTools:
             if self.source_type.is_inter or self.tr > 1:
                 _add_vector(2)
 
-                for i in range(1, 13):
             if self.refine:
+                for i in range(1, t2 + 1):
                     if self.vectors[f'bv{i}'] and self.vectors[f'fv{i}']:
-                        for j in range(self.refine):
-                            recalculate_args.update(blksize=blksize / 2 ** j, overlap=blksize / 2 ** (j + 1))
-                            _add_vector(j, True)
+                        for j in range(1, self.refine):
+
+                            if 4 <= (blocksize / 2 ** j) <= 128:
+                                recalculate_args.update(
+                                    blksize=blocksize / 2 ** j, overlap=blocksize / 2 ** (j + 1)
+                                )
+                                _add_vector(i, True)
+                            else:
+                                break
 
         self.vectors['super_render'] = super_render
 
