@@ -582,7 +582,6 @@ class MVTools:
         self, ref: vs.VideoNode | None = None,
         thSAD: int = 300, thSADC: int | None = None,
         thSCD1: int | None = None, thSCD2: int = 130,
-        contrasharpening: bool | float | vs.VideoNode | None = None,
         limit: int | None = None, limitC: float | None = None
     ) -> vs.VideoNode:
         ref = fallback(ref, self.workclip)
@@ -600,11 +599,6 @@ class MVTools:
 
         if not isinstance(thSCD2, int):
             raise ValueError("MVTools.degrain: 'thSCD2' has to be an int!")
-
-        if type(contrasharpening) not in {bool, float, type(None), vs.VideoNode}:
-            raise ValueError("MVTools.degrain: 'contrasharpening' has to be a boolean or None!")
-        elif isinstance(contrasharpening, vs.VideoNode) and contrasharpening.format != self.clip.format:
-            raise ValueError("MVTools.degrain: 'All ref clips formats must be the same as the source clip'")
 
         if not isinstance(limit, int) and limit is not None:
             raise ValueError("MVTools.degrain: 'limit' has to be an int or None!")
