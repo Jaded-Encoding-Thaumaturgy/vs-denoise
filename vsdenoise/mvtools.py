@@ -344,7 +344,9 @@ class MVTools:
         common_args: Dict[str, Any] = dict(
             sharp=min(self.subpixel, 2), pel=self.pel, vpad=self.vpadU, hpad=self.hpadU, chroma=self.chroma
         )
-        super_render_args: Dict[str, Any] = common_args | dict(hpad=self.hpad, vpad=self.vpad, chroma=not self.is_gray, levels=1)
+        super_render_args: Dict[str, Any] = common_args | dict(
+            hpad=self.hpad, vpad=self.vpad, chroma=not self.is_gray, levels=1
+        )
 
         if pelclip or pelclip2:
             common_args |= dict(pelclip=pelclip)
