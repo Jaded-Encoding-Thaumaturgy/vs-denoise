@@ -584,8 +584,6 @@ class MVTools:
         thSCD1: int | None = None, thSCD2: int = 130,
         limit: int | None = None, limitC: float | None = None
     ) -> vs.VideoNode:
-        ref = fallback(ref, self.workclip)
-
         self._check_ref_clip(ref)
 
         if not isinstance(thSAD, int):
