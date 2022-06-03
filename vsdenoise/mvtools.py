@@ -315,7 +315,7 @@ class MVTools:
         self, ref: vs.VideoNode | None = None,
         overlap: int | None = None, blksize: int | None = None,
         search: int | None = None, pelsearch: int | None = None,
-        searchparam: int | None = None
+        searchparam: int | None = None, force: bool = False
     ) -> MVTools:
         ref = fallback(ref, self.workclip)
 
@@ -467,9 +467,7 @@ class MVTools:
 
                 for k, vect in vects.items():
                     key = f'{k}v{delta}'
-                    if key in self.vectors and self.vectors[key]:
-                        self.vectors[key] = vect.std.Merge(self.vectors[key])
-                    else:
+                    if not (key in self.vectors and self.vectors[key]):
                         self.vectors[key] = vect
 
             if self.source_type.is_inter and self.tr > 5:
