@@ -379,12 +379,13 @@ class MVTools:
             )
             super_render = self.mvtools.Super(
                 self.workclip, pel=self.pel, sharp=min(self.subpixel, 2),
-                chroma=not self.is_gray, hpad=self.hpad, vpad=self.vpad, levels=1
+                chroma=not self.is_gray, hpad=self.hpad, vpad=self.vpad
             )
             if self.refinemotion:
                 super_recalculate = self.mvtools.Super(
-                    pref, pel=self.pel, sharp=min(self.subpixel, 2), chroma=self.chroma, hpad=self.hpadU,
-                    vpad=self.vpadU, levels=1
+                    pref, pel=self.pel, sharp=min(self.subpixel, 2),
+                    chroma=self.chroma, hpad=self.hpadU,
+                    vpad=self.vpadU
                 )
 
         recalculate_SAD = round(exp(-101. / (150 * 0.83)) * 360)
@@ -518,7 +519,7 @@ class MVTools:
 
         if not self.source_type.is_inter:
             vectors_backward.append(self.vectors['bv1'])
-            vectors_forward.append(self.vectors['bv1'])
+            vectors_forward.append(self.vectors['fv1'])
 
         if self.source_type.is_inter or self.tr > 1:
             vectors_backward.append(self.vectors['bv2'])
