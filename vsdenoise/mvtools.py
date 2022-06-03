@@ -61,18 +61,6 @@ class Prefilter(IntEnum):
     NONE = 9
 
 
-class DegrainMode(IntEnum):
-    Degrain = auto()
-    Median = auto()
-    FluxSmooth = auto()
-    ML3DEx = auto()
-    Hybrid = auto()
-    TL3D = auto()
-    STWM = auto()
-    IQMT = auto()
-    Gauss = auto()
-
-
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
     analyze_args: Dict[str, Any]
@@ -603,8 +591,7 @@ class MVTools:
         thSAD: int = 300, thSADC: int | None = None,
         thSCD1: int | None = None, thSCD2: int = 130,
         contrasharpening: bool | float | vs.VideoNode | None = None,
-        limit: int | None = None, limitC: float | None = None, limitS: bool = True,
-        mode: DegrainMode = DegrainMode.Degrain
+        limit: int | None = None, limitC: float | None = None, limitS: bool = True
     ) -> None:
         if not isinstance(thSAD, int):
             raise ValueError("MVTools.degrain: 'thSAD' has to be an int!")
@@ -633,9 +620,6 @@ class MVTools:
 
         if not isinstance(limitS, bool):
             raise ValueError("MVTools.degrain: 'limitS' has to be a boolean!")
-
-        if mode is None or not isinstance(mode, int):
-            raise ValueError("MVTools.degrain: 'mode' has to be from MVTools.degrainMode (enum)!")
 
         thrSAD = self._SceneAnalyzeThreshold(
             round(exp(-101. / (thSAD * 0.83)) * 360),
