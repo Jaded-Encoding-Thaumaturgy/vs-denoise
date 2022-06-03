@@ -60,7 +60,7 @@ class Prefilter(IntEnum):
     NONE = 9
 
 
-class SMDegrainMode(IntEnum):
+class DegrainMode(IntEnum):
     Degrain = auto()
     Median = auto()
     FluxSmooth = auto()
@@ -72,8 +72,8 @@ class SMDegrainMode(IntEnum):
     Gauss = auto()
 
 
-class SMDegrain:
-    """Simple MVTools Degrain with motion analysis"""
+class MVTools:
+    """MVTools wrapper for motion analysis / degrain / compensation"""
     analyze_args: Dict[str, Any]
     recalculate_args: Dict[str, Any]
     degrain_args: Dict[str, Any]
@@ -89,7 +89,6 @@ class SMDegrain:
     isUHD: bool
     tr: int
     refine: int
-    mode: SMDegrainMode
     source_type: SourceType
     prefilter: Prefilter | vs.VideoNode
     pel_type: Tuple[PelType, PelType]
@@ -128,7 +127,7 @@ class SMDegrain:
 
         @property
         def namespace(self) -> Any:
-            if self == SMDegrain._MVTools.INTEGER:
+            if self == MVTools._MVTools.INTEGER:
                 return core.mv
             else:
                 return core.mvsf
@@ -146,7 +145,7 @@ class SMDegrain:
             return cast(Callable[..., vs.VideoNode], self.namespace.Recalculate)
 
         def Degrain(self, radius: int | None = None) -> Callable[..., vs.VideoNode]:
-            if radius is None and self != SMDegrain._MVTools.FLOAT_NEW:
+            if radius is None and self != MVTools._MVTools.FLOAT_NEW:
                 raise ValueError(f"{self.name}.Degrain needs radius")
 
             try:
@@ -159,7 +158,6 @@ class SMDegrain:
     def __init__(
         self, clip: vs.VideoNode,
         tr: int = 2, refine: int = 3,
-        mode: SMDegrainMode = SMDegrainMode.Degrain,
         source_type: SourceType = SourceType.PROGRESSIVE,
         prefilter: Prefilter | vs.VideoNode = Prefilter.AUTO,
         pel_type: Tuple[PelType, PelType] = (PelType.AUTO, PelType.AUTO),
@@ -175,48 +173,44 @@ class SMDegrain:
         assert clip.format
 
         if clip.format.color_family not in {vs.GRAY, vs.YUV}:
-            raise ValueError("SMDegrain: Only GRAY or YUV format clips supported")
+            raise ValueError("MVTools: Only GRAY or YUV format clips supported")
         self.clip = clip
 
         self.isHD = clip.width >= 1100 or clip.height >= 600
         self.isUHD = self.clip.width >= 2600 or self.clip.height >= 1500
 
         if not isinstance(tr, int):
-            raise ValueError("SMDegrain: 'tr' has to be an int!")
+            raise ValueError("MVTools: 'tr' has to be an int!")
         self.tr = tr
 
         if not isinstance(refine, int):
-            raise ValueError("SMDegrain: 'refine' has to be an int!")
+            raise ValueError("MVTools: 'refine' has to be an int!")
         if refine > 6:
             raise ValueError("refine > 6 is not supported")
         self.refine = refine
 
-        if mode is None or not isinstance(mode, int):
-            raise ValueError("SMDegrain: 'mode' has to be from SMDegrainMode (enum)!")
-        self.mode = mode
-
         if source_type is None or source_type not in SourceType:
-            raise ValueError("SMDegrain: 'source_type' has to be from SourceType (enum)!")
+            raise ValueError("MVTools: 'source_type' has to be from SourceType (enum)!")
         self.source_type = source_type
 
         if prefilter is None or prefilter not in Prefilter and not isinstance(prefilter, vs.VideoNode):
-            raise ValueError("SMDegrain: 'prefilter' has to be from Prefilter (enum) or a VideoNode!")
+            raise ValueError("MVTools: 'prefilter' has to be from Prefilter (enum) or a VideoNode!")
         self.prefilter = prefilter
 
         if pel_type is None or not isinstance(pel_type, tuple) or any(p is None or p not in PelType for p in pel_type):
-            raise ValueError("SMDegrain: 'source_type' has to be a tuple of PelType (enum)!")
+            raise ValueError("MVTools: 'source_type' has to be a tuple of PelType (enum)!")
         self.pel_type = pel_type
 
         if range_in is None or range_in not in CRange:
-            raise ValueError("SMDegrain: 'range_in' has to be 0 (limited) or 1 (full)!")
+            raise ValueError("MVTools: 'range_in' has to be 0 (limited) or 1 (full)!")
         self.range_in = range_in
 
         if not isinstance(pel, int) and pel is not None:
-            raise ValueError("SMDegrain: 'pel' has to be an int or None!")
+            raise ValueError("MVTools: 'pel' has to be an int or None!")
         self.pel = fallback(pel, 1 + int(self.isHD))
 
         if not isinstance(subpixel, int):
-            raise ValueError("SMDegrain: 'subpixel' has to be an int!")
+            raise ValueError("MVTools: 'subpixel' has to be an int!")
         self.subpixel = subpixel
 
         if planes is not None and isinstance(planes, int):
@@ -234,22 +228,22 @@ class SMDegrain:
         self.planes, self.mvplane = self._get_planes(planes)
 
         if not isinstance(refinemotion, bool):
-            raise ValueError("SMDegrain: 'refinemotion' has to be a boolean!")
+            raise ValueError("MVTools: 'refinemotion' has to be a boolean!")
         self.refinemotion = refinemotion
 
         if not isinstance(truemotion, bool) and truemotion is not None:
-            raise ValueError("SMDegrain: 'truemotion' has to be a boolean or None!")
+            raise ValueError("MVTools: 'truemotion' has to be a boolean or None!")
         self.truemotion = fallback(truemotion, not self.isHD)
 
         if not isinstance(fixFades, bool):
-            raise ValueError("SMDegrain: 'fixFades' has to be a boolean!")
+            raise ValueError("MVTools: 'fixFades' has to be a boolean!")
 
         if not isinstance(rangeConversion, float):
-            raise ValueError("SMDegrain: 'rangeConversion' has to be a float!")
+            raise ValueError("MVTools: 'rangeConversion' has to be a float!")
         self.rangeConversion = rangeConversion
 
         if not isinstance(lowFrequencyRestore, bool) and not isinstance(lowFrequencyRestore, float):
-            raise ValueError("SMDegrain: 'lowFrequencyRestore' has to be a float or boolean!")
+            raise ValueError("MVTools: 'lowFrequencyRestore' has to be a float or boolean!")
 
         self.vectors = vectors
 
@@ -264,21 +258,21 @@ class SMDegrain:
             ) / ((sqrt(log(2) / 2) * max(lowFrequencyRestore, 50)) * 2 * pi)
 
         if not isinstance(DCTFlicker, bool):
-            raise ValueError("SMDegrain: 'DCTFlicker' has to be a boolean!")
+            raise ValueError("MVTools: 'DCTFlicker' has to be a boolean!")
         self.DCTFlicker = DCTFlicker
 
         if not isinstance(hpad, int) and pel is not None:
-            raise ValueError("SMDegrain: 'hpad' has to be an int or None!")
+            raise ValueError("MVTools: 'hpad' has to be an int or None!")
         self.hpad = fallback(hpad, 0 if self.isHD else 8)
         self.hpadU = self.hpad // 2 if self.isUHD else self.hpad
 
         if not isinstance(vpad, int) and pel is not None:
-            raise ValueError("SMDegrain: 'vpad' has to be an int or None!")
+            raise ValueError("MVTools: 'vpad' has to be an int or None!")
         self.vpad = fallback(vpad, 0 if self.isHD else 8)
         self.vpadU = self.vpad // 2 if self.isUHD else self.vpad
 
         if not isinstance(rfilter, int):
-            raise ValueError("SMDegrain: 'rfilter' has to be an int!")
+            raise ValueError("MVTools: 'rfilter' has to be an int!")
         self.rfilter = rfilter
 
         self.DCT = 5 if fixFades else 0
@@ -293,13 +287,13 @@ class SMDegrain:
             self.mvtools = self._MVTools.FLOAT_NEW
             if not hasattr(core, 'mvsf'):
                 raise ImportError(
-                    "SMDegrain: With the current settings, the processing has to be done in float precision, but you're"
+                    "MVTools: With the current settings, the processing has to be done in float precision, but you're"
                     "missing mvsf.\n\tPlease download it from: https://github.com/IFeelBloated/vapoursynth-mvtools-sf"
                 )
             if not hasattr(core.mvsf, 'Degrain'):
                 if tr > 24:
                     raise ImportError(
-                        "SMDegrain: With the current settings, (temporal radius > 24) you're gonna need the latest "
+                        "MVTools: With the current settings, (temporal radius > 24) you're gonna need the latest "
                         "master of mvsf and you're using an older version."
                         "\n\tPlease build it from: https://github.com/IFeelBloated/vapoursynth-mvtools-sf"
                     )
@@ -307,7 +301,7 @@ class SMDegrain:
         else:
             if not hasattr(core, 'mv'):
                 raise ImportError(
-                    "SMDegrain: You're missing mvtools."
+                    "MVTools: You're missing mvtools."
                     "\n\tPlease download it from: https://github.com/dubhater/vapoursynth-mvtools"
                 )
             self.mvtools = self._MVTools.INTEGER
@@ -328,19 +322,19 @@ class SMDegrain:
         self._check_ref_clip(ref)
 
         if not isinstance(blksize, int) and blksize is not None:
-            raise ValueError("SMDegrain.analyse: 'blksize' has to be an int or None!")
+            raise ValueError("MVTools.analyse: 'blksize' has to be an int or None!")
 
         if not isinstance(overlap, int) and overlap is not None:
-            raise ValueError("SMDegrain.analyse: 'overlap' has to be an int or None!")
+            raise ValueError("MVTools.analyse: 'overlap' has to be an int or None!")
 
         if not isinstance(search, int) and search is not None:
-            raise ValueError("SMDegrain.analyse: 'search' has to be an int or None!")
+            raise ValueError("MVTools.analyse: 'search' has to be an int or None!")
 
         if not isinstance(pelsearch, int) and pelsearch is not None:
-            raise ValueError("SMDegrain.analyse: 'pelsearch' has to be an int or None!")
+            raise ValueError("MVTools.analyse: 'pelsearch' has to be an int or None!")
 
         if not isinstance(searchparam, int) and searchparam is not None:
-            raise ValueError("SMDegrain.analyse: 'searchparam' has to be an int or None!")
+            raise ValueError("MVTools.analyse: 'searchparam' has to be an int or None!")
 
         searchparam = fallback(
             searchparam, (2 if self.isUHD else 5) if self.refinemotion and self.truemotion else (1 if self.isUHD else 2)
@@ -406,7 +400,7 @@ class SMDegrain:
             dct=5, searchparam=searchparamr, thSAD=recalculate_SAD
         )
 
-        if self.mvtools == SMDegrain._MVTools.FLOAT_NEW:
+        if self.mvtools == MVTools._MVTools.FLOAT_NEW:
             vmulti = self.mvtools.Analyse(super_search, radius=t2, **analyse_args)
 
             if self.refinemotion:
@@ -517,34 +511,38 @@ class SMDegrain:
         thSCD1: int | None = None, thSCD2: int = 130,
         contrasharpening: bool | float | vs.VideoNode | None = None,
         limit: int | None = None, limitC: float | None = None, limitS: bool = True,
+        mode: DegrainMode = DegrainMode.Degrain
     ) -> None:
         if not isinstance(thSAD, int):
-            raise ValueError("SMDegrain: 'thSAD' has to be an int!")
+            raise ValueError("MVTools.degrain: 'thSAD' has to be an int!")
 
         if not isinstance(thSADC, int) and thSADC is not None:
-            raise ValueError("SMDegrain: 'thSADC' has to be an int or None!")
+            raise ValueError("MVTools.degrain: 'thSADC' has to be an int or None!")
 
         if not isinstance(thSCD1, int) and thSCD1 is not None:
-            raise ValueError("SMDegrain: 'thSCD1' has to be an int or None!")
+            raise ValueError("MVTools.degrain: 'thSCD1' has to be an int or None!")
 
         if not isinstance(thSCD2, int):
-            raise ValueError("SMDegrain: 'thSCD2' has to be an int!")
+            raise ValueError("MVTools.degrain: 'thSCD2' has to be an int!")
 
         if type(contrasharpening) not in {bool, float, type(None), vs.VideoNode}:
-            raise ValueError("SMDegrain: 'contrasharpening' has to be a boolean or None!")
+            raise ValueError("MVTools.degrain: 'contrasharpening' has to be a boolean or None!")
         elif isinstance(contrasharpening, vs.VideoNode) and contrasharpening.format != self.clip.format:
-            raise ValueError("SMDegrain: 'All ref clips formats must be the same as the source clip'")
+            raise ValueError("MVTools.degrain: 'All ref clips formats must be the same as the source clip'")
 
         if not isinstance(limit, int) and limit is not None:
-            raise ValueError("SMDegrain: 'limit' has to be an int or None!")
+            raise ValueError("MVTools.degrain: 'limit' has to be an int or None!")
         limit = fallback(limit, 2 if self.isUHD else 255)
 
         if not isinstance(limitC, float) and limitC is not None:
-            raise ValueError("SMDegrain: 'limitC' has to be a float or None!")
+            raise ValueError("MVTools.degrain: 'limitC' has to be a float or None!")
         limitC = fallback(limitC, limit)
 
         if not isinstance(limitS, bool):
-            raise ValueError("SMDegrain: 'limitS' has to be a boolean!")
+            raise ValueError("MVTools.degrain: 'limitS' has to be a boolean!")
+
+        if mode is None or not isinstance(mode, int):
+            raise ValueError("MVTools.degrain: 'mode' has to be from MVTools.degrainMode (enum)!")
 
         thrSAD = self._SceneAnalyzeThreshold(
             round(exp(-101. / (thSAD * 0.83)) * 360),
