@@ -603,7 +603,7 @@ class MVTools:
         thSAD: int = 300, thSADC: int | None = None,
         thSCD1: int | None = None, thSCD2: int = 130,
         contrasharpening: bool | float | vs.VideoNode | None = None,
-        limit: int | None = None, limitC: float | None = None, limitS: bool = True
+        limit: int | None = None, limitC: float | None = None
     ) -> None:
         if not isinstance(thSAD, int):
             raise ValueError("MVTools.degrain: 'thSAD' has to be an int!")
@@ -629,9 +629,6 @@ class MVTools:
         if not isinstance(limitC, float) and limitC is not None:
             raise ValueError("MVTools.degrain: 'limitC' has to be a float or None!")
         limitC = fallback(limitC, limit)
-
-        if not isinstance(limitS, bool):
-            raise ValueError("MVTools.degrain: 'limitS' has to be a boolean!")
 
         thrSAD = self._SceneAnalyzeThreshold(
             round(exp(-101. / (thSAD * 0.83)) * 360),
