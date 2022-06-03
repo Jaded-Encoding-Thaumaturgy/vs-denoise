@@ -207,7 +207,7 @@ class MVTools:
 
         if not isinstance(pel, int) and pel is not None:
             raise ValueError("MVTools: 'pel' has to be an int or None!")
-        self.pel = fallback(pel, 1 + int(self.isHD))
+        self.pel = fallback(pel, 1 + int(not self.isHD))
 
         if not isinstance(subpixel, int):
             raise ValueError("MVTools: 'subpixel' has to be an int!")
