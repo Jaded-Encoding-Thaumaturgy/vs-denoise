@@ -95,7 +95,6 @@ class MVTools:
     hpadU: int
     vpad: int
     vpadU: int
-    mfilter: vs.VideoNode | None
     rfilter: int
     mvtools: _MVTools
 
@@ -166,7 +165,7 @@ class MVTools:
         planes: int | Sequence[int] | None = None,
         highprecision: bool = False,
         truemotion: bool | None = None, rangeConversion: float = 5.0,
-        MFilter: vs.VideoNode | None = None, lowFrequencyRestore: float | bool = False,
+        lowFrequencyRestore: float | bool = False,
         DCTFlicker: bool = False, fixFades: bool = False,
         hpad: int | None = None, vpad: int | None = None,
         rfilter: int = 3, vectors: Dict[str, Any] = {}
@@ -308,8 +307,6 @@ class MVTools:
 
         if isinstance(prefilter, vs.VideoNode):
             self._check_ref_clip(prefilter)
-
-        self.mfilter = self._check_ref_clip(MFilter)
 
     def analyze(
         self, ref: vs.VideoNode | None = None,
@@ -654,7 +651,7 @@ class MVTools:
                     'thsad2': [thrSAD.luma / 2, thrSAD.chroma / 2]
                 })
 
-        to_degrain = self.mfilter or ref
+        to_degrain = ref or self.workclip
 
         if self.mvtools != MVTools._MVTools.FLOAT_NEW:
             degrain_vectors = []
