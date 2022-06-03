@@ -125,7 +125,10 @@ class MVTools:
 
         @property
         def Analyse(self) -> Callable[..., vs.VideoNode]:
-            return cast(Callable[..., vs.VideoNode], self.namespace.Analyse)
+            if self == MVTools._MVTools.FLOAT_NEW:
+                return cast(Callable[..., vs.VideoNode], self.namespace.Analyze)
+            else:
+                return cast(Callable[..., vs.VideoNode], self.namespace.Analyse)
 
         @property
         def Recalculate(self) -> Callable[..., vs.VideoNode]:
