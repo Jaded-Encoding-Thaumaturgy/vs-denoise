@@ -139,6 +139,9 @@ class MVTools:
             return cast(Callable[..., vs.VideoNode], self.namespace.Compensate)
 
         @property
+        def Mask(self) -> Callable[..., vs.VideoNode]:
+            return cast(Callable[..., vs.VideoNode], self.namespace.Mask)
+
         def Degrain(self, radius: int | None = None) -> Callable[..., vs.VideoNode]:
             if radius is None and self != MVTools._MVTools.FLOAT_NEW:
                 raise ValueError(f"{self.name}.Degrain needs radius")
