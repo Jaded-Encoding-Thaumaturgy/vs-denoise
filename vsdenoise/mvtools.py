@@ -218,14 +218,12 @@ class MVTools:
         elif planes is None:
             planes = [0, 1, 2]
             self.chroma = True
-        else:
-            self.chroma = None
 
         self.is_gray = planes == [0]
 
         self.planes, self.mvplane = self._get_planes(planes)
 
-        if self.chroma is None:
+        if not hasattr(self, 'chroma'):
             self.chroma = 1 in self.planes or 2 in self.planes
 
         if not isinstance(fixFades, bool):
@@ -343,14 +341,14 @@ class MVTools:
         pref = self._get_prefiltered_clip(ref)
         pelclip, pelclip2 = self._get_subpel_clip(pref, ref)
 
-        common_args = dict(
+        common_args: Dict[str, Any] = dict(
             sharp=min(self.subpixel, 2), pel=self.pel, vpad=self.vpadU, hpad=self.hpadU, chroma=self.chroma
         )
-        super_render_args = common_args | dict(hpad=self.hpad, vpad=self.vpad, chroma=not self.is_gray, levels=1)
+        super_render_args: Dict[str, Any] = common_args | dict(hpad=self.hpad, vpad=self.vpad, chroma=not self.is_gray, levels=1)
 
         if pelclip or pelclip2:
-            common_args.update(pelclip=pelclip)
-            super_render_args.update(pelclip=pelclip2)
+            common_args |= dict(pelclip=pelclip)
+            super_render_args |= dict(pelclip=pelclip2)
 
         super_search = self.mvtools.Super(ref, **common_args, rfilter=self.rfilter)
         super_render = self.mvtools.Super(self.workclip, **super_render_args)
