@@ -87,7 +87,6 @@ class MVTools:
     is_gray: bool
     planes: List[int]
     mvplane: int
-    refinemotion: bool
     truemotion: bool
     rangeConversion: float
     lowFrequencyRestore: float
@@ -156,7 +155,7 @@ class MVTools:
         range_in: CRange = CRange.LIMITED,
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
-        refinemotion: bool = False, truemotion: bool | None = None, rangeConversion: float = 5.0,
+        truemotion: bool | None = None, rangeConversion: float = 5.0,
         MFilter: vs.VideoNode | None = None, lowFrequencyRestore: float | bool = False,
         DCTFlicker: bool = False, fixFades: bool = False,
         hpad: int | None = None, vpad: int | None = None,
@@ -218,10 +217,6 @@ class MVTools:
         self.is_gray = planes == [0]
 
         self.planes, self.mvplane = self._get_planes(planes)
-
-        if not isinstance(refinemotion, bool):
-            raise ValueError("MVTools: 'refinemotion' has to be a boolean!")
-        self.refinemotion = refinemotion
 
         if not isinstance(truemotion, bool) and truemotion is not None:
             raise ValueError("MVTools: 'truemotion' has to be a boolean or None!")
@@ -330,7 +325,7 @@ class MVTools:
 
         searchparam = fallback(
             searchparam, (2 if self.isUHD else 5) if (
-                self.refinemotion and self.truemotion
+                self.refine and self.truemotion
             ) else (1 if self.isUHD else 2)
         )
 
@@ -345,7 +340,7 @@ class MVTools:
 
         overlap = fallback(overlap, halfblocksize)
 
-        search = fallback(search, 4 if self.refinemotion else 2)
+        search = fallback(search, 4 if self.refine else 2)
 
         pref = self._get_prefiltered_clip(ref)
         pelclip, pelclip2 = self._get_subpel_clip(pref, ref)
@@ -365,7 +360,7 @@ class MVTools:
                 chroma=not self.is_gray, pelclip=pelclip2,
                 levels=1
             )
-            if self.refinemotion:
+            if self.refine:
                 super_recalculate = self.mvtools.Super(
                     pref, pel=self.pel, sharp=min(self.subpixel, 2),
                     hpad=self.hpadU, vpad=self.vpadU,
@@ -382,7 +377,7 @@ class MVTools:
                 chroma=not self.is_gray, hpad=self.hpad,
                 vpad=self.vpad, levels=1,
             )
-            if self.refinemotion:
+            if self.refine:
                 super_recalculate = self.mvtools.Super(
                     pref, pel=self.pel, sharp=min(self.subpixel, 2),
                     chroma=self.chroma, hpad=self.hpadU,
@@ -496,8 +491,8 @@ class MVTools:
             if self.source_type.is_inter or self.tr > 1:
                 _add_vector(2)
 
-            if self.refinemotion:
                 for i in range(1, 13):
+            if self.refine:
                     if self.vectors[f'bv{i}'] and self.vectors[f'fv{i}']:
                         for j in range(self.refine):
                             recalculate_args.update(blksize=blksize / 2 ** j, overlap=blksize / 2 ** (j + 1))
