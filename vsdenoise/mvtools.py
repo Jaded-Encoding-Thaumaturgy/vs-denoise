@@ -599,12 +599,16 @@ class MVTools:
         return processed.std.SelectEvery(cycle=n_clips, offsets=ceil(n_clips / 2))
 
     def degrain(
-        self,
+        self, ref: vs.VideoNode | None = None, 
         thSAD: int = 300, thSADC: int | None = None,
         thSCD1: int | None = None, thSCD2: int = 130,
         contrasharpening: bool | float | vs.VideoNode | None = None,
         limit: int | None = None, limitC: float | None = None
     ) -> None:
+        ref = fallback(ref, self.workclip)
+
+        self._check_ref_clip(ref)
+
         if not isinstance(thSAD, int):
             raise ValueError("MVTools.degrain: 'thSAD' has to be an int!")
 
