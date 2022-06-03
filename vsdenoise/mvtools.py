@@ -500,42 +500,49 @@ class MVTools:
         vectors_backward: List[vs.VideoNode] = []
         vectors_forward: List[vs.VideoNode] = []
 
-        if not self.source_type.is_inter:
-            vectors_backward.append(self.vectors['bv1'])
-            vectors_forward.append(self.vectors['fv1'])
+        if self.mvtools == MVTools._MVTools.FLOAT_NEW:
+            vmulti = self.vectors['vmulti']
 
-        if self.source_type.is_inter or self.tr > 1:
-            vectors_backward.append(self.vectors['bv2'])
-            vectors_forward.append(self.vectors['fv2'])
+            for i in range(0, t2 * 2, 2):
+                vectors_backward.append(vmulti.std.SelectEvery(t2 * 2, i))
+                vectors_forward.append(vmulti.std.SelectEvery(t2 * 2, i + 1))
+        else:
+            if not self.source_type.is_inter:
+                vectors_backward.append(self.vectors['bv1'])
+                vectors_forward.append(self.vectors['fv1'])
 
-        if not self.source_type.is_inter and self.tr > 2:
-            vectors_backward.append(self.vectors['bv3'])
-            vectors_forward.append(self.vectors['fv3'])
+            if self.source_type.is_inter or self.tr > 1:
+                vectors_backward.append(self.vectors['bv2'])
+                vectors_forward.append(self.vectors['fv2'])
 
-        if t2 > 3:
-            vectors_backward.append(self.vectors['bv4'])
-            vectors_forward.append(self.vectors['fv4'])
+            if not self.source_type.is_inter and self.tr > 2:
+                vectors_backward.append(self.vectors['bv3'])
+                vectors_forward.append(self.vectors['fv3'])
 
-        if not self.source_type.is_inter and self.tr > 4:
-            vectors_backward.append(self.vectors['bv5'])
-            vectors_forward.append(self.vectors['fv5'])
+            if t2 > 3:
+                vectors_backward.append(self.vectors['bv4'])
+                vectors_forward.append(self.vectors['fv4'])
 
-        if t2 > 5:
-            vectors_backward.append(self.vectors['bv6'])
-            vectors_forward.append(self.vectors['fv6'])
+            if not self.source_type.is_inter and self.tr > 4:
+                vectors_backward.append(self.vectors['bv5'])
+                vectors_forward.append(self.vectors['fv5'])
 
-        if self.source_type.is_inter:
-            if self.tr > 3:
-                vectors_backward.append(self.vectors['bv8'])
-                vectors_forward.append(self.vectors['fv8'])
+            if t2 > 5:
+                vectors_backward.append(self.vectors['bv6'])
+                vectors_forward.append(self.vectors['fv6'])
 
-            if self.tr > 4:
-                vectors_backward.append(self.vectors['bv10'])
-                vectors_forward.append(self.vectors['fv10'])
+            if self.source_type.is_inter:
+                if self.tr > 3:
+                    vectors_backward.append(self.vectors['bv8'])
+                    vectors_forward.append(self.vectors['fv8'])
 
-            if self.tr > 5:
-                vectors_backward.append(self.vectors['bv12'])
-                vectors_forward.append(self.vectors['fv12'])
+                if self.tr > 4:
+                    vectors_backward.append(self.vectors['bv10'])
+                    vectors_forward.append(self.vectors['fv10'])
+
+                if self.tr > 5:
+                    vectors_backward.append(self.vectors['bv12'])
+                    vectors_forward.append(self.vectors['fv12'])
 
         return (vectors_backward, vectors_forward)
 
