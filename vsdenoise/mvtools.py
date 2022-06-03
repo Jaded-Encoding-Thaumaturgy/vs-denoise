@@ -359,6 +359,158 @@ class SMDegrain:
 
         search = fallback(search, 4 if self.refinemotion else 2)
 
+        pref = self._get_prefiltered_clip(ref)
+        pelclip, pelclip2 = self._get_subpel_clip(pref, ref)
+
+        super_recalculate = None
+
+        if pelclip or pelclip2:
+            super_search = self.mvtools.Super(
+                ref, pel=self.pel, sharp=min(self.subpixel, 2), chroma=self.chroma, hpad=self.hpadU,
+                vpad=self.vpadU, pelclip=pelclip, rfilter=self.rfilter
+            )
+            super_render = self.mvtools.Super(
+                self.workclip, pel=self.pel, chroma=not self.is_gray, hpad=self.hpad, vpad=self.vpad,
+                levels=1, pelclip=pelclip2
+            )
+            if self.refinemotion:
+                super_recalculate = self.mvtools.Super(
+                    pref, pel=self.pel, sharp=min(self.subpixel, 2), chroma=self.chroma,
+                    hpad=self.hpadU, vpad=self.vpadU, levels=1, pelclip=pelclip
+                )
+        else:
+            super_search = self.mvtools.Super(
+                ref, pel=self.pel, sharp=min(self.subpixel, 2), chroma=self.chroma,
+                hpad=self.hpadU, vpad=self.vpadU, rfilter=self.rfilter
+            )
+            super_render = self.mvtools.Super(
+                self.workclip, pel=self.pel, sharp=min(self.subpixel, 2),
+                chroma=not self.is_gray, hpad=self.hpad, vpad=self.vpad, levels=1
+            )
+            if self.refinemotion:
+                super_recalculate = self.mvtools.Super(
+                    pref, pel=self.pel, sharp=min(self.subpixel, 2), chroma=self.chroma, hpad=self.hpadU,
+                    vpad=self.vpadU, levels=1
+                )
+
+        recalculate_SAD = round(exp(-101. / (150 * 0.83)) * 360)
+        t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
+
+        analyse_args: Dict[str, Any] = dict(
+            overlap=overlap, blksize=blocksize, search=search, chroma=self.chroma, truemotion=self.truemotion,
+            dct=self.DCT, searchparam=searchparam, pelsearch=pelsearch, plevel=0, pglobal=11
+        )
+
+        recalculate_args: Dict[str, Any] = dict(
+            overlap=halfoverlap, blksize=halfblocksize, search=0, chroma=self.chroma, truemotion=self.truemotion,
+            dct=5, searchparam=searchparamr, thSAD=recalculate_SAD
+        )
+
+        if self.mvtools == SMDegrain._MVTools.FLOAT_NEW:
+            vmulti = self.mvtools.Analyse(super_search, radius=t2, **analyse_args)
+
+            if self.refinemotion:
+                for i in range(self.refine):
+                    vmulti = self.mvtools.Recalculate(
+                        super_recalculate, vmulti, tr=t2, **(
+                            recalculate_args | dict(blksize=halfblocksize ** i, overlap=halfblocksize ** (i + 1))
+                        )
+                    )
+
+            if self.source_type.is_inter:
+                vmulti = vmulti.std.SelectEvery(4, 2, 3)
+
+            self.vectors['bv1'] = vmulti.std.SelectEvery(self.tr * 2, 0)
+            self.vectors['fv1'] = vmulti.std.SelectEvery(self.tr * 2, 1)
+            self.vectors['bv3'] = vmulti.std.SelectEvery(self.tr * 2, 4)
+            self.vectors['fv3'] = vmulti.std.SelectEvery(self.tr * 2, 5)
+            self.vectors['bv5'] = vmulti.std.SelectEvery(self.tr * 2, 8)
+            self.vectors['fv5'] = vmulti.std.SelectEvery(self.tr * 2, 9)
+
+            if self.source_type.is_inter:
+                self.vectors['bv2'] = self.vectors['bv1']
+                self.vectors['fv2'] = self.vectors['fv1']
+                self.vectors['bv6'] = self.vectors['bv3']
+                self.vectors['fv6'] = self.vectors['fv3']
+                self.vectors['bv10'] = self.vectors['bv5']
+                self.vectors['fv10'] = self.vectors['fv5']
+
+                self.vectors['bv4'] = vmulti.std.SelectEvery(self.tr * 2, 2)
+                self.vectors['fv4'] = vmulti.std.SelectEvery(self.tr * 2, 3)
+                self.vectors['bv8'] = vmulti.std.SelectEvery(self.tr * 2, 6)
+                self.vectors['fv8'] = vmulti.std.SelectEvery(self.tr * 2, 7)
+                self.vectors['bv12'] = vmulti.std.SelectEvery(self.tr * 2, 10)
+                self.vectors['fv12'] = vmulti.std.SelectEvery(self.tr * 2, 11)
+            else:
+                self.vectors['bv8'] = self.vectors['fv8'] = None
+                self.vectors['bv10'] = self.vectors['fv10'] = None
+                self.vectors['bv12'] = self.vectors['fv12'] = None
+
+                self.vectors['bv2'] = vmulti.std.SelectEvery(self.tr * 2, 2)
+                self.vectors['fv2'] = vmulti.std.SelectEvery(self.tr * 2, 3)
+                self.vectors['bv4'] = vmulti.std.SelectEvery(self.tr * 2, 6)
+                self.vectors['fv4'] = vmulti.std.SelectEvery(self.tr * 2, 7)
+                self.vectors['bv6'] = vmulti.std.SelectEvery(self.tr * 2, 10)
+                self.vectors['fv6'] = vmulti.std.SelectEvery(self.tr * 2, 11)
+
+            self.vectors['vmulti'] = vmulti
+        else:
+            def _add_vector(delta: int, recalculate: bool = False) -> None:
+                if recalculate:
+                    vects = {
+                        'b': self.mvtools.Recalculate(
+                            super_recalculate, self.vectors[f'bv{delta}'], **recalculate_args
+                        ),
+                        'f': self.mvtools.Recalculate(
+                            super_recalculate, self.vectors[f'fv{delta}'], **recalculate_args
+                        )
+                    }
+                else:
+                    vects = {
+                        'b': self.mvtools.Analyse(super_search, isb=True, delta=delta, **analyse_args),
+                        'f': self.mvtools.Analyse(super_search, isb=False, delta=delta, **analyse_args)
+                    }
+
+                for k, vect in vects.items():
+                    key = f'{k}v{delta}'
+                    if key in self.vectors and self.vectors[key]:
+                        self.vectors[key] = vect.std.Merge(self.vectors[key])
+                    else:
+                        self.vectors[key] = vect
+
+            if self.source_type.is_inter and self.tr > 5:
+                _add_vector(12)
+
+            if self.source_type.is_inter and self.tr > 4:
+                _add_vector(10)
+
+            if self.source_type.is_inter and self.tr > 3:
+                _add_vector(8)
+
+            if not self.source_type.is_inter and self.tr > 4:
+                _add_vector(5)
+            if not self.source_type.is_inter and self.tr > 2:
+                _add_vector(3)
+            if not self.source_type.is_inter:
+                _add_vector(1)
+
+            if t2 > 5:
+                _add_vector(6)
+            if t2 > 3:
+                _add_vector(4)
+
+            if self.source_type.is_inter or self.tr > 1:
+                _add_vector(2)
+
+            if self.refinemotion:
+                for i in range(1, 13):
+                    if self.vectors[f'bv{i}'] and self.vectors[f'fv{i}']:
+                        for j in range(self.refine):
+                            recalculate_args.update(blksize=blksize / 2 ** j, overlap=blksize / 2 ** (j + 1))
+                            _add_vector(j, True)
+
+        self.vectors['super_render'] = super_render
+
     def degrain(
         self,
         thSAD: int = 300, thSADC: int | None = None,
