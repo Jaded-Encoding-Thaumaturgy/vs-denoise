@@ -1,4 +1,4 @@
-from typing import Literal, Optional, Protocol, Sequence, Union
+from typing import Literal, Optional, Protocol, Sequence, Union, TypeVar
 
 from vapoursynth import VideoNode
 
@@ -6,6 +6,10 @@ MATRIX = Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 
 Data = Union[str, bytes, bytearray]
 DataArray = Union[Data, Sequence[Data]]
+
+
+PosArgsT = TypeVar('PosArgsT')
+KwArgsT = TypeVar('KwArgsT')
 
 
 class _PluginBm3dcudaCoreUnbound(Protocol):
@@ -57,4 +61,9 @@ class _PluginBm3dcpuCoreUnbound(Protocol):
 class ZResizer(Protocol):
     def __call__(self, clip: VideoNode, *, format: Optional[int] = ..., matrix: Optional[int] = ...,
                  dither_type: Optional[Data] = ...) -> VideoNode:
+        ...
+
+
+class LambdaVSFunction(Protocol):
+    def __call__(self, clip: VideoNode, *args: PosArgsT, **kwargs: KwArgsT) -> VideoNode:
         ...

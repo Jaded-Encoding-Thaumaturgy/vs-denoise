@@ -5,7 +5,7 @@ This module implements wrappers for mvtool
 from __future__ import annotations
 
 from enum import Enum, IntEnum, auto
-from math import exp, sqrt, pi, log, sin, e
+from math import exp, sqrt, pi, log, sin, e, ceil
 from typing import Dict, Any, NamedTuple, Sequence, Type, Tuple, List, Callable, cast
 
 from havsfunc import MinBlur, DitherLumaRebuild
@@ -14,6 +14,7 @@ from vsutil import (
     disallow_variable_format, disallow_variable_resolution, depth
 )
 
+from .types import LambdaVSFunction, KwArgsT
 from .knlm import knl_means_cl, ChannelMode
 from .bm3d import BM3D, AbstractBM3D, _AbstractBM3DCuda, Profile
 
@@ -143,6 +144,10 @@ class MVTools:
         @property
         def Recalculate(self) -> Callable[..., vs.VideoNode]:
             return cast(Callable[..., vs.VideoNode], self.namespace.Recalculate)
+
+        @property
+        def Compensate(self) -> Callable[..., vs.VideoNode]:
+            return cast(Callable[..., vs.VideoNode], self.namespace.Compensate)
 
         def Degrain(self, radius: int | None = None) -> Callable[..., vs.VideoNode]:
             if radius is None and self != MVTools._MVTools.FLOAT_NEW:
@@ -564,6 +569,34 @@ class MVTools:
                 vectors_forward.append(self.vectors['fv12'])
 
         return (vectors_backward, vectors_forward)
+
+    def compensate(
+        self, func: LambdaVSFunction, thSAD: int = 150, **kwargs: KwArgsT
+    ) -> vs.VideoNode:
+        if not callable(func):
+            raise RuntimeError("MVTools.compensate: 'func' has to be a function!")
+
+        if not isinstance(thSAD, int):
+            raise ValueError("MVTools.compensate: 'thSAD' has to be an int!")
+
+        vect_b, vect_f = self.get_vectors_bv('compensate')
+
+        comp_back, comp_forw = tuple(
+            map(lambda vect: self.mvtools.Compensate(
+                self.workclip, super=self.vectors['super_render'],
+                vectors=vect, thsad=thSAD,
+                tff=None if self.source_type is SourceType.PROGRESSIVE else self.source_type.value
+            ), vectors) for vectors in (reversed(vect_b), vect_f)
+        )
+
+        comp_clips = [*comp_forw, self.clip, *comp_back]
+        n_clips = len(comp_clips)
+
+        interleaved = core.std.Interleave(comp_clips)
+
+        processed = func(interleaved, **kwargs)
+
+        return processed.std.SelectEvery(cycle=n_clips, offsets=ceil(n_clips / 2))
 
     def degrain(
         self,
