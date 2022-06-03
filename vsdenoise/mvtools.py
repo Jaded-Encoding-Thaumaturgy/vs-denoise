@@ -408,8 +408,9 @@ class MVTools:
         )
 
         recalculate_args: Dict[str, Any] = dict(
-            overlap=halfoverlap, blksize=halfblocksize, search=0, chroma=self.chroma, truemotion=self.truemotion,
-            dct=5, searchparam=searchparamr, thSAD=recalculate_SAD
+            overlap=halfoverlap, blksize=halfblocksize,
+            search=0, chroma=self.chroma, truemotion=self.truemotion,
+            dct=5, searchparam=searchparamr, thsad=recalculate_SAD
         )
 
         if self.mvtools == MVTools._MVTools.FLOAT_NEW:
@@ -579,11 +580,13 @@ class MVTools:
         vect_b, vect_f = self.get_vectors_bv('compensate')
 
         comp_back, comp_forw = tuple(
-            map(lambda vect: self.mvtools.Compensate(
-                self.workclip, super=self.vectors['super_render'],
-                vectors=vect, thsad=thSAD,
-                tff=None if self.source_type is SourceType.PROGRESSIVE else self.source_type.value
-            ), vectors) for vectors in (reversed(vect_b), vect_f)
+            map(
+                lambda vect: self.mvtools.Compensate(
+                    self.workclip, super=self.vectors['super_render'],
+                    vectors=vect, thsad=thSAD,
+                    tff=self.source_type.is_inter and self.source_type.value or None
+                ), vectors
+            ) for vectors in (reversed(vect_b), vect_f)
         )
 
         comp_clips = [*comp_forw, self.clip, *comp_back]
