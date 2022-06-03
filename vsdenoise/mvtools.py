@@ -505,6 +505,56 @@ class MVTools:
 
         self.vectors['super_render'] = super_render
 
+    def get_vectors_bv(self, func_name: str = '') -> Tuple[List[vs.VideoNode], List[vs.VideoNode]]:
+        if not self.vectors:
+            raise RuntimeError(
+                f"MVTools{'.' if func_name else ''}{func_name}: you first need to analyze the clip!"
+            )
+
+        t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
+
+        vectors_backward: List[vs.VideoNode] = []
+        vectors_forward: List[vs.VideoNode] = []
+
+        if not self.source_type.is_inter:
+            vectors_backward.append(self.vectors['bv1'])
+            vectors_forward.append(self.vectors['bv1'])
+
+        if self.source_type.is_inter or self.tr > 1:
+            vectors_backward.append(self.vectors['bv2'])
+            vectors_forward.append(self.vectors['fv2'])
+
+        if not self.source_type.is_inter and self.tr > 2:
+            vectors_backward.append(self.vectors['bv3'])
+            vectors_forward.append(self.vectors['fv3'])
+
+        if t2 > 3:
+            vectors_backward.append(self.vectors['bv4'])
+            vectors_forward.append(self.vectors['fv4'])
+
+        if not self.source_type.is_inter and self.tr > 4:
+            vectors_backward.append(self.vectors['bv5'])
+            vectors_forward.append(self.vectors['fv5'])
+
+        if t2 > 5:
+            vectors_backward.append(self.vectors['bv6'])
+            vectors_forward.append(self.vectors['fv6'])
+
+        if self.source_type.is_inter:
+            if self.tr > 3:
+                vectors_backward.append(self.vectors['bv8'])
+                vectors_forward.append(self.vectors['fv8'])
+
+            if self.tr > 4:
+                vectors_backward.append(self.vectors['bv10'])
+                vectors_forward.append(self.vectors['fv10'])
+
+            if self.tr > 5:
+                vectors_backward.append(self.vectors['bv12'])
+                vectors_forward.append(self.vectors['fv12'])
+
+        return (vectors_backward, vectors_forward)
+
     def degrain(
         self,
         thSAD: int = 300, thSADC: int | None = None,
@@ -544,9 +594,6 @@ class MVTools:
         if mode is None or not isinstance(mode, int):
             raise ValueError("MVTools.degrain: 'mode' has to be from MVTools.degrainMode (enum)!")
 
-        if not self.vectors:
-            raise RuntimeError("MVTools.degrain: you first need to analyze the clip!")
-
         thrSAD = self._SceneAnalyzeThreshold(
             round(exp(-101. / (thSAD * 0.83)) * 360),
             fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)))
@@ -557,6 +604,8 @@ class MVTools:
             fallback(thSCD1, round(0.35 * thSAD + 260)),
             fallback(thSCD2, 130)
         )
+
+        vect_b, vect_f = self.get_vectors_bv('degrain')
 
         print(thrSAD, thrSCD)
 
