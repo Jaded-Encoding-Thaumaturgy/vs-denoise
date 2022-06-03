@@ -341,10 +341,17 @@ class MVTools:
 
         pelsearch = fallback(pelsearch, max(0, searchparam * 2 - 2))
 
-        blocksize = fallback(blksize, min(64 // (2 ** self.refine), 16 if self.isHD else 8))
+        if blksize is not None and self.refine > 0 and blksize < 2 ** (self.refine + 2):
+            raise ValueError(
+                f"MVTools.analyse: With refine={self.refine}, block size must be > {2 ** (self.refine + 2)}"
+            )
 
-        halfblocksize = blocksize // 2
-        halfoverlap = max(2, halfblocksize)
+        blocksize = fallback(
+            blksize, max(self.refine and 2 ** (self.refine + 2), 16 if self.isHD else 8)
+        )
+
+        halfblocksize = max(8, blocksize // 2)
+        halfoverlap = max(2, halfblocksize // 2)
 
         overlap = fallback(overlap, halfblocksize)
 
