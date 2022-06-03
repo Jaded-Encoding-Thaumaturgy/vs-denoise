@@ -316,7 +316,7 @@ class MVTools:
         overlap: int | None = None, blksize: int | None = None,
         search: int | None = None, pelsearch: int | None = None,
         searchparam: int | None = None
-    ) -> None:
+    ) -> MVTools:
         ref = fallback(ref, self.workclip)
 
         self._check_ref_clip(ref)
@@ -504,6 +504,8 @@ class MVTools:
                             _add_vector(j, True)
 
         self.vectors['super_render'] = super_render
+
+        return self
 
     def get_vectors_bv(self, func_name: str = '') -> Tuple[List[vs.VideoNode], List[vs.VideoNode]]:
         if not self.vectors:
