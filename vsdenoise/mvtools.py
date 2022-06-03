@@ -263,12 +263,12 @@ class MVTools:
 
         if not isinstance(hpad, int) and pel is not None:
             raise ValueError("MVTools: 'hpad' has to be an int or None!")
-        self.hpad = fallback(hpad, 0 if self.isHD else 8)
+        self.hpad = fallback(hpad, 8 if self.isHD else 16)
         self.hpadU = self.hpad // 2 if self.isUHD else self.hpad
 
         if not isinstance(vpad, int) and pel is not None:
             raise ValueError("MVTools: 'vpad' has to be an int or None!")
-        self.vpad = fallback(vpad, 0 if self.isHD else 8)
+        self.vpad = fallback(vpad, 8 if self.isHD else 16)
         self.vpadU = self.vpad // 2 if self.isUHD else self.vpad
 
         if not isinstance(rfilter, int):
@@ -337,14 +337,16 @@ class MVTools:
             raise ValueError("MVTools.analyse: 'searchparam' has to be an int or None!")
 
         searchparam = fallback(
-            searchparam, (2 if self.isUHD else 5) if self.refinemotion and self.truemotion else (1 if self.isUHD else 2)
+            searchparam, (2 if self.isUHD else 5) if (
+                self.refinemotion and self.truemotion
+            ) else (1 if self.isUHD else 2)
         )
 
         searchparamr = max(0, round(exp(0.69 * searchparam - 1.79) - 0.67))
 
         pelsearch = fallback(pelsearch, max(0, searchparam * 2 - 2))
 
-        blocksize = fallback(blksize, max(2 ** (self.refine + 2), 16 if self.isHD else 8))
+        blocksize = fallback(blksize, min(64 // (2 ** self.refine), 16 if self.isHD else 8))
 
         halfblocksize = blocksize // 2
         halfoverlap = max(2, halfblocksize)
@@ -360,32 +362,39 @@ class MVTools:
 
         if pelclip or pelclip2:
             super_search = self.mvtools.Super(
-                ref, pel=self.pel, sharp=min(self.subpixel, 2), chroma=self.chroma, hpad=self.hpadU,
-                vpad=self.vpadU, pelclip=pelclip, rfilter=self.rfilter
+                ref, pel=self.pel, sharp=min(self.subpixel, 2),
+                vpad=self.vpadU, hpad=self.hpadU,
+                chroma=self.chroma, pelclip=pelclip,
+                rfilter=self.rfilter
             )
             super_render = self.mvtools.Super(
-                self.workclip, pel=self.pel, chroma=not self.is_gray, hpad=self.hpad, vpad=self.vpad,
-                levels=1, pelclip=pelclip2
+                self.workclip, pel=self.pel,
+                hpad=self.hpad, vpad=self.vpad,
+                chroma=not self.is_gray, pelclip=pelclip2,
+                levels=1
             )
             if self.refinemotion:
                 super_recalculate = self.mvtools.Super(
-                    pref, pel=self.pel, sharp=min(self.subpixel, 2), chroma=self.chroma,
-                    hpad=self.hpadU, vpad=self.vpadU, levels=1, pelclip=pelclip
+                    pref, pel=self.pel, sharp=min(self.subpixel, 2),
+                    hpad=self.hpadU, vpad=self.vpadU,
+                    levels=1, pelclip=pelclip, chroma=self.chroma,
                 )
         else:
             super_search = self.mvtools.Super(
-                ref, pel=self.pel, sharp=min(self.subpixel, 2), chroma=self.chroma,
-                hpad=self.hpadU, vpad=self.vpadU, rfilter=self.rfilter
+                ref, pel=self.pel, sharp=min(self.subpixel, 2),
+                hpad=self.hpadU, vpad=self.vpadU,
+                chroma=self.chroma, rfilter=self.rfilter
             )
             super_render = self.mvtools.Super(
                 self.workclip, pel=self.pel, sharp=min(self.subpixel, 2),
-                chroma=not self.is_gray, hpad=self.hpad, vpad=self.vpad
+                chroma=not self.is_gray, hpad=self.hpad,
+                vpad=self.vpad, levels=1,
             )
             if self.refinemotion:
                 super_recalculate = self.mvtools.Super(
                     pref, pel=self.pel, sharp=min(self.subpixel, 2),
                     chroma=self.chroma, hpad=self.hpadU,
-                    vpad=self.vpadU
+                    vpad=self.vpadU, levels=1
                 )
 
         recalculate_SAD = round(exp(-101. / (150 * 0.83)) * 360)
