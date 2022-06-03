@@ -446,9 +446,7 @@ class MVTools:
                     }
 
                 for k, vect in vects.items():
-                    key = f'{k}v{delta}'
-                    if not (key in self.vectors and self.vectors[key]):
-                        self.vectors[key] = vect
+                    self.vectors[f'{k}v{delta}'] = vect
 
             if self.source_type.is_inter and self.tr > 5:
                 _add_vector(12)
