@@ -544,6 +544,9 @@ class MVTools:
         if mode is None or not isinstance(mode, int):
             raise ValueError("MVTools.degrain: 'mode' has to be from MVTools.degrainMode (enum)!")
 
+        if not self.vectors:
+            raise RuntimeError("MVTools.degrain: you first need to analyze the clip!")
+
         thrSAD = self._SceneAnalyzeThreshold(
             round(exp(-101. / (thSAD * 0.83)) * 360),
             fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)))
