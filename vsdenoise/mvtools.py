@@ -160,6 +160,7 @@ class MVTools:
         range_in: CRange = CRange.LIMITED,
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
+        highprecision: bool = False,
         truemotion: bool | None = None, rangeConversion: float = 5.0,
         MFilter: vs.VideoNode | None = None, lowFrequencyRestore: float | bool = False,
         DCTFlicker: bool = False, fixFades: bool = False,
@@ -274,7 +275,9 @@ class MVTools:
         else:
             self.workclip = self.clip.std.SeparateFields(int(self.source_type))
 
-        if refine >= 6 or tr > 3:
+        fmt = self.workclip.format
+
+        if highprecision or fmt.bits_per_sample == 32 or fmt.sample_type == vs.FLOAT or refine == 6 or tr > 3:
             self.workclip = depth(self.workclip, 32)
             self.mvtools = self._MVTools.FLOAT_NEW
             if not hasattr(core, 'mvsf'):
