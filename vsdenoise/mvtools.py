@@ -138,6 +138,7 @@ class MVTools:
         def Compensate(self) -> Callable[..., vs.VideoNode]:
             return cast(Callable[..., vs.VideoNode], self.namespace.Compensate)
 
+        @property
         def Degrain(self, radius: int | None = None) -> Callable[..., vs.VideoNode]:
             if radius is None and self != MVTools._MVTools.FLOAT_NEW:
                 raise ValueError(f"{self.name}.Degrain needs radius")
@@ -623,9 +624,49 @@ class MVTools:
             fallback(thSCD2, 130)
         )
 
+        t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
+
         vect_b, vect_f = self.get_vectors_bv('degrain')
 
-        print(thrSAD, thrSCD)
+        # Finally, MDegrain
+
+        degrain_args = dict(
+            thscd1=thrSCD.first, thscd2=thrSCD.second, plane=self.mvplane
+        )
+
+        if self.mvtools == MVTools._MVTools.INTEGER:
+            degrain_args.update({
+                'thsad': thrSAD.luma, 'thsadc': thrSAD.chroma,
+                'limit': limit, 'limitc': limitC
+            })
+        else:
+            degrain_args.update({
+                'thsad': [thrSAD.luma, thrSAD.chroma, thrSAD.chroma],
+                'limit': [limit, limitC]
+            })
+
+            if self.mvtools == MVTools._MVTools.FLOAT_NEW:
+                degrain_args.update({
+                    'thsad2': [thrSAD.luma / 2, thrSAD.chroma / 2]
+                })
+
+        to_degrain = self.mfilter or ref
+
+        if self.mvtools != MVTools._MVTools.FLOAT_NEW:
+            degrain_vectors = []
+            it = 1 + int(self.source_type.is_inter)
+            for i in range(it, t2 + 1, it):
+                degrain_vectors.append(self.vectors[f'bv{i}'])
+                degrain_vectors.append(self.vectors[f'fv{i}'])
+            output: vs.VideoNode = self.mvtools.Degrain(self.tr)(
+                to_degrain, self.vectors['super_render'], *degrain_vectors, **degrain_args
+            )
+        else:
+            output = self.mvtools.Degrain()(
+                to_degrain, self.vectors['super_render'], self.vectors['vmulti'], **degrain_args
+            )
+
+        return output.std.Weave() if self.source_type.is_inter else output
 
     def _get_subpel(self, clip: vs.VideoNode, pel_type: PelType) -> vs.VideoNode | None:
         bicubic_args: Dict[str, Any] = dict(width=clip.width * self.pel, height=(clip.height * self.pel))
