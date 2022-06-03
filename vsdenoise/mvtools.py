@@ -143,7 +143,9 @@ class MVTools:
                 raise ValueError(f"{self.name}.Degrain needs radius")
 
             try:
-                return cast(Callable[..., vs.VideoNode], getattr(self, f"Degrain{fallback(radius, '')}"))
+                return cast(Callable[..., vs.VideoNode], getattr(
+                    self.namespace, f"Degrain{fallback(radius, '')}"
+                ))
             except BaseException:
                 raise ValueError(f"{self.name}.Degrain doesn't support a radius of {radius}")
 
