@@ -343,44 +343,18 @@ class MVTools:
         pref = self._get_prefiltered_clip(ref)
         pelclip, pelclip2 = self._get_subpel_clip(pref, ref)
 
-        super_recalculate = None
+        common_args = dict(
+            sharp=min(self.subpixel, 2), pel=self.pel, vpad=self.vpadU, hpad=self.hpadU, chroma=self.chroma
+        )
+        super_render_args = common_args | dict(hpad=self.hpad, vpad=self.vpad, chroma=not self.is_gray, levels=1)
 
         if pelclip or pelclip2:
-            super_search = self.mvtools.Super(
-                ref, pel=self.pel, sharp=min(self.subpixel, 2),
-                vpad=self.vpadU, hpad=self.hpadU,
-                chroma=self.chroma, pelclip=pelclip,
-                rfilter=self.rfilter
-            )
-            super_render = self.mvtools.Super(
-                self.workclip, pel=self.pel,
-                hpad=self.hpad, vpad=self.vpad,
-                chroma=not self.is_gray, pelclip=pelclip2,
-                levels=1
-            )
-            if self.refine:
-                super_recalculate = self.mvtools.Super(
-                    pref, pel=self.pel, sharp=min(self.subpixel, 2),
-                    hpad=self.hpadU, vpad=self.vpadU,
-                    levels=1, pelclip=pelclip, chroma=self.chroma,
-                )
-        else:
-            super_search = self.mvtools.Super(
-                ref, pel=self.pel, sharp=min(self.subpixel, 2),
-                hpad=self.hpadU, vpad=self.vpadU,
-                chroma=self.chroma, rfilter=self.rfilter
-            )
-            super_render = self.mvtools.Super(
-                self.workclip, pel=self.pel, sharp=min(self.subpixel, 2),
-                chroma=not self.is_gray, hpad=self.hpad,
-                vpad=self.vpad, levels=1,
-            )
-            if self.refine:
-                super_recalculate = self.mvtools.Super(
-                    pref, pel=self.pel, sharp=min(self.subpixel, 2),
-                    chroma=self.chroma, hpad=self.hpadU,
-                    vpad=self.vpadU, levels=1
-                )
+            common_args.update(pelclip=pelclip)
+            super_render_args.update(pelclip=pelclip2)
+
+        super_search = self.mvtools.Super(ref, **common_args, rfilter=self.rfilter)
+        super_render = self.mvtools.Super(self.workclip, **super_render_args)
+        super_recalculate = self.mvtools.Super(pref, **common_args, levels=1) if self.refine else super_render
 
         recalculate_SAD = round(exp(-101. / (150 * 0.83)) * 360)
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
@@ -437,19 +411,21 @@ class MVTools:
             if self.refine:
                 refblks = blocksize
                 for i in range(1, t2 + 1):
-                    if self.vectors[f'bv{i}'] and self.vectors[f'fv{i}']:
-                        for j in range(1, self.refine):
-                            val = (refblks / 2 ** j)
-                            if val > 128:
-                                refblks = 128
-                            elif val < 4:
-                                refblks = blocksize
+                    if not self.vectors[f'bv{i}'] or not self.vectors[f'fv{i}']:
+                        continue
 
-                            recalculate_args.update(
-                                blksize=refblks / 2 ** j, overlap=refblks / 2 ** (j + 1)
-                            )
+                    for j in range(1, self.refine):
+                        val = (refblks / 2 ** j)
+                        if val > 128:
+                            refblks = 128
+                        elif val < 4:
+                            refblks = blocksize
 
-                            _add_vector(i, True)
+                        recalculate_args.update(
+                            blksize=refblks / 2 ** j, overlap=refblks / 2 ** (j + 1)
+                        )
+
+                        _add_vector(i, True)
 
         self.vectors['super_render'] = super_render
 
