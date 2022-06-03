@@ -89,8 +89,6 @@ class MVTools:
     mvplane: int
     truemotion: bool
     rangeConversion: float
-    lowFrequencyRestore: float
-    DCTFlicker: float
     hpad: int
     hpadU: int
     vpad: int
@@ -163,10 +161,8 @@ class MVTools:
         range_in: CRange = CRange.LIMITED,
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
-        highprecision: bool = False,
+        highprecision: bool = False, fixFades: bool = False,
         truemotion: bool | None = None, rangeConversion: float = 5.0,
-        lowFrequencyRestore: float | bool = False,
-        DCTFlicker: bool = False, fixFades: bool = False,
         hpad: int | None = None, vpad: int | None = None,
         rfilter: int = 3, vectors: Dict[str, Any] = {}
     ) -> None:
@@ -238,24 +234,7 @@ class MVTools:
             raise ValueError("MVTools: 'rangeConversion' has to be a float!")
         self.rangeConversion = rangeConversion
 
-        if not isinstance(lowFrequencyRestore, bool) and not isinstance(lowFrequencyRestore, float):
-            raise ValueError("MVTools: 'lowFrequencyRestore' has to be a float or boolean!")
-
         self.vectors = vectors
-
-        if isinstance(lowFrequencyRestore, bool):
-            if lowFrequencyRestore:
-                self.lowFrequencyRestore = 3.46 * (clip.width / 1920.)
-            else:
-                self.lowFrequencyRestore = 0
-        else:
-            self.lowFrequencyRestore = (
-                max(clip.width, clip.height) * 2
-            ) / ((sqrt(log(2) / 2) * max(lowFrequencyRestore, 50)) * 2 * pi)
-
-        if not isinstance(DCTFlicker, bool):
-            raise ValueError("MVTools: 'DCTFlicker' has to be a boolean!")
-        self.DCTFlicker = DCTFlicker
 
         if not isinstance(hpad, int) and pel is not None:
             raise ValueError("MVTools: 'hpad' has to be an int or None!")
@@ -582,7 +561,9 @@ class MVTools:
         self, ref: vs.VideoNode | None = None,
         thSAD: int = 300, thSADC: int | None = None,
         thSCD1: int | None = None, thSCD2: int = 130,
-        limit: int | None = None, limitC: float | None = None
+        limit: int | None = None, limitC: float | None = None,
+        lowFrequencyRestore: float | bool = False,
+        DCTFlicker: bool = False, fixFades: bool = False,
     ) -> vs.VideoNode:
         self._check_ref_clip(ref)
 
@@ -605,6 +586,22 @@ class MVTools:
         if not isinstance(limitC, float) and limitC is not None:
             raise ValueError("MVTools.degrain: 'limitC' has to be a float or None!")
         limitC = fallback(limitC, limit)
+
+        if not isinstance(DCTFlicker, bool):
+            raise ValueError("MVTools: 'DCTFlicker' has to be a boolean!")
+
+        if not isinstance(lowFrequencyRestore, bool) and not isinstance(lowFrequencyRestore, float):
+            raise ValueError("MVTools: 'lowFrequencyRestore' has to be a float or boolean!")
+
+        if isinstance(lowFrequencyRestore, bool):
+            if lowFrequencyRestore:
+                lowFrequencyRestore = 3.46 * (self.workclip.width / 1920.)
+            else:
+                lowFrequencyRestore = 0
+        else:
+            lowFrequencyRestore = (
+                max(self.workclip.width, self.workclip.height) * 2
+            ) / ((sqrt(log(2) / 2) * max(lowFrequencyRestore, 50)) * 2 * pi)
 
         thrSAD = self._SceneAnalyzeThreshold(
             round(exp(-101. / (thSAD * 0.83)) * 360),
