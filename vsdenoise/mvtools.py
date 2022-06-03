@@ -554,7 +554,7 @@ class MVTools:
             ) for vectors in (reversed(vect_b), vect_f)
         )
 
-        comp_clips = [*comp_forw, self.clip, *comp_back]
+        comp_clips = [*comp_forw, self.workclip, *comp_back]
         n_clips = len(comp_clips)
 
         interleaved = core.std.Interleave(comp_clips)
