@@ -161,8 +161,8 @@ class MVTools:
         range_in: CRange = CRange.LIMITED,
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
-        highprecision: bool = False, fixFades: bool = False,
-        truemotion: bool | None = None, rangeConversion: float = 5.0,
+        highprecision: bool = False,
+        fixFades: bool = False, rangeConversion: float = 5.0,
         hpad: int | None = None, vpad: int | None = None,
         rfilter: int = 3, vectors: Dict[str, Any] = {}
     ) -> None:
@@ -223,9 +223,6 @@ class MVTools:
 
         self.planes, self.mvplane = self._get_planes(planes)
 
-        if not isinstance(truemotion, bool) and truemotion is not None:
-            raise ValueError("MVTools: 'truemotion' has to be a boolean or None!")
-        self.truemotion = fallback(truemotion, not self.isHD)
 
         if not isinstance(fixFades, bool):
             raise ValueError("MVTools: 'fixFades' has to be a boolean!")
@@ -291,7 +288,8 @@ class MVTools:
         self, ref: vs.VideoNode | None = None,
         overlap: int | None = None, blksize: int | None = None,
         search: int | None = None, pelsearch: int | None = None,
-        searchparam: int | None = None, force: bool = False
+        searchparam: int | None = None, truemotion: bool | None = None,
+        force: bool = False
     ) -> MVTools:
         ref = fallback(ref, self.workclip)
 
@@ -312,9 +310,13 @@ class MVTools:
         if not isinstance(searchparam, int) and searchparam is not None:
             raise ValueError("MVTools.analyse: 'searchparam' has to be an int or None!")
 
+        if not isinstance(truemotion, bool) and truemotion is not None:
+            raise ValueError("MVTools: 'truemotion' has to be a boolean or None!")
+        truemotion = fallback(truemotion, not self.isHD)
+
         searchparam = fallback(
             searchparam, (2 if self.isUHD else 5) if (
-                self.refine and self.truemotion
+                self.refine and truemotion
             ) else (1 if self.isUHD else 2)
         )
 
@@ -384,13 +386,13 @@ class MVTools:
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
         analyse_args: Dict[str, Any] = dict(
-            overlap=overlap, blksize=blocksize, search=search, chroma=self.chroma, truemotion=self.truemotion,
+            overlap=overlap, blksize=blocksize, search=search, chroma=self.chroma, truemotion=truemotion,
             dct=self.DCT, searchparam=searchparam, pelsearch=pelsearch, plevel=0, pglobal=11
         )
 
         recalculate_args: Dict[str, Any] = dict(
             overlap=halfoverlap, blksize=halfblocksize,
-            search=0, chroma=self.chroma, truemotion=self.truemotion,
+            search=0, chroma=self.chroma, truemotion=truemotion,
             dct=5, searchparam=searchparamr, thsad=recalculate_SAD
         )
 
