@@ -87,7 +87,6 @@ class MVTools:
     is_gray: bool
     planes: List[int]
     mvplane: int
-    truemotion: bool
     rangeConversion: float
     hpad: int
     hpadU: int
@@ -189,7 +188,8 @@ class MVTools:
             raise ValueError("MVTools: 'source_type' has to be from SourceType (enum)!")
         self.source_type = source_type
 
-        if prefilter is None or prefilter not in Prefilter and not isinstance(prefilter, vs.VideoNode):
+        prefvn = isinstance(prefilter, vs.VideoNode)
+        if prefilter is None or (not prefvn and prefilter not in Prefilter) and not prefvn:
             raise ValueError("MVTools: 'prefilter' has to be from Prefilter (enum) or a VideoNode!")
         self.prefilter = prefilter
 
@@ -218,11 +218,15 @@ class MVTools:
         elif planes is None:
             planes = [0, 1, 2]
             self.chroma = True
+        else:
+            self.chroma = None
 
         self.is_gray = planes == [0]
 
         self.planes, self.mvplane = self._get_planes(planes)
 
+        if self.chroma is None:
+            self.chroma = 1 in self.planes or 2 in self.planes
 
         if not isinstance(fixFades, bool):
             raise ValueError("MVTools: 'fixFades' has to be a boolean!")
@@ -233,12 +237,12 @@ class MVTools:
 
         self.vectors = vectors
 
-        if not isinstance(hpad, int) and pel is not None:
+        if not isinstance(hpad, int) and hpad is not None:
             raise ValueError("MVTools: 'hpad' has to be an int or None!")
         self.hpad = fallback(hpad, 8 if self.isHD else 16)
         self.hpadU = self.hpad // 2 if self.isUHD else self.hpad
 
-        if not isinstance(vpad, int) and pel is not None:
+        if not isinstance(vpad, int) and hpad is not None:
             raise ValueError("MVTools: 'vpad' has to be an int or None!")
         self.vpad = fallback(vpad, 8 if self.isHD else 16)
         self.vpadU = self.vpad // 2 if self.isUHD else self.vpad
