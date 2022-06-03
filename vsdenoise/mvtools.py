@@ -431,29 +431,8 @@ class MVTools:
                 for k, vect in vects.items():
                     self.vectors[f'{k}v{delta}'] = vect
 
-            if self.source_type.is_inter and self.tr > 5:
-                _add_vector(12)
-
-            if self.source_type.is_inter and self.tr > 4:
-                _add_vector(10)
-
-            if self.source_type.is_inter and self.tr > 3:
-                _add_vector(8)
-
-            if not self.source_type.is_inter and self.tr > 4:
-                _add_vector(5)
-            if not self.source_type.is_inter and self.tr > 2:
-                _add_vector(3)
-            if not self.source_type.is_inter:
-                _add_vector(1)
-
-            if t2 > 5:
-                _add_vector(6)
-            if t2 > 3:
-                _add_vector(4)
-
-            if self.source_type.is_inter or self.tr > 1:
-                _add_vector(2)
+            for i in range(1, self.tr + 1):
+                _add_vector(i)
 
             if self.refine:
                 refblks = blocksize
@@ -494,42 +473,9 @@ class MVTools:
                 vectors_backward.append(vmulti.std.SelectEvery(t2 * 2, i))
                 vectors_forward.append(vmulti.std.SelectEvery(t2 * 2, i + 1))
         else:
-            if not self.source_type.is_inter:
-                vectors_backward.append(self.vectors['bv1'])
-                vectors_forward.append(self.vectors['fv1'])
-
-            if self.source_type.is_inter or self.tr > 1:
-                vectors_backward.append(self.vectors['bv2'])
-                vectors_forward.append(self.vectors['fv2'])
-
-            if not self.source_type.is_inter and self.tr > 2:
-                vectors_backward.append(self.vectors['bv3'])
-                vectors_forward.append(self.vectors['fv3'])
-
-            if t2 > 3:
-                vectors_backward.append(self.vectors['bv4'])
-                vectors_forward.append(self.vectors['fv4'])
-
-            if not self.source_type.is_inter and self.tr > 4:
-                vectors_backward.append(self.vectors['bv5'])
-                vectors_forward.append(self.vectors['fv5'])
-
-            if t2 > 5:
-                vectors_backward.append(self.vectors['bv6'])
-                vectors_forward.append(self.vectors['fv6'])
-
-            if self.source_type.is_inter:
-                if self.tr > 3:
-                    vectors_backward.append(self.vectors['bv8'])
-                    vectors_forward.append(self.vectors['fv8'])
-
-                if self.tr > 4:
-                    vectors_backward.append(self.vectors['bv10'])
-                    vectors_forward.append(self.vectors['fv10'])
-
-                if self.tr > 5:
-                    vectors_backward.append(self.vectors['bv12'])
-                    vectors_forward.append(self.vectors['fv12'])
+            for i in range(1, self.tr + 1):
+                vectors_backward.append(self.vectors[f'bv{i}'])
+                vectors_forward.append(self.vectors[f'fv{i}'])
 
         return (vectors_backward, vectors_forward)
 
