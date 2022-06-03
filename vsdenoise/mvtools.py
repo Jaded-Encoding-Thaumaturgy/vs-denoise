@@ -290,7 +290,7 @@ class MVTools:
 
     def analyze(
         self, ref: vs.VideoNode | None = None,
-        overlap: int | None = None, blksize: int | None = None,
+        blksize: int | None = None, overlap: int | None = None,
         search: int | None = None, pelsearch: int | None = None,
         searchparam: int | None = None, truemotion: bool | None = None,
         force: bool = False
@@ -328,13 +328,9 @@ class MVTools:
 
         pelsearch = fallback(pelsearch, max(0, searchparam * 2 - 2))
 
-        if blksize is not None and self.refine > 0 and blksize < 2 ** (self.refine + 2):
-            raise ValueError(
-                f"MVTools.analyse: With refine={self.refine}, block size must be > {2 ** (self.refine + 2)}"
-            )
-
-        blocksize = fallback(
-            blksize, max(self.refine and 2 ** (self.refine + 2), 16 if self.isHD else 8)
+        blocksize = max(
+            self.refine and 2 ** (self.refine + 2),
+            fallback(blksize, 16 if self.isHD else 8)
         )
 
         halfblocksize = max(8, blocksize // 2)
@@ -460,17 +456,21 @@ class MVTools:
                 _add_vector(2)
 
             if self.refine:
+                refblks = blocksize
                 for i in range(1, t2 + 1):
                     if self.vectors[f'bv{i}'] and self.vectors[f'fv{i}']:
                         for j in range(1, self.refine):
+                            val = (refblks / 2 ** j)
+                            if val > 128:
+                                refblks = 128
+                            elif val < 4:
+                                refblks = blocksize
 
-                            if 4 <= (blocksize / 2 ** j) <= 128:
-                                recalculate_args.update(
-                                    blksize=blocksize / 2 ** j, overlap=blocksize / 2 ** (j + 1)
-                                )
-                                _add_vector(i, True)
-                            else:
-                                break
+                            recalculate_args.update(
+                                blksize=refblks / 2 ** j, overlap=refblks / 2 ** (j + 1)
+                            )
+
+                            _add_vector(i, True)
 
         self.vectors['super_render'] = super_render
 
