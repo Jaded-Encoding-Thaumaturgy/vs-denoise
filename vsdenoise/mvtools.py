@@ -280,6 +280,7 @@ class MVTools:
             self.workclip = self.clip.std.SeparateFields(int(self.source_type))
 
         fmt = self.workclip.format
+        assert fmt
 
         if highprecision or fmt.bits_per_sample == 32 or fmt.sample_type == vs.FLOAT or refine == 6 or tr > 3:
             self.workclip = depth(self.workclip, 32)
@@ -586,7 +587,7 @@ class MVTools:
         thSCD1: int | None = None, thSCD2: int = 130,
         contrasharpening: bool | float | vs.VideoNode | None = None,
         limit: int | None = None, limitC: float | None = None
-    ) -> None:
+    ) -> vs.VideoNode:
         ref = fallback(ref, self.workclip)
 
         self._check_ref_clip(ref)
@@ -633,7 +634,7 @@ class MVTools:
 
         # Finally, MDegrain
 
-        degrain_args = dict(
+        degrain_args: Dict[str, Any] = dict(
             thscd1=thrSCD.first, thscd2=thrSCD.second, plane=self.mvplane
         )
 
@@ -669,7 +670,7 @@ class MVTools:
                 to_degrain, self.vectors['super_render'], self.vectors['vmulti'], **degrain_args
             )
 
-        return output.std.Weave() if self.source_type.is_inter else output
+        return output.std.DoubleWeave(self.source_type.value) if self.source_type.is_inter else output
 
     def _get_subpel(self, clip: vs.VideoNode, pel_type: PelType) -> vs.VideoNode | None:
         bicubic_args: Dict[str, Any] = dict(width=clip.width * self.pel, height=(clip.height * self.pel))
