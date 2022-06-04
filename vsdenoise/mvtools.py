@@ -267,7 +267,7 @@ class MVTools:
             self.mvtools = MVToolPlugin.INTEGER
 
         if isinstance(prefilter, vs.VideoNode):
-            self._check_ref_clip(prefilter)
+            self.check_ref_clip(prefilter)
 
     def analyze(
         self, ref: vs.VideoNode | None = None,
@@ -278,7 +278,7 @@ class MVTools:
     ) -> MVTools:
         ref = fallback(ref, self.workclip)
 
-        self._check_ref_clip(ref)
+        self.check_ref_clip(ref)
 
         truemotion = fallback(truemotion, not self.isHD)
 
@@ -304,8 +304,8 @@ class MVTools:
 
         search = fallback(search, 4 if self.refine else 2)
 
-        pref = self._get_prefiltered_clip(ref)
-        pelclip, pelclip2 = self._get_subpel_clip(pref, ref)
+        pref = self.get_prefiltered_clip(ref)
+        pelclip, pelclip2 = self.get_subpel_clips(pref, ref)
 
         common_args: Dict[str, Any] = dict(
             sharp=min(self.subpixel, 2), pel=self.pel, vpad=self.vpadU, hpad=self.hpadU, chroma=self.chroma
@@ -426,7 +426,7 @@ class MVTools:
     ) -> vs.VideoNode:
         ref = fallback(ref, self.workclip)
 
-        self._check_ref_clip(ref)
+        self.check_ref_clip(ref)
 
         vect_b, vect_f = self.get_vectors_bv('compensate')
 
@@ -455,7 +455,7 @@ class MVTools:
         thSCD1: int | None = None, thSCD2: int = 130,
         limit: int | None = None, limitC: float | None = None
     ) -> vs.VideoNode:
-        self._check_ref_clip(ref)
+        self.check_ref_clip(ref)
 
         limit = fallback(limit, 2 if self.isUHD else 255)
         limitC = fallback(limitC, limit)
@@ -515,7 +515,7 @@ class MVTools:
 
         return output.std.DoubleWeave(self.source_type.value) if self.source_type.is_inter else output
 
-    def _get_subpel(self, clip: vs.VideoNode, pel_type: PelType) -> vs.VideoNode | None:
+    def subpel_clip(self, clip: vs.VideoNode, pel_type: PelType) -> vs.VideoNode | None:
         bicubic_args: Dict[str, Any] = dict(width=clip.width * self.pel, height=(clip.height * self.pel))
 
         if pel_type == PelType.BICUBIC or pel_type == PelType.WIENER:
@@ -542,7 +542,7 @@ class MVTools:
 
         return None
 
-    def _get_subpel_clip(
+    def get_subpel_clips(
         self, pref: vs.VideoNode, ref: vs.VideoNode
     ) -> Tuple[vs.VideoNode | None, vs.VideoNode | None]:
         pel_types = list(self.pel_type)
@@ -564,9 +564,9 @@ class MVTools:
 
         pel_type, pel2_type = pel_types
 
-        return self._get_subpel(pref, pel_type), self._get_subpel(ref, pel2_type)
+        return self.subpel_clip(pref, pel_type), self.subpel_clip(ref, pel2_type)
 
-    def _get_pref(self, clip: vs.VideoNode, pref_type: Prefilter | vs.VideoNode) -> vs.VideoNode:
+    def prefilter_clip(self, clip: vs.VideoNode, pref_type: Prefilter | vs.VideoNode) -> vs.VideoNode:
         if pref_type == Prefilter.NONE or isinstance(pref_type, vs.VideoNode):
             return clip
         elif pref_type.value in {0, 1, 2}:
@@ -595,7 +595,7 @@ class MVTools:
                 device_id=self.device_id
             )
 
-            return self._ReplaceLowFrequency(knl, clip, 600 * (clip.width / 1920), chroma=self.chroma)
+            return self.replace_low_frequencies(knl, clip, 600 * (clip.width / 1920), chroma=self.chroma)
         elif pref_type == Prefilter.BM3D:
             return self.bm3d_arch(
                 clip, sigma=10 if isinstance(self.bm3d_arch, _AbstractBM3DCuda) else 8,
@@ -604,16 +604,16 @@ class MVTools:
         elif pref_type == Prefilter.DGDENOISE:
             # dgd = core.dgdecodenv.DGDenoise(pref, 0.10)
 
-            # pref = self._ReplaceLowFrequency(dgd, pref, w / 2, chroma=self.chroma)
+            # pref = self.replace_low_frequencies(dgd, pref, w / 2, chroma=self.chroma)
             return clip.bilateral.Gaussian(1)
 
         return clip
 
-    def _get_prefiltered_clip(self, pref: vs.VideoNode) -> vs.VideoNode:
+    def get_prefiltered_clip(self, pref: vs.VideoNode) -> vs.VideoNode:
         if isinstance(self.prefilter, vs.VideoNode):
             return self.prefilter
 
-        pref = self._get_pref(pref, Prefilter.MINBLUR3 if self.prefilter == Prefilter.AUTO else self.prefilter)
+        pref = self.prefilter_clip(pref, Prefilter.MINBLUR3 if self.prefilter == Prefilter.AUTO else self.prefilter)
 
         # Luma expansion TV->PC (up to 16% more values for motion estimation)
         if self.range_in == CRange.LIMITED:
@@ -627,7 +627,7 @@ class MVTools:
         return pref
 
     @staticmethod
-    def _ReplaceLowFrequency(
+    def replace_low_frequencies(
         flt: vs.VideoNode, ref: vs.VideoNode, LFR: float, DCTFlicker: bool = False, chroma: bool = True
     ) -> vs.VideoNode:
         assert flt.format
@@ -649,7 +649,7 @@ class MVTools:
 
         return final if chroma else core.std.ShufflePlanes([final, flt], [0, 1, 2], vs.YUV)
 
-    def _check_ref_clip(self, ref: vs.VideoNode | None) -> vs.VideoNode | None:
+    def check_ref_clip(self, ref: vs.VideoNode | None) -> vs.VideoNode | None:
         if ref is None:
             return None
 
