@@ -456,7 +456,7 @@ class MVTools:
         return (vectors_backward, vectors_forward)
 
     def compensate(
-        self, func: LambdaVSFunction, thSAD: int = 150, **kwargs: KwArgsT
+        self, func: LambdaVSFunction, ref: vs.VideoNode | None = None, thSAD: int = 150, **kwargs: KwArgsT
     ) -> vs.VideoNode:
         if not callable(func):
             raise RuntimeError("MVTools.compensate: 'func' has to be a function!")
@@ -464,19 +464,23 @@ class MVTools:
         if not isinstance(thSAD, int):
             raise ValueError("MVTools.compensate: 'thSAD' has to be an int!")
 
+        ref = fallback(ref, self.workclip)
+
+        self._check_ref_clip(ref)
+
         vect_b, vect_f = self.get_vectors_bv('compensate')
 
         comp_back, comp_forw = tuple(
             map(
                 lambda vect: self.mvtools.Compensate(
-                    self.workclip, super=self.vectors['super_render'],
+                    ref, super=self.vectors['super_render'],
                     vectors=vect, thsad=thSAD,
                     tff=self.source_type.is_inter and self.source_type.value or None
                 ), vectors
             ) for vectors in (reversed(vect_b), vect_f)
         )
 
-        comp_clips = [*comp_forw, self.workclip, *comp_back]
+        comp_clips = [*comp_forw, ref, *comp_back]
         n_clips = len(comp_clips)
 
         interleaved = core.std.Interleave(comp_clips)
