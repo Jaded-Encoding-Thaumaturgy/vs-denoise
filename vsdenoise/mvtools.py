@@ -174,39 +174,17 @@ class MVTools:
         self.isHD = clip.width >= 1100 or clip.height >= 600
         self.isUHD = self.clip.width >= 2600 or self.clip.height >= 1500
 
-        if not isinstance(tr, int):
-            raise ValueError("MVTools: 'tr' has to be an int!")
         self.tr = tr
 
-        if not isinstance(refine, int):
-            raise ValueError("MVTools: 'refine' has to be an int!")
         if refine > 6:
             raise ValueError("refine > 6 is not supported")
         self.refine = refine
 
-        if source_type is None or source_type not in SourceType:
-            raise ValueError("MVTools: 'source_type' has to be from SourceType (enum)!")
         self.source_type = source_type
-
-        prefvn = isinstance(prefilter, vs.VideoNode)
-        if prefilter is None or (not prefvn and prefilter not in Prefilter) and not prefvn:
-            raise ValueError("MVTools: 'prefilter' has to be from Prefilter (enum) or a VideoNode!")
         self.prefilter = prefilter
-
-        if pel_type is None or not isinstance(pel_type, tuple) or any(p is None or p not in PelType for p in pel_type):
-            raise ValueError("MVTools: 'source_type' has to be a tuple of PelType (enum)!")
         self.pel_type = pel_type
-
-        if range_in is None or range_in not in CRange:
-            raise ValueError("MVTools: 'range_in' has to be 0 (limited) or 1 (full)!")
         self.range_in = range_in
-
-        if not isinstance(pel, int) and pel is not None:
-            raise ValueError("MVTools: 'pel' has to be an int or None!")
         self.pel = fallback(pel, 1 + int(not self.isHD))
-
-        if not isinstance(subpixel, int):
-            raise ValueError("MVTools: 'subpixel' has to be an int!")
         self.subpixel = subpixel
 
         if planes is not None and isinstance(planes, int):
@@ -226,27 +204,16 @@ class MVTools:
         if not hasattr(self, 'chroma'):
             self.chroma = 1 in self.planes or 2 in self.planes
 
-        if not isinstance(fixFades, bool):
-            raise ValueError("MVTools: 'fixFades' has to be a boolean!")
-
-        if not isinstance(rangeConversion, float):
-            raise ValueError("MVTools: 'rangeConversion' has to be a float!")
         self.rangeConversion = rangeConversion
 
         self.vectors = vectors
 
-        if not isinstance(hpad, int) and hpad is not None:
-            raise ValueError("MVTools: 'hpad' has to be an int or None!")
         self.hpad = fallback(hpad, 8 if self.isHD else 16)
         self.hpadU = self.hpad // 2 if self.isUHD else self.hpad
 
-        if not isinstance(vpad, int) and hpad is not None:
-            raise ValueError("MVTools: 'vpad' has to be an int or None!")
         self.vpad = fallback(vpad, 8 if self.isHD else 16)
         self.vpadU = self.vpad // 2 if self.isUHD else self.vpad
 
-        if not isinstance(rfilter, int):
-            raise ValueError("MVTools: 'rfilter' has to be an int!")
         self.rfilter = rfilter
 
         self.DCT = 5 if fixFades else 0
@@ -297,23 +264,6 @@ class MVTools:
 
         self._check_ref_clip(ref)
 
-        if not isinstance(blksize, int) and blksize is not None:
-            raise ValueError("MVTools.analyse: 'blksize' has to be an int or None!")
-
-        if not isinstance(overlap, int) and overlap is not None:
-            raise ValueError("MVTools.analyse: 'overlap' has to be an int or None!")
-
-        if not isinstance(search, int) and search is not None:
-            raise ValueError("MVTools.analyse: 'search' has to be an int or None!")
-
-        if not isinstance(pelsearch, int) and pelsearch is not None:
-            raise ValueError("MVTools.analyse: 'pelsearch' has to be an int or None!")
-
-        if not isinstance(searchparam, int) and searchparam is not None:
-            raise ValueError("MVTools.analyse: 'searchparam' has to be an int or None!")
-
-        if not isinstance(truemotion, bool) and truemotion is not None:
-            raise ValueError("MVTools: 'truemotion' has to be a boolean or None!")
         truemotion = fallback(truemotion, not self.isHD)
 
         searchparam = fallback(
@@ -458,12 +408,6 @@ class MVTools:
     def compensate(
         self, func: LambdaVSFunction, ref: vs.VideoNode | None = None, thSAD: int = 150, **kwargs: KwArgsT
     ) -> vs.VideoNode:
-        if not callable(func):
-            raise RuntimeError("MVTools.compensate: 'func' has to be a function!")
-
-        if not isinstance(thSAD, int):
-            raise ValueError("MVTools.compensate: 'thSAD' has to be an int!")
-
         ref = fallback(ref, self.workclip)
 
         self._check_ref_clip(ref)
@@ -497,24 +441,7 @@ class MVTools:
     ) -> vs.VideoNode:
         self._check_ref_clip(ref)
 
-        if not isinstance(thSAD, int):
-            raise ValueError("MVTools.degrain: 'thSAD' has to be an int!")
-
-        if not isinstance(thSADC, int) and thSADC is not None:
-            raise ValueError("MVTools.degrain: 'thSADC' has to be an int or None!")
-
-        if not isinstance(thSCD1, int) and thSCD1 is not None:
-            raise ValueError("MVTools.degrain: 'thSCD1' has to be an int or None!")
-
-        if not isinstance(thSCD2, int):
-            raise ValueError("MVTools.degrain: 'thSCD2' has to be an int!")
-
-        if not isinstance(limit, int) and limit is not None:
-            raise ValueError("MVTools.degrain: 'limit' has to be an int or None!")
         limit = fallback(limit, 2 if self.isUHD else 255)
-
-        if not isinstance(limitC, float) and limitC is not None:
-            raise ValueError("MVTools.degrain: 'limitC' has to be a float or None!")
         limitC = fallback(limitC, limit)
 
         thrSAD = self._SceneAnalyzeThreshold(
@@ -707,9 +634,6 @@ class MVTools:
         return final if chroma else core.std.ShufflePlanes([final, flt], [0, 1, 2], vs.YUV)
 
     def _get_planes(self, planes: Sequence[int]) -> Tuple[List[int], int]:
-        if not (isinstance(planes, Sequence) and isinstance(planes[0], int)):
-            raise ValueError("'planes' has to be a sequence of ints!")
-
         if planes == [0, 1, 2]:
             mvplane = 4
         elif len(planes) == 1 and planes[0] in {0, 1, 2}:
@@ -722,9 +646,6 @@ class MVTools:
         return list(planes), mvplane
 
     def _check_ref_clip(self, ref: vs.VideoNode | None) -> vs.VideoNode | None:
-        if not isinstance(ref, vs.VideoNode) and ref is not None:
-            raise ValueError('Ref clip has to be a VideoNode or None!')
-
         if ref is None:
             return None
 
