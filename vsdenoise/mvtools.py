@@ -29,6 +29,19 @@ def get_peak_value(clip: vs.VideoNode, chroma: bool = False) -> float:
     return (0.5 if chroma else 1.) if clip.format.sample_type == vs.FLOAT else (1 << get_depth(clip)) - 1.
 
 
+def get_mv_planes(planes: Sequence[int]) -> Tuple[List[int], int]:
+    if planes == [0, 1, 2]:
+        mvplane = 4
+    elif len(planes) == 1 and planes[0] in {0, 1, 2}:
+        mvplane = planes[0]
+    elif planes == [1, 2]:
+        mvplane = 3
+    else:
+        raise ValueError("Invalid planes specified!")
+
+    return list(planes), mvplane
+
+
 class SourceType(IntEnum):
     BFF = 0
     TFF = 1
@@ -202,7 +215,7 @@ class MVTools:
 
         self.is_gray = planes == [0]
 
-        self.planes, self.mvplane = self._get_planes(planes)
+        self.planes, self.mvplane = get_mv_planes(planes)
 
         if not hasattr(self, 'chroma'):
             self.chroma = 1 in self.planes or 2 in self.planes
@@ -635,18 +648,6 @@ class MVTools:
         final = core.akarin.Expr([flt, flt.bilateral.Gaussian(LFR), ref.bilateral.Gaussian(LFR)], expr)
 
         return final if chroma else core.std.ShufflePlanes([final, flt], [0, 1, 2], vs.YUV)
-
-    def _get_planes(self, planes: Sequence[int]) -> Tuple[List[int], int]:
-        if planes == [0, 1, 2]:
-            mvplane = 4
-        elif len(planes) == 1 and planes[0] in {0, 1, 2}:
-            mvplane = planes[0]
-        elif planes == [1, 2]:
-            mvplane = 3
-        else:
-            raise ValueError("Invalid planes specified!")
-
-        return list(planes), mvplane
 
     def _check_ref_clip(self, ref: vs.VideoNode | None) -> vs.VideoNode | None:
         if ref is None:
