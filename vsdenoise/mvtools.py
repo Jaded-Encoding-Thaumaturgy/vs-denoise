@@ -60,6 +60,16 @@ class Prefilter(IntEnum):
     NONE = 9
 
 
+class SceneAnalyzeThreshold(NamedTuple):
+    luma: float
+    chroma: float
+
+
+class SceneChangeThreshold(NamedTuple):
+    first: int
+    second: int
+
+
 class MVToolPlugin(Enum):
     INTEGER = 0
     FLOAT_OLD = 1
@@ -140,16 +150,6 @@ class MVTools:
     vpad: int
     vpadU: int
     rfilter: int
-    mvtools: _MVTools
-
-    class _SceneAnalyzeThreshold(NamedTuple):
-        luma: float
-        chroma: float
-
-    class _SceneChangeThreshold(NamedTuple):
-        first: int
-        second: int
-
     mvtools: MVToolPlugin
 
     @disallow_variable_format
@@ -447,13 +447,13 @@ class MVTools:
         limit = fallback(limit, 2 if self.isUHD else 255)
         limitC = fallback(limitC, limit)
 
-        thrSAD = self._SceneAnalyzeThreshold(
+        thrSAD = SceneAnalyzeThreshold(
             round(exp(-101. / (thSAD * 0.83)) * 360),
             fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)))
 
         )
 
-        thrSCD = self._SceneChangeThreshold(
+        thrSCD = SceneChangeThreshold(
             fallback(thSCD1, round(0.35 * thSAD + 260)),
             fallback(thSCD2, 130)
         )
