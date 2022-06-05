@@ -35,6 +35,15 @@ class SourceType(IntEnum):
     def is_inter(self) -> bool:
         return self != SourceType.PROGRESSIVE
 
+    def __eq__(self, o: Any) -> bool:
+        if not isinstance(o, SourceType):
+            raise NotImplementedError
+
+        return self.value == o.value
+
+    def __ne__(self, o: Any) -> bool:
+        return not (self == o)
+
 
 class PelType(IntEnum):
     AUTO = auto()
