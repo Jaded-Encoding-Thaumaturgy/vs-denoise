@@ -92,7 +92,7 @@ class MVToolPlugin(Enum):
             return cast(Callable[..., vs.VideoNode], getattr(
                 self.namespace, f"Degrain{fallback(radius, '')}"
             ))
-        except BaseException:
+        except AttributeError:
             raise ValueError(f"{self.name}.Degrain doesn't support a radius of {radius}")
 
     def __eq__(self, o: Any) -> bool:
