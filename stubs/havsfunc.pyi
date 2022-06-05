@@ -1,6 +1,0 @@
-import vapoursynth as vs
-
-from typing import Optional, Union, Sequence
-
-def MinBlur(clp: vs.VideoNode, r: int = 1, planes: Optional[Union[int, Sequence[int]]] = None) -> vs.VideoNode: ...
-def DitherLumaRebuild(src: vs.VideoNode, s0: float = 2.0, c: float = 0.0625, chroma: bool = True) -> vs.VideoNode: ...
