@@ -113,6 +113,12 @@ class MVToolPlugin(Enum):
         except BaseException:
             raise ValueError(f"{self.name}.Degrain doesn't support a radius of {radius}")
 
+    def __eq__(self, o: Any) -> bool:
+        if not isinstance(o, MVToolPlugin):
+            raise NotImplementedError
+
+        return self.value == o.value
+
 
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
