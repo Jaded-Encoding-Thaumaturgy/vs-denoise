@@ -646,7 +646,7 @@ class MVTools:
         if ref.width != self.workclip.width or ref.height != self.workclip.height:
             raise ValueError("Ref clip sizes must match the source clip's!")
 
-    def get_mv_planes(planes: Sequence[int]) -> Tuple[List[int], int]:
+    def get_mv_planes(self, planes: Sequence[int]) -> Tuple[List[int], int]:
         if planes == [0, 1, 2]:
             mvplane = 4
         elif len(planes) == 1 and planes[0] in {0, 1, 2}:
