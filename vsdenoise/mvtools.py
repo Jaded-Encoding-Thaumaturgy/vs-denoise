@@ -274,7 +274,7 @@ class MVTools:
         search: int | None = None, pelsearch: int | None = None,
         searchparam: int | None = None, truemotion: bool | None = None,
         force: bool = False
-    ) -> MVTools:
+    ) -> None:
         ref = fallback(ref, self.workclip)
 
         self.check_ref_clip(ref)
@@ -393,8 +393,6 @@ class MVTools:
                         _add_vector(i, True)
 
         self.vectors['super_render'] = super_render
-
-        return self
 
     def get_vectors_bv(self, func_name: str = '') -> Tuple[List[vs.VideoNode], List[vs.VideoNode]]:
         if not self.vectors:
