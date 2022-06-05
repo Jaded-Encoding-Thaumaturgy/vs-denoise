@@ -11,9 +11,10 @@ import vapoursynth as vs
 from vsutil import Dither
 from vsutil import Range as CRange
 from vsutil import depth, get_depth, get_y, scale_value
+from typing import Type
 
 from .bm3d import BM3D as BM3DM
-from .bm3d import BM3DCPU, BM3DCuda, BM3DCudaRTC, Profile
+from .bm3d import BM3DCPU, BM3DCuda, BM3DCudaRTC, Profile, AbstractBM3D
 from .knlm import knl_means_cl
 from .utils import get_neutral_value, get_peak_value
 
@@ -99,6 +100,7 @@ def prefilter_clip(clip: vs.VideoNode, pref_type: Prefilter) -> vs.VideoNode:
 
         return replace_low_frequencies(knl, clip, 600 * (clip.width / 1920))
     elif pref_type in {Prefilter.BM3D, Prefilter.BM3D_CPU, Prefilter.BM3D_CUDA, Prefilter.BM3D_CUDA_RTC}:
+        bm3d_arch: Type[AbstractBM3D]
         if pref_type == Prefilter.BM3D:
             bm3d_arch, sigma, profile = BM3DM, 10, Profile.FAST
         elif pref_type == Prefilter.BM3D_CPU:
@@ -122,11 +124,13 @@ def prefilter_to_full_range(
     pref: vs.VideoNode, prefilter: Prefilter, range_conversion: float
 ) -> vs.VideoNode:
     pref = prefilter_clip(pref, prefilter)
+    fmt = pref.format
+    assert fmt
 
     # Luma expansion TV->PC (up to 16% more values for motion estimation)
     if range_conversion > 1.0:
-        is_gray = pref.format.color_family == vs.GRAY
-        is_integer = pref.format.sample_type == vs.INTEGER
+        is_gray = fmt.color_family == vs.GRAY
+        is_integer = fmt.sample_type == vs.INTEGER
 
         bits = get_depth(pref)
         neutral = get_neutral_value(pref)
@@ -147,7 +151,7 @@ def prefilter_to_full_range(
         pref = pref.retinex.MSRCP(None, range_conversion, None, False, True)
     else:
         pref = depth(
-            pref, pref.format.bits_per_sample,
+            pref, fmt.bits_per_sample,
             range=CRange.FULL, range_in=CRange.LIMITED,
             dither_type=Dither.NONE
         )
@@ -155,7 +159,6 @@ def prefilter_to_full_range(
     return pref
 
 
-@staticmethod
 def replace_low_frequencies(
     flt: vs.VideoNode, ref: vs.VideoNode, LFR: float, DCTFlicker: bool = False, chroma: bool = True
 ) -> vs.VideoNode:
