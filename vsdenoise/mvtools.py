@@ -5,20 +5,15 @@ This module implements wrappers for mvtool
 from __future__ import annotations
 
 from enum import Enum, IntEnum, auto
-from math import ceil, e, exp, log, pi, sin, sqrt
-from typing import Any, Callable, Dict, List, Sequence, Tuple, Type, cast
+from math import ceil, exp
+from typing import Any, Callable, Dict, List, Sequence, Tuple, cast
 
 import vapoursynth as vs
-from havsfunc import DitherLumaRebuild, MinBlur
-from vsutil import (
-    Dither, depth, disallow_variable_format, disallow_variable_resolution,
-    fallback, get_depth, get_y, scale_value, Range as CRange  # get_peak_value,
-)
+from vsutil import Range as CRange
+from vsutil import depth, disallow_variable_format, disallow_variable_resolution, fallback
 
-from .bm3d import BM3D, AbstractBM3D, Profile, _AbstractBM3DCuda
-from .knlm import ChannelMode, knl_means_cl
-from .types import KwArgsT, LambdaVSFunction
-from .utils import get_peak_value
+from .prefilters import Prefilter, prefilter_clip, prefilter_to_full_range
+from .types import LambdaVSFunction
 
 __all__ = ['MVTools', 'SourceType', 'PelType', 'Prefilter']
 
@@ -51,19 +46,6 @@ class PelType(IntEnum):
     BICUBIC = auto()
     WIENER = auto()
     NNEDI3 = auto()
-
-
-class Prefilter(IntEnum):
-    MINBLUR1 = 0
-    MINBLUR2 = 1
-    MINBLUR3 = 2
-    MINBLURFLUX = 3
-    DFTTEST = 4
-    KNLMEANSCL = 5
-    BM3D = 6
-    DGDENOISE = 7
-    AUTO = 8
-    NONE = 9
 
 
 class MVToolPlugin(Enum):
@@ -290,7 +272,13 @@ class MVTools:
 
         search = fallback(search, 4 if self.refine else 2)
 
-        pref = self.get_prefiltered_clip(ref)
+        if isinstance(self.prefilter, vs.VideoNode):
+            pref = self.prefilter
+        elif self.range_in == CRange.LIMITED:
+            pref = prefilter_to_full_range(ref, self.prefilter, self.range_conversion)
+        else:
+            pref = prefilter_clip(ref, self.prefilter)
+
         pelclip, pelclip2 = self.get_subpel_clips(pref, ref)
 
         common_args: Dict[str, Any] = dict(
@@ -544,89 +532,6 @@ class MVTools:
         pel_type, pel2_type = pel_types
 
         return self.subpel_clip(pref, pel_type), self.subpel_clip(ref, pel2_type)
-
-    def prefilter_clip(self, clip: vs.VideoNode, pref_type: Prefilter | vs.VideoNode) -> vs.VideoNode:
-        if pref_type == Prefilter.NONE or isinstance(pref_type, vs.VideoNode):
-            return clip
-        elif pref_type.value in {0, 1, 2}:
-            return MinBlur(clip, pref_type.value, self.planes)
-        elif pref_type == Prefilter.MINBLURFLUX:
-            return MinBlur(clip, 2).flux.SmoothST(2, 2, self.planes)
-        elif pref_type == Prefilter.DFTTEST:
-            bits = get_depth(clip)
-            peak = get_peak_value(clip)
-
-            y = get_y(clip)
-            i = scale_value(16, 8, bits, range=CRange.FULL)
-            j = scale_value(75, 8, bits, range=CRange.FULL)
-
-            dfft = clip.dfttest.DFTTest(
-                tbsize=1, slocation=[0.0, 4.0, 0.2, 9.0, 1.0, 15.0],
-                sbsize=12, sosize=6, swin=2
-            )
-
-            prefmask = y.std.Expr(f'x {i} < {peak} x {j} > 0 {peak} x {i} - {peak} {j} {i} - / * - ? ?')
-
-            return dfft.std.MaskedMerge(clip, prefmask)
-        elif pref_type == Prefilter.KNLMEANSCL:
-            knl = knl_means_cl(
-                clip, 7.0, 1, 2, 2, ChannelMode.ALL_PLANES if self.chroma else ChannelMode.LUMA,
-                device_id=self.device_id
-            )
-
-            return self.replace_low_frequencies(knl, clip, 600 * (clip.width / 1920), chroma=self.chroma)
-        elif pref_type == Prefilter.BM3D:
-            return self.bm3d_arch(
-                clip, sigma=10 if isinstance(self.bm3d_arch, _AbstractBM3DCuda) else 8,
-                radius=1, profile=Profile.LOW_COMPLEXITY
-            ).clip
-        elif pref_type == Prefilter.DGDENOISE:
-            # dgd = core.dgdecodenv.DGDenoise(pref, 0.10)
-
-            # pref = self.replace_low_frequencies(dgd, pref, w / 2, chroma=self.chroma)
-            return clip.bilateral.Gaussian(1)
-
-        return clip
-
-    def get_prefiltered_clip(self, pref: vs.VideoNode) -> vs.VideoNode:
-        if isinstance(self.prefilter, vs.VideoNode):
-            return self.prefilter
-
-        pref = self.prefilter_clip(pref, Prefilter.MINBLUR3 if self.prefilter == Prefilter.AUTO else self.prefilter)
-
-        # Luma expansion TV->PC (up to 16% more values for motion estimation)
-        if self.range_in == CRange.LIMITED:
-            if self.rangeConversion > 1.0:
-                pref = DitherLumaRebuild(pref, self.rangeConversion)
-            elif self.rangeConversion > 0.0:
-                pref = pref.retinex.MSRCP(None, self.rangeConversion, None, False, True)
-            else:
-                pref = depth(pref, 8, range=CRange.FULL, range_in=CRange.LIMITED, dither_type=Dither.NONE)
-
-        return pref
-
-    @staticmethod
-    def replace_low_frequencies(
-        flt: vs.VideoNode, ref: vs.VideoNode, LFR: float, DCTFlicker: bool = False, chroma: bool = True
-    ) -> vs.VideoNode:
-        assert flt.format
-        LFR = max(LFR or (300 * flt.width / 1920), 50)
-
-        freq_sample = max(flt.width, flt.height) * 2    # Frequency sample rate is resolution * 2 (for Nyquist)
-        k = sqrt(log(2) / 2) * LFR                      # Constant for -3dB
-        LFR = freq_sample / (k * 2 * pi)                # Frequency Cutoff for Gaussian Sigma
-        sec0 = sin(e) + .1
-
-        sec = scale_value(sec0, 8, flt.format.bits_per_sample, range=CRange.FULL)
-
-        expr = "x y - z + "
-
-        if DCTFlicker:
-            expr += f"y z - d! y z = swap dup d@ 0 = 0 d@ 0 < -1 1 ? ? {sec} * + ?"
-
-        final = core.akarin.Expr([flt, flt.bilateral.Gaussian(LFR), ref.bilateral.Gaussian(LFR)], expr)
-
-        return final if chroma else core.std.ShufflePlanes([final, flt], [0, 1, 2], vs.YUV)
 
     def check_ref_clip(self, ref: vs.VideoNode | None) -> None:
         if ref is None:
