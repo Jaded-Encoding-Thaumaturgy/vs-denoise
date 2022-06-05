@@ -177,17 +177,14 @@ class MVTools:
 
         if clip.format.color_family == vs.GRAY:
             planes = [0]
-            self.chroma = False
         elif planes is None:
             planes = [0, 1, 2]
-            self.chroma = True
 
         self.is_gray = planes == [0]
 
         self.planes, self.mv_plane = self.get_mv_planes(planes)
 
-        if not hasattr(self, 'chroma'):
-            self.chroma = 1 in self.planes or 2 in self.planes
+        self.chroma = 1 in self.planes or 2 in self.planes
 
         self.range_conversion = range_conversion
 
