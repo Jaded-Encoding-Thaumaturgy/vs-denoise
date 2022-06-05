@@ -146,7 +146,7 @@ class MVTools:
     is_gray: bool
     planes: List[int]
     mvplane: int
-    rangeConversion: float
+    range_conversion: float
     hpad: int
     hpadU: int
     vpad: int
@@ -166,7 +166,7 @@ class MVTools:
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
         highprecision: bool = False,
-        fixFades: bool = False, rangeConversion: float = 5.0,
+        fixFades: bool = False, range_conversion: float = 5.0,
         hpad: int | None = None, vpad: int | None = None,
         rfilter: int = 3, vectors: Dict[str, Any] = {}
     ) -> None:
@@ -209,7 +209,7 @@ class MVTools:
         if not hasattr(self, 'chroma'):
             self.chroma = 1 in self.planes or 2 in self.planes
 
-        self.rangeConversion = rangeConversion
+        self.range_conversion = range_conversion
 
         self.vectors = vectors
 
