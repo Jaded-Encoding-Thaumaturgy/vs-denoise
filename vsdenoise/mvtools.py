@@ -241,8 +241,7 @@ class MVTools:
         self, ref: vs.VideoNode | None = None,
         blksize: int | None = None, overlap: int | None = None,
         search: int | None = None, pelsearch: int | None = None,
-        searchparam: int | None = None, truemotion: bool | None = None,
-        force: bool = False
+        searchparam: int | None = None, truemotion: bool | None = None
     ) -> None:
         ref = fallback(ref, self.workclip)
 
@@ -460,9 +459,7 @@ class MVTools:
             )
 
             if self.mvtools == MVToolPlugin.FLOAT_NEW:
-                degrain_args.update({
-                    'thsad2': [thrSAD_luma / 2, thrSAD_chroma / 2]
-                })
+                degrain_args.update(thsad2=[thrSAD_luma / 2, thrSAD_chroma / 2])
 
         to_degrain = ref or self.workclip
 
