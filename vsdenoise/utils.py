@@ -16,3 +16,11 @@ def arr_to_len(array: Sequence[T], length: int = 3) -> List[T]:
 def get_peak_value(clip: vs.VideoNode, chroma: bool = False) -> float:
     assert clip.format
     return (0.5 if chroma else 1.) if clip.format.sample_type == vs.FLOAT else (1 << get_depth(clip)) - 1.
+
+
+def get_neutral_value(clip: vs.VideoNode, chroma: bool = False) -> float:
+    assert clip.format
+
+    is_float = clip.format.sample_type == vs.FLOAT
+
+    return (0. if chroma else 0.5) if is_float else float(1 << (get_depth(clip) - 1))
