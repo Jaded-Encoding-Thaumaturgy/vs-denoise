@@ -125,9 +125,6 @@ class MVTools:
     recalculate_args: Dict[str, Any]
     degrain_args: Dict[str, Any]
 
-    bm3d_arch: Type[AbstractBM3D] = BM3D
-    device_id: int = 0
-
     vectors: Dict[str, Any]
 
     clip: vs.VideoNode
@@ -409,7 +406,7 @@ class MVTools:
         return (vectors_backward, vectors_forward)
 
     def compensate(
-        self, func: LambdaVSFunction, ref: vs.VideoNode | None = None, thSAD: int = 150, **kwargs: KwArgsT
+        self, func: LambdaVSFunction, ref: vs.VideoNode | None = None, thSAD: int = 150, **kwargs: Any
     ) -> vs.VideoNode:
         ref = fallback(ref, self.workclip)
 
