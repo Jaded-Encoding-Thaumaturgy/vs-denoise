@@ -112,8 +112,8 @@ class MVTools:
 
     clip: vs.VideoNode
 
-    isHD: bool
-    isUHD: bool
+    is_hd: bool
+    is_uhd: bool
     tr: int
     refine: int
     source_type: SourceType
@@ -125,12 +125,12 @@ class MVTools:
     chroma: bool
     is_gray: bool
     planes: List[int]
-    mvplane: int
+    mv_plane: int
     range_conversion: float
     hpad: int
-    hpadU: int
+    hpad_half: int
     vpad: int
-    vpadU: int
+    vpad_half: int
     rfilter: int
     mvtools: MVToolPlugin
 
@@ -156,8 +156,8 @@ class MVTools:
             raise ValueError("MVTools: Only GRAY or YUV format clips supported")
         self.clip = clip
 
-        self.isHD = clip.width >= 1100 or clip.height >= 600
-        self.isUHD = self.clip.width >= 2600 or self.clip.height >= 1500
+        self.is_hd = clip.width >= 1100 or clip.height >= 600
+        self.is_uhd = self.clip.width >= 2600 or self.clip.height >= 1500
 
         self.tr = tr
 
@@ -169,7 +169,7 @@ class MVTools:
         self.prefilter = prefilter
         self.pel_type = pel_type
         self.range_in = range_in
-        self.pel = fallback(pel, 1 + int(not self.isHD))
+        self.pel = fallback(pel, 1 + int(not self.is_hd))
         self.subpixel = subpixel
 
         if planes is not None and isinstance(planes, int):
@@ -184,7 +184,7 @@ class MVTools:
 
         self.is_gray = planes == [0]
 
-        self.planes, self.mvplane = self.get_mv_planes(planes)
+        self.planes, self.mv_plane = self.get_mv_planes(planes)
 
         if not hasattr(self, 'chroma'):
             self.chroma = 1 in self.planes or 2 in self.planes
@@ -193,11 +193,11 @@ class MVTools:
 
         self.vectors = vectors
 
-        self.hpad = fallback(hpad, 8 if self.isHD else 16)
-        self.hpadU = self.hpad // 2 if self.isUHD else self.hpad
+        self.hpad = fallback(hpad, 8 if self.is_hd else 16)
+        self.hpad_half = self.hpad // 2 if self.is_uhd else self.hpad
 
-        self.vpad = fallback(vpad, 8 if self.isHD else 16)
-        self.vpadU = self.vpad // 2 if self.isUHD else self.vpad
+        self.vpad = fallback(vpad, 8 if self.is_hd else 16)
+        self.vpad_half = self.vpad // 2 if self.is_uhd else self.vpad
 
         self.rfilter = rfilter
 
@@ -248,12 +248,12 @@ class MVTools:
 
         self.check_ref_clip(ref)
 
-        truemotion = fallback(truemotion, not self.isHD)
+        truemotion = fallback(truemotion, not self.is_hd)
 
         searchparam = fallback(
-            searchparam, (2 if self.isUHD else 5) if (
+            searchparam, (2 if self.is_uhd else 5) if (
                 self.refine and truemotion
-            ) else (1 if self.isUHD else 2)
+            ) else (1 if self.is_uhd else 2)
         )
 
         searchparamr = max(0, round(exp(0.69 * searchparam - 1.79) - 0.67))
@@ -262,7 +262,7 @@ class MVTools:
 
         blocksize = max(
             self.refine and 2 ** (self.refine + 2),
-            fallback(blksize, 16 if self.isHD else 8)
+            fallback(blksize, 16 if self.is_hd else 8)
         )
 
         halfblocksize = max(8, blocksize // 2)
@@ -282,7 +282,7 @@ class MVTools:
         pelclip, pelclip2 = self.get_subpel_clips(pref, ref)
 
         common_args: Dict[str, Any] = dict(
-            sharp=min(self.subpixel, 2), pel=self.pel, vpad=self.vpadU, hpad=self.hpadU, chroma=self.chroma
+            sharp=min(self.subpixel, 2), pel=self.pel, vpad=self.vpad_half, hpad=self.hpad_half, chroma=self.chroma
         )
         super_render_args: Dict[str, Any] = common_args | dict(
             hpad=self.hpad, vpad=self.vpad, chroma=not self.is_gray, levels=1
@@ -430,7 +430,7 @@ class MVTools:
     ) -> vs.VideoNode:
         self.check_ref_clip(ref)
 
-        limit = fallback(limit, 2 if self.isUHD else 255)
+        limit = fallback(limit, 2 if self.is_uhd else 255)
         limitC = fallback(limitC, limit)
 
         thrSAD_luma = round(exp(-101. / (thSAD * 0.83)) * 360)
@@ -444,7 +444,7 @@ class MVTools:
         # Finally, MDegrain
 
         degrain_args: Dict[str, Any] = dict(
-            thscd1=thrSCD_first, thscd2=thrSCD_second, plane=self.mvplane
+            thscd1=thrSCD_first, thscd2=thrSCD_second, plane=self.mv_plane
         )
 
         if self.mvtools == MVToolPlugin.INTEGER:
@@ -468,9 +468,8 @@ class MVTools:
                 to_degrain, self.vectors['super_render'], self.vectors['vmulti'], **degrain_args
             )
         else:
-            output: vs.VideoNode = self.mvtools.Degrain(self.tr)(
-                to_degrain, self.vectors['super_render'],
-                *chain.from_iterable(zip(vect_b, vect_f)), **degrain_args
+            output = self.mvtools.Degrain(self.tr)(
+                to_degrain, self.vectors['super_render'], *chain.from_iterable(zip(vect_b, vect_f)), **degrain_args
             )
 
         return output.std.DoubleWeave(self.source_type.value) if self.source_type.is_inter else output
@@ -541,12 +540,12 @@ class MVTools:
 
     def get_mv_planes(self, planes: Sequence[int]) -> Tuple[List[int], int]:
         if planes == [0, 1, 2]:
-            mvplane = 4
+            mv_plane = 4
         elif len(planes) == 1 and planes[0] in {0, 1, 2}:
-            mvplane = planes[0]
+            mv_plane = planes[0]
         elif planes == [1, 2]:
-            mvplane = 3
+            mv_plane = 3
         else:
             raise ValueError("Invalid planes specified!")
 
-        return list(planes), mvplane
+        return list(planes), mv_plane
