@@ -5,6 +5,7 @@ This module implements wrappers for mvtool
 from __future__ import annotations
 
 from enum import Enum, IntEnum, auto
+from itertools import chain
 from math import ceil, exp
 from typing import Any, Callable, Dict, List, Sequence, Tuple, cast
 
@@ -368,7 +369,7 @@ class MVTools:
 
         self.vectors['super_render'] = super_render
 
-    def get_vectors_bv(self, func_name: str = '') -> Tuple[List[vs.VideoNode], List[vs.VideoNode]]:
+    def get_vectors_bf(self, func_name: str = '') -> Tuple[List[vs.VideoNode], List[vs.VideoNode]]:
         if not self.vectors:
             raise RuntimeError(
                 f"MVTools{'.' if func_name else ''}{func_name}: you first need to analyze the clip!"
@@ -386,7 +387,8 @@ class MVTools:
                 vectors_backward.append(vmulti.std.SelectEvery(t2 * 2, i))
                 vectors_forward.append(vmulti.std.SelectEvery(t2 * 2, i + 1))
         else:
-            for i in range(1, self.tr + 1):
+            it = 1 + int(self.source_type.is_inter)
+            for i in range(it, t2 + 1, it):
                 vectors_backward.append(self.vectors[f'bv{i}'])
                 vectors_forward.append(self.vectors[f'fv{i}'])
 
@@ -399,7 +401,7 @@ class MVTools:
 
         self.check_ref_clip(ref)
 
-        vect_b, vect_f = self.get_vectors_bv('compensate')
+        vect_b, vect_f = self.get_vectors_bf('compensate')
 
         comp_back, comp_forw = tuple(
             map(
@@ -437,9 +439,7 @@ class MVTools:
         thrSCD_first = fallback(thSCD1, round(0.35 * thSAD + 260))
         thrSCD_second = fallback(thSCD2, 130)
 
-        t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
-
-        vect_b, vect_f = self.get_vectors_bv('degrain')
+        vect_b, vect_f = self.get_vectors_bf('degrain')
 
         # Finally, MDegrain
 
@@ -463,18 +463,14 @@ class MVTools:
 
         to_degrain = ref or self.workclip
 
-        if self.mvtools != MVToolPlugin.FLOAT_NEW:
-            degrain_vectors = []
-            it = 1 + int(self.source_type.is_inter)
-            for i in range(it, t2 + 1, it):
-                degrain_vectors.append(self.vectors[f'bv{i}'])
-                degrain_vectors.append(self.vectors[f'fv{i}'])
-            output: vs.VideoNode = self.mvtools.Degrain(self.tr)(
-                to_degrain, self.vectors['super_render'], *degrain_vectors, **degrain_args
-            )
-        else:
+        if self.mvtools == MVToolPlugin.FLOAT_NEW:
             output = self.mvtools.Degrain()(
                 to_degrain, self.vectors['super_render'], self.vectors['vmulti'], **degrain_args
+            )
+        else:
+            output: vs.VideoNode = self.mvtools.Degrain(self.tr)(
+                to_degrain, self.vectors['super_render'],
+                *chain.from_iterable(zip(vect_b, vect_f)), **degrain_args
             )
 
         return output.std.DoubleWeave(self.source_type.value) if self.source_type.is_inter else output
