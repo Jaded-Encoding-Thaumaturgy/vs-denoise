@@ -128,7 +128,7 @@ class MVTools:
     mv_plane: int
     range_conversion: float
     hpad: int
-    hpad_half: int
+    hpad_uhd: int
     vpad: int
     vpad_half: int
     rfilter: int
@@ -191,7 +191,7 @@ class MVTools:
         self.vectors = vectors
 
         self.hpad = fallback(hpad, 8 if self.is_hd else 16)
-        self.hpad_half = self.hpad // 2 if self.is_uhd else self.hpad
+        self.hpad_uhd = self.hpad // 2 if self.is_uhd else self.hpad
 
         self.vpad = fallback(vpad, 8 if self.is_hd else 16)
         self.vpad_half = self.vpad // 2 if self.is_uhd else self.vpad
@@ -279,7 +279,7 @@ class MVTools:
         pelclip, pelclip2 = self.get_subpel_clips(pref, ref)
 
         common_args: Dict[str, Any] = dict(
-            sharp=min(self.subpixel, 2), pel=self.pel, vpad=self.vpad_half, hpad=self.hpad_half, chroma=self.chroma
+            sharp=min(self.subpixel, 2), pel=self.pel, vpad=self.vpad_half, hpad=self.hpad_uhd, chroma=self.chroma
         )
         super_render_args: Dict[str, Any] = common_args | dict(
             hpad=self.hpad, vpad=self.vpad, chroma=not self.is_gray, levels=1
