@@ -633,9 +633,9 @@ class MVTools:
 
         return final if chroma else core.std.ShufflePlanes([final, flt], [0, 1, 2], vs.YUV)
 
-    def check_ref_clip(self, ref: vs.VideoNode | None) -> vs.VideoNode | None:
+    def check_ref_clip(self, ref: vs.VideoNode | None) -> None:
         if ref is None:
-            return None
+            return
 
         assert self.workclip.format
         assert ref.format
@@ -645,8 +645,6 @@ class MVTools:
 
         if ref.width != self.workclip.width or ref.height != self.workclip.height:
             raise ValueError("Ref clip sizes must match the source clip's!")
-
-        return ref
 
     def get_mv_planes(planes: Sequence[int]) -> Tuple[List[int], int]:
         if planes == [0, 1, 2]:
