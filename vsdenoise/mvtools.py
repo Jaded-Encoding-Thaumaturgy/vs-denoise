@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from enum import Enum, IntEnum, auto
 from math import ceil, e, exp, log, pi, sin, sqrt
-from typing import Any, Callable, Dict, List, NamedTuple, Sequence, Tuple, Type, cast
+from typing import Any, Callable, Dict, List, Sequence, Tuple, Type, cast
 
 import vapoursynth as vs
 from havsfunc import DitherLumaRebuild, MinBlur
@@ -64,16 +64,6 @@ class Prefilter(IntEnum):
     DGDENOISE = 7
     AUTO = 8
     NONE = 9
-
-
-class SceneAnalyzeThreshold(NamedTuple):
-    luma: float
-    chroma: float
-
-
-class SceneChangeThreshold(NamedTuple):
-    first: int
-    second: int
 
 
 class MVToolPlugin(Enum):
@@ -457,16 +447,11 @@ class MVTools:
         limit = fallback(limit, 2 if self.isUHD else 255)
         limitC = fallback(limitC, limit)
 
-        thrSAD = SceneAnalyzeThreshold(
-            round(exp(-101. / (thSAD * 0.83)) * 360),
-            fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)))
+        thrSAD_luma = round(exp(-101. / (thSAD * 0.83)) * 360)
+        thrSAD_chroma = fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)))
 
-        )
-
-        thrSCD = SceneChangeThreshold(
-            fallback(thSCD1, round(0.35 * thSAD + 260)),
-            fallback(thSCD2, 130)
-        )
+        thrSCD_first = fallback(thSCD1, round(0.35 * thSAD + 260))
+        thrSCD_second = fallback(thSCD2, 130)
 
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
@@ -475,23 +460,23 @@ class MVTools:
         # Finally, MDegrain
 
         degrain_args: Dict[str, Any] = dict(
-            thscd1=thrSCD.first, thscd2=thrSCD.second, plane=self.mvplane
+            thscd1=thrSCD_first, thscd2=thrSCD_second, plane=self.mvplane
         )
 
         if self.mvtools == MVToolPlugin.INTEGER:
-            degrain_args.update({
-                'thsad': thrSAD.luma, 'thsadc': thrSAD.chroma,
-                'limit': limit, 'limitc': limitC
-            })
+            degrain_args.update(
+                thsad=thrSAD_luma, thsadc=thrSAD_chroma,
+                limit=limit, limitc=limitC
+            )
         else:
-            degrain_args.update({
-                'thsad': [thrSAD.luma, thrSAD.chroma, thrSAD.chroma],
-                'limit': [limit, limitC]
-            })
+            degrain_args.update(
+                thsad=[thrSAD_luma, thrSAD_chroma, thrSAD_chroma],
+                limit=[limit, limitC]
+            )
 
             if self.mvtools == MVToolPlugin.FLOAT_NEW:
                 degrain_args.update({
-                    'thsad2': [thrSAD.luma / 2, thrSAD.chroma / 2]
+                    'thsad2': [thrSAD_luma / 2, thrSAD_chroma / 2]
                 })
 
         to_degrain = ref or self.workclip
