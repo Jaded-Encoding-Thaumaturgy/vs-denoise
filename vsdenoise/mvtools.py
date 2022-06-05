@@ -146,7 +146,7 @@ class MVTools:
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
         highprecision: bool = False,
-        fixFades: bool = False, range_conversion: float = 5.0,
+        fix_fades: bool = False, range_conversion: float = 5.0,
         hpad: int | None = None, vpad: int | None = None,
         rfilter: int = 3, vectors: Dict[str, Any] | MVTools | None = None
     ) -> None:
@@ -201,7 +201,7 @@ class MVTools:
 
         self.rfilter = rfilter
 
-        self.DCT = 5 if fixFades else 0
+        self.DCT = 5 if fix_fades else 0
 
         if self.source_type == SourceType.PROGRESSIVE:
             self.workclip = self.clip
@@ -216,8 +216,9 @@ class MVTools:
             self.mvtools = MVToolPlugin.FLOAT_NEW
             if not hasattr(core, 'mvsf'):
                 raise ImportError(
-                    "MVTools: With the current settings, the processing has to be done in float precision, but you're"
-                    "missing mvsf.\n\tPlease download it from: https://github.com/IFeelBloated/vapoursynth-mvtools-sf"
+                    "MVTools: With the current settings, the processing has to be done in float precision, "
+                    "but you're missing mvsf."
+                    "\n\tPlease download it from: https://github.com/IFeelBloated/vapoursynth-mvtools-sf"
                 )
             if not hasattr(core.mvsf, 'Degrain'):
                 if tr > 24:
@@ -282,10 +283,14 @@ class MVTools:
         pelclip, pelclip2 = self.get_subpel_clips(pref, ref)
 
         common_args: Dict[str, Any] = dict(
-            sharp=min(self.subpixel, 2), pel=self.pel, vpad=self.vpad_half, hpad=self.hpad_uhd, chroma=self.chroma
+            sharp=min(self.subpixel, 2), pel=self.pel,
+            vpad=self.vpad_half, hpad=self.hpad_uhd,
+            chroma=self.chroma
         )
         super_render_args: Dict[str, Any] = common_args | dict(
-            hpad=self.hpad, vpad=self.vpad, chroma=not self.is_gray, levels=1
+            levels=1,
+            hpad=self.hpad, vpad=self.vpad,
+            chroma=not self.is_gray
         )
 
         if pelclip or pelclip2:
@@ -300,14 +305,17 @@ class MVTools:
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
         analyse_args: Dict[str, Any] = dict(
-            overlap=overlap, blksize=blocksize, search=search, chroma=self.chroma, truemotion=truemotion,
-            dct=self.DCT, searchparam=searchparam, pelsearch=pelsearch, plevel=0, pglobal=11
+            plevel=0, pglobal=11, pelsearch=pelsearch,
+            blksize=blocksize, overlap=overlap, search=search,
+            truemotion=truemotion, searchparam=searchparam,
+            chroma=self.chroma, dct=self.DCT
         )
 
         recalculate_args: Dict[str, Any] = dict(
-            overlap=halfoverlap, blksize=halfblocksize,
-            search=0, chroma=self.chroma, truemotion=truemotion,
-            dct=5, searchparam=searchparamr, thsad=recalculate_SAD
+            search=0, dct=5, thsad=recalculate_SAD,
+            blksize=halfblocksize, overlap=halfoverlap,
+            truemotion=truemotion, searchparam=searchparamr,
+            chroma=self.chroma
         )
 
         if self.mvtools == MVToolPlugin.FLOAT_NEW:
@@ -395,7 +403,9 @@ class MVTools:
         return (vectors_backward, vectors_forward)
 
     def compensate(
-        self, func: LambdaVSFunction, ref: vs.VideoNode | None = None, thSAD: int = 150, **kwargs: Any
+        self, func: LambdaVSFunction,
+        ref: vs.VideoNode | None = None,
+        thSAD: int = 150, **kwargs: Any
     ) -> vs.VideoNode:
         ref = fallback(ref, self.workclip)
 
