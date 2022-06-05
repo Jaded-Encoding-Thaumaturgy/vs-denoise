@@ -494,11 +494,11 @@ class MVTools:
         elif pel_type == PelType.NNEDI3:
             nnargs = dict(nsize=0, nns=1, qual=1, pscrn=2)
 
-            nmsp = 'znedi3' if hasattr(core, 'znedi3') else 'nnedi3'
+            plugin = core.znedi3 if hasattr(core, 'znedi3') else core.nnedi3
 
-            nnedi3_cpu = getattr(
-                getattr(clip.std.Transpose(), nmsp).nnedi3(0, True, **nnargs).std.Transpose(), nmsp
-            ).nnedi3(0, True, **nnargs)
+            nnedi3_cpu = plugin.nnedi3(
+                plugin.nnedi3(clip.std.Transpose(), 0, True, **nnargs).std.Transpose(), 0, True, **nnargs
+            )
 
             if hasattr(core, 'nnedi3cl'):
                 upscale = core.std.Interleave([
