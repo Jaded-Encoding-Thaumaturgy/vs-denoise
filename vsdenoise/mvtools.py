@@ -148,7 +148,7 @@ class MVTools:
         highprecision: bool = False,
         fixFades: bool = False, range_conversion: float = 5.0,
         hpad: int | None = None, vpad: int | None = None,
-        rfilter: int = 3, vectors: Dict[str, Any] = {}
+        rfilter: int = 3, vectors: Dict[str, Any] | MVTools | None = None
     ) -> None:
         assert clip.format
 
@@ -188,7 +188,10 @@ class MVTools:
 
         self.range_conversion = range_conversion
 
-        self.vectors = vectors
+        if isinstance(vectors, MVTools):
+            self.vectors = vectors.vectors
+        else:
+            self.vectors = cast(Dict[str, Any], vectors) or {}
 
         self.hpad = fallback(hpad, 8 if self.is_hd else 16)
         self.hpad_uhd = self.hpad // 2 if self.is_uhd else self.hpad
