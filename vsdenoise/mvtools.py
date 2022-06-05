@@ -18,17 +18,12 @@ from vsutil import (
 from .bm3d import BM3D, AbstractBM3D, Profile, _AbstractBM3DCuda
 from .knlm import ChannelMode, knl_means_cl
 from .types import KwArgsT, LambdaVSFunction
+from .utils import get_peak_value
 
 __all__ = ['MVTools', 'SourceType', 'PelType', 'Prefilter']
 
 core = vs.core
 blackman_args: Dict[str, Any] = dict(filter_param_a=-0.6, filter_param_b=0.4)
-
-
-# here until vsutil gets a new release
-def get_peak_value(clip: vs.VideoNode, chroma: bool = False) -> float:
-    assert clip.format
-    return (0.5 if chroma else 1.) if clip.format.sample_type == vs.FLOAT else (1 << get_depth(clip)) - 1.
 
 
 class SourceType(IntEnum):
