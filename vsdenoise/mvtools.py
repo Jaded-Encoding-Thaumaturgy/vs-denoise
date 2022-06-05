@@ -517,7 +517,7 @@ class MVTools:
 
             if hasattr(core, 'nnedi3cl'):
                 upscale = core.std.Interleave([
-                    nnedi3_cpu[::2], clip[1::2].nnedi3cl.NNEDI3CL(0, True, True, **nnargs)  # type: ignore
+                    nnedi3_cpu[::2], clip[1::2].nnedi3cl.NNEDI3CL(0, True, True, **nnargs)
                 ])
             else:
                 upscale = nnedi3_cpu

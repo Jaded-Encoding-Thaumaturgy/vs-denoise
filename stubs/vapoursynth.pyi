@@ -457,6 +457,8 @@ class Environment:
     def env_id(self) -> int: ...
     @property
     def active(self) -> bool: ...
+    @classmethod
+    def is_single(cls) -> bool: ...
     def copy(self) -> Environment: ...
     def use(self) -> typing.ContextManager[None]: ...
 
@@ -465,7 +467,9 @@ class Environment:
 
 class EnvironmentPolicyAPI:
     def wrap_environment(self, environment_data: EnvironmentData) -> Environment: ...
-    def create_environment(self) -> EnvironmentData: ...
+    def create_environment(self, flags: int = 0) -> EnvironmentData: ...
+    def set_logger(self, env: Environment, logger: typing.Callable[[int, str], None]) -> None: ...
+    def destroy_environment(self, env: EnvironmentData) -> None: ...
     def unregister_policy(self) -> None: ...
 
 class EnvironmentPolicy:
@@ -569,7 +573,7 @@ class _RawFrame:
     def __enter__(self) -> '_RawFrame': ...
     def __exit__(self, ty: typing.Optional[typing.Type[BaseException]], tv: typing.Optional[BaseException], tb: typing.Optional[types.TracebackType]) -> None: ...
 
-        
+
 class VideoFrame(_RawFrame):
     height: int
     width: int
@@ -581,7 +585,7 @@ class VideoFrame(_RawFrame):
     def __len__(self) -> int: ...
     def __enter__(self) -> 'VideoFrame': ...
 
-        
+
 class _Future(typing.Generic[T]):
     def set_result(self, value: T) -> None: ...
     def set_exception(self, exception: BaseException) -> None: ...
@@ -614,6 +618,14 @@ class Function:
     @property
     def __signature__(self) -> inspect.Signature: ...
     def __call__(self, *args: typing.Any, **kwargs: typing.Any) -> typing.Any: ...
+
+
+class _Plugin_chkdr_Core_Unbound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def grain(self, clip: "VideoNode", sigma: typing.Optional[float] = None, res: typing.Optional[int] = None, rad: typing.Optional[float] = None, dev: typing.Optional[float] = None, seed: typing.Optional[int] = None, cf: typing.Optional[int] = None, cp: typing.Optional[int] = None, draft: typing.Optional[int] = None, cpuopt: typing.Optional[int] = None) -> "VideoNode": ...
 
 
 class _Plugin_acrop_Core_Unbound(Plugin):
@@ -721,12 +733,32 @@ class _Plugin_scd_Core_Unbound(Plugin):
     def Detect(self, clip: "VideoNode", thresh: typing.Optional[int] = None, interval_h: typing.Optional[int] = None, interval_v: typing.Optional[int] = None, log: typing.Union[str, bytes, bytearray, None] = None) -> "VideoNode": ...
 
 
+class _Plugin_eedi2cuda_Core_Unbound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def AA2(self, clip: "VideoNode", mthresh: typing.Optional[int] = None, lthresh: typing.Optional[int] = None, vthresh: typing.Optional[int] = None, estr: typing.Optional[int] = None, dstr: typing.Optional[int] = None, maxd: typing.Optional[int] = None, map: typing.Optional[int] = None, nt: typing.Optional[int] = None, pp: typing.Optional[int] = None, planes: typing.Union[int, typing.Sequence[int], None] = None, num_streams: typing.Optional[int] = None, device_id: typing.Optional[int] = None) -> "VideoNode": ...
+    def BuildConfig(self) -> typing.Union[str, bytes, bytearray]: ...
+    def EEDI2(self, clip: "VideoNode", field: int, mthresh: typing.Optional[int] = None, lthresh: typing.Optional[int] = None, vthresh: typing.Optional[int] = None, estr: typing.Optional[int] = None, dstr: typing.Optional[int] = None, maxd: typing.Optional[int] = None, map: typing.Optional[int] = None, nt: typing.Optional[int] = None, pp: typing.Optional[int] = None, planes: typing.Union[int, typing.Sequence[int], None] = None, num_streams: typing.Optional[int] = None, device_id: typing.Optional[int] = None) -> "VideoNode": ...
+    def Enlarge2(self, clip: "VideoNode", mthresh: typing.Optional[int] = None, lthresh: typing.Optional[int] = None, vthresh: typing.Optional[int] = None, estr: typing.Optional[int] = None, dstr: typing.Optional[int] = None, maxd: typing.Optional[int] = None, map: typing.Optional[int] = None, nt: typing.Optional[int] = None, pp: typing.Optional[int] = None, planes: typing.Union[int, typing.Sequence[int], None] = None, num_streams: typing.Optional[int] = None, device_id: typing.Optional[int] = None) -> "VideoNode": ...
+
+
 class _Plugin_knlm_Core_Unbound(Plugin):
     """
     This class implements the module definitions for the corresponding VapourSynth plugin.
     This class cannot be imported.
     """
     def KNLMeansCL(self, clip: "VideoNode", d: typing.Optional[int] = None, a: typing.Optional[int] = None, s: typing.Optional[int] = None, h: typing.Optional[float] = None, channels: typing.Union[str, bytes, bytearray, None] = None, wmode: typing.Optional[int] = None, wref: typing.Optional[float] = None, rclip: typing.Optional["VideoNode"] = None, device_type: typing.Union[str, bytes, bytearray, None] = None, device_id: typing.Optional[int] = None, ocl_x: typing.Optional[int] = None, ocl_y: typing.Optional[int] = None, ocl_r: typing.Optional[int] = None, info: typing.Optional[int] = None) -> "VideoNode": ...
+
+
+class _Plugin_wnnm_Core_Unbound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def Version(self) -> "VideoNode": ...
+    def WNNM(self, clip: "VideoNode", sigma: typing.Union[float, typing.Sequence[float], None] = None, block_size: typing.Optional[int] = None, block_step: typing.Optional[int] = None, group_size: typing.Optional[int] = None, bm_range: typing.Optional[int] = None, residual: typing.Optional[int] = None, adaptive_aggregation: typing.Optional[int] = None, fast: typing.Optional[int] = None) -> "VideoNode": ...
 
 
 class _Plugin_ftf_Core_Unbound(Plugin):
@@ -776,6 +808,14 @@ class _Plugin_ccd_Core_Unbound(Plugin):
     This class cannot be imported.
     """
     def CCD(self, clip: "VideoNode", threshold: typing.Optional[float] = None) -> "VideoNode": ...
+
+
+class _Plugin_amogus_Core_Unbound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def Amogus(self, clip: "VideoNode", depth: int, range: typing.Optional[int] = None) -> "VideoNode": ...
 
 
 class _Plugin_grain_Core_Unbound(Plugin):
@@ -874,6 +914,14 @@ class _Plugin_lghost_Core_Unbound(Plugin):
     This class cannot be imported.
     """
     def LGhost(self, clip: "VideoNode", mode: typing.Union[int, typing.Sequence[int]], shift: typing.Union[int, typing.Sequence[int]], intensity: typing.Union[int, typing.Sequence[int]], planes: typing.Union[int, typing.Sequence[int], None] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+
+
+class _Plugin_nnedi3cl_Core_Unbound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def NNEDI3CL(self, clip: "VideoNode", field: int, dh: typing.Optional[int] = None, dw: typing.Optional[int] = None, planes: typing.Union[int, typing.Sequence[int], None] = None, nsize: typing.Optional[int] = None, nns: typing.Optional[int] = None, qual: typing.Optional[int] = None, etype: typing.Optional[int] = None, pscrn: typing.Optional[int] = None, device: typing.Optional[int] = None, list_device: typing.Optional[int] = None, info: typing.Optional[int] = None) -> "VideoNode": ...
 
 
 class _Plugin_pp7_Core_Unbound(Plugin):
@@ -1542,6 +1590,7 @@ class _Plugin_resize_Core_Unbound(Plugin):
     """
     def Bicubic(self, clip: "VideoNode", width: typing.Optional[int] = None, height: typing.Optional[int] = None, format: typing.Optional[int] = None, matrix: typing.Optional[int] = None, matrix_s: typing.Union[str, bytes, bytearray, None] = None, transfer: typing.Optional[int] = None, transfer_s: typing.Union[str, bytes, bytearray, None] = None, primaries: typing.Optional[int] = None, primaries_s: typing.Union[str, bytes, bytearray, None] = None, range: typing.Optional[int] = None, range_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc: typing.Optional[int] = None, chromaloc_s: typing.Union[str, bytes, bytearray, None] = None, matrix_in: typing.Optional[int] = None, matrix_in_s: typing.Union[str, bytes, bytearray, None] = None, transfer_in: typing.Optional[int] = None, transfer_in_s: typing.Union[str, bytes, bytearray, None] = None, primaries_in: typing.Optional[int] = None, primaries_in_s: typing.Union[str, bytes, bytearray, None] = None, range_in: typing.Optional[int] = None, range_in_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc_in: typing.Optional[int] = None, chromaloc_in_s: typing.Union[str, bytes, bytearray, None] = None, filter_param_a: typing.Optional[float] = None, filter_param_b: typing.Optional[float] = None, resample_filter_uv: typing.Union[str, bytes, bytearray, None] = None, filter_param_a_uv: typing.Optional[float] = None, filter_param_b_uv: typing.Optional[float] = None, dither_type: typing.Union[str, bytes, bytearray, None] = None, cpu_type: typing.Union[str, bytes, bytearray, None] = None, prefer_props: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, nominal_luminance: typing.Optional[float] = None) -> "VideoNode": ...
     def Bilinear(self, clip: "VideoNode", width: typing.Optional[int] = None, height: typing.Optional[int] = None, format: typing.Optional[int] = None, matrix: typing.Optional[int] = None, matrix_s: typing.Union[str, bytes, bytearray, None] = None, transfer: typing.Optional[int] = None, transfer_s: typing.Union[str, bytes, bytearray, None] = None, primaries: typing.Optional[int] = None, primaries_s: typing.Union[str, bytes, bytearray, None] = None, range: typing.Optional[int] = None, range_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc: typing.Optional[int] = None, chromaloc_s: typing.Union[str, bytes, bytearray, None] = None, matrix_in: typing.Optional[int] = None, matrix_in_s: typing.Union[str, bytes, bytearray, None] = None, transfer_in: typing.Optional[int] = None, transfer_in_s: typing.Union[str, bytes, bytearray, None] = None, primaries_in: typing.Optional[int] = None, primaries_in_s: typing.Union[str, bytes, bytearray, None] = None, range_in: typing.Optional[int] = None, range_in_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc_in: typing.Optional[int] = None, chromaloc_in_s: typing.Union[str, bytes, bytearray, None] = None, filter_param_a: typing.Optional[float] = None, filter_param_b: typing.Optional[float] = None, resample_filter_uv: typing.Union[str, bytes, bytearray, None] = None, filter_param_a_uv: typing.Optional[float] = None, filter_param_b_uv: typing.Optional[float] = None, dither_type: typing.Union[str, bytes, bytearray, None] = None, cpu_type: typing.Union[str, bytes, bytearray, None] = None, prefer_props: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, nominal_luminance: typing.Optional[float] = None) -> "VideoNode": ...
+    def Bob(self, clip: "VideoNode", filter: typing.Union[str, bytes, bytearray, None] = None, tff: typing.Optional[int] = None, format: typing.Optional[int] = None, matrix: typing.Optional[int] = None, matrix_s: typing.Union[str, bytes, bytearray, None] = None, transfer: typing.Optional[int] = None, transfer_s: typing.Union[str, bytes, bytearray, None] = None, primaries: typing.Optional[int] = None, primaries_s: typing.Union[str, bytes, bytearray, None] = None, range: typing.Optional[int] = None, range_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc: typing.Optional[int] = None, chromaloc_s: typing.Union[str, bytes, bytearray, None] = None, matrix_in: typing.Optional[int] = None, matrix_in_s: typing.Union[str, bytes, bytearray, None] = None, transfer_in: typing.Optional[int] = None, transfer_in_s: typing.Union[str, bytes, bytearray, None] = None, primaries_in: typing.Optional[int] = None, primaries_in_s: typing.Union[str, bytes, bytearray, None] = None, range_in: typing.Optional[int] = None, range_in_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc_in: typing.Optional[int] = None, chromaloc_in_s: typing.Union[str, bytes, bytearray, None] = None, filter_param_a: typing.Optional[float] = None, filter_param_b: typing.Optional[float] = None, resample_filter_uv: typing.Union[str, bytes, bytearray, None] = None, filter_param_a_uv: typing.Optional[float] = None, filter_param_b_uv: typing.Optional[float] = None, dither_type: typing.Union[str, bytes, bytearray, None] = None, cpu_type: typing.Union[str, bytes, bytearray, None] = None, prefer_props: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, nominal_luminance: typing.Optional[float] = None) -> "VideoNode": ...
     def Lanczos(self, clip: "VideoNode", width: typing.Optional[int] = None, height: typing.Optional[int] = None, format: typing.Optional[int] = None, matrix: typing.Optional[int] = None, matrix_s: typing.Union[str, bytes, bytearray, None] = None, transfer: typing.Optional[int] = None, transfer_s: typing.Union[str, bytes, bytearray, None] = None, primaries: typing.Optional[int] = None, primaries_s: typing.Union[str, bytes, bytearray, None] = None, range: typing.Optional[int] = None, range_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc: typing.Optional[int] = None, chromaloc_s: typing.Union[str, bytes, bytearray, None] = None, matrix_in: typing.Optional[int] = None, matrix_in_s: typing.Union[str, bytes, bytearray, None] = None, transfer_in: typing.Optional[int] = None, transfer_in_s: typing.Union[str, bytes, bytearray, None] = None, primaries_in: typing.Optional[int] = None, primaries_in_s: typing.Union[str, bytes, bytearray, None] = None, range_in: typing.Optional[int] = None, range_in_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc_in: typing.Optional[int] = None, chromaloc_in_s: typing.Union[str, bytes, bytearray, None] = None, filter_param_a: typing.Optional[float] = None, filter_param_b: typing.Optional[float] = None, resample_filter_uv: typing.Union[str, bytes, bytearray, None] = None, filter_param_a_uv: typing.Optional[float] = None, filter_param_b_uv: typing.Optional[float] = None, dither_type: typing.Union[str, bytes, bytearray, None] = None, cpu_type: typing.Union[str, bytes, bytearray, None] = None, prefer_props: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, nominal_luminance: typing.Optional[float] = None) -> "VideoNode": ...
     def Point(self, clip: "VideoNode", width: typing.Optional[int] = None, height: typing.Optional[int] = None, format: typing.Optional[int] = None, matrix: typing.Optional[int] = None, matrix_s: typing.Union[str, bytes, bytearray, None] = None, transfer: typing.Optional[int] = None, transfer_s: typing.Union[str, bytes, bytearray, None] = None, primaries: typing.Optional[int] = None, primaries_s: typing.Union[str, bytes, bytearray, None] = None, range: typing.Optional[int] = None, range_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc: typing.Optional[int] = None, chromaloc_s: typing.Union[str, bytes, bytearray, None] = None, matrix_in: typing.Optional[int] = None, matrix_in_s: typing.Union[str, bytes, bytearray, None] = None, transfer_in: typing.Optional[int] = None, transfer_in_s: typing.Union[str, bytes, bytearray, None] = None, primaries_in: typing.Optional[int] = None, primaries_in_s: typing.Union[str, bytes, bytearray, None] = None, range_in: typing.Optional[int] = None, range_in_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc_in: typing.Optional[int] = None, chromaloc_in_s: typing.Union[str, bytes, bytearray, None] = None, filter_param_a: typing.Optional[float] = None, filter_param_b: typing.Optional[float] = None, resample_filter_uv: typing.Union[str, bytes, bytearray, None] = None, filter_param_a_uv: typing.Optional[float] = None, filter_param_b_uv: typing.Optional[float] = None, dither_type: typing.Union[str, bytes, bytearray, None] = None, cpu_type: typing.Union[str, bytes, bytearray, None] = None, prefer_props: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, nominal_luminance: typing.Optional[float] = None) -> "VideoNode": ...
     def Spline16(self, clip: "VideoNode", width: typing.Optional[int] = None, height: typing.Optional[int] = None, format: typing.Optional[int] = None, matrix: typing.Optional[int] = None, matrix_s: typing.Union[str, bytes, bytearray, None] = None, transfer: typing.Optional[int] = None, transfer_s: typing.Union[str, bytes, bytearray, None] = None, primaries: typing.Optional[int] = None, primaries_s: typing.Union[str, bytes, bytearray, None] = None, range: typing.Optional[int] = None, range_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc: typing.Optional[int] = None, chromaloc_s: typing.Union[str, bytes, bytearray, None] = None, matrix_in: typing.Optional[int] = None, matrix_in_s: typing.Union[str, bytes, bytearray, None] = None, transfer_in: typing.Optional[int] = None, transfer_in_s: typing.Union[str, bytes, bytearray, None] = None, primaries_in: typing.Optional[int] = None, primaries_in_s: typing.Union[str, bytes, bytearray, None] = None, range_in: typing.Optional[int] = None, range_in_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc_in: typing.Optional[int] = None, chromaloc_in_s: typing.Union[str, bytes, bytearray, None] = None, filter_param_a: typing.Optional[float] = None, filter_param_b: typing.Optional[float] = None, resample_filter_uv: typing.Union[str, bytes, bytearray, None] = None, filter_param_a_uv: typing.Optional[float] = None, filter_param_b_uv: typing.Optional[float] = None, dither_type: typing.Union[str, bytes, bytearray, None] = None, cpu_type: typing.Union[str, bytes, bytearray, None] = None, prefer_props: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, nominal_luminance: typing.Optional[float] = None) -> "VideoNode": ...
@@ -1688,7 +1737,6 @@ class _Plugin_bm3dcpu_Core_Unbound(Plugin):
     """
     def BM3D(self, clip: "VideoNode", ref: typing.Optional["VideoNode"] = None, sigma: typing.Union[float, typing.Sequence[float], None] = None, block_step: typing.Union[int, typing.Sequence[int], None] = None, bm_range: typing.Union[int, typing.Sequence[int], None] = None, radius: typing.Optional[int] = None, ps_num: typing.Optional[int] = None, ps_range: typing.Optional[int] = None, chroma: typing.Optional[int] = None) -> "VideoNode": ...
 
-
 class _Plugin_bm3dcuda_Core_Unbound(Plugin):
     """
     This class implements the module definitions for the corresponding VapourSynth plugin.
@@ -1702,7 +1750,7 @@ class _Plugin_bm3dcuda_rtc_Core_Unbound(Plugin):
     This class implements the module definitions for the corresponding VapourSynth plugin.
     This class cannot be imported.
     """
-    def BM3D(self, clip: "VideoNode", ref: typing.Optional[VideoNode] = None, sigma: typing.Union[float, typing.Sequence[float], None] = None, block_step: typing.Union[int, typing.Sequence[int], None] = None, bm_range: typing.Union[int, typing.Sequence[int], None] = None, radius: typing.Optional[int] = None, ps_num: typing.Union[int, typing.Sequence[int], None] = None, ps_range: typing.Union[int, typing.Sequence[int], None] = None, chroma: typing.Optional[int] = None, device_id: typing.Optional[int] = None, fast: typing.Optional[int] = None, extractor_exp: typing.Optional[int] = None, bm_error_s: typing.Optional[typing.Union[typing.Union[str, bytes, bytearray], typing.Sequence[typing.Union[str, bytes, bytearray]]]] = None, transform_2d_s: typing.Optional[typing.Union[typing.Union[str, bytes, bytearray], typing.Sequence[typing.Union[str, bytes, bytearray]]]] = None, transform_1d_s: typing.Optional[typing.Union[typing.Union[str, bytes, bytearray], typing.Sequence[typing.Union[str, bytes, bytearray]]]] = None) -> VideoNode: ...
+    def BM3D(self, clip: "VideoNode", ref: typing.Optional["VideoNode"] = None, sigma: typing.Union[float, typing.Sequence[float], None] = None, block_step: typing.Union[int, typing.Sequence[int], None] = None, bm_range: typing.Union[int, typing.Sequence[int], None] = None, radius: typing.Optional[int] = None, ps_num: typing.Union[int, typing.Sequence[int], None] = None, ps_range: typing.Union[int, typing.Sequence[int], None] = None, chroma: typing.Optional[int] = None, device_id: typing.Optional[int] = None, fast: typing.Optional[int] = None, extractor_exp: typing.Optional[int] = None, transform_2d_s: typing.Union[str, bytes, bytearray, typing.Sequence[typing.Union[str, bytes, bytearray]], None] = None, transform_1d_s: typing.Union[str, bytes, bytearray, typing.Sequence[typing.Union[str, bytes, bytearray]], None] = None) -> "VideoNode": ...
 
 
 class _Plugin_dpid_Core_Unbound(Plugin):
@@ -1988,6 +2036,14 @@ class _Plugin_bilateral_Core_Unbound(Plugin):
     def Gaussian(self, input: "VideoNode", sigma: typing.Union[float, typing.Sequence[float], None] = None, sigmaV: typing.Union[float, typing.Sequence[float], None] = None) -> "VideoNode": ...
 
 
+class _Plugin_noise_Core_Unbound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def Add(self, clip: "VideoNode", var: typing.Optional[float] = None, uvar: typing.Optional[float] = None, type: typing.Optional[int] = None, hcorr: typing.Optional[float] = None, vcorr: typing.Optional[float] = None, xsize: typing.Optional[float] = None, ysize: typing.Optional[float] = None, scale: typing.Optional[float] = None, seed: typing.Optional[int] = None, constant: typing.Optional[int] = None, every: typing.Optional[int] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+
+
 class _Plugin_adg_Core_Unbound(Plugin):
     """
     This class implements the module definitions for the corresponding VapourSynth plugin.
@@ -2026,6 +2082,14 @@ class _Plugin_fftspectrum_Core_Unbound(Plugin):
     This class cannot be imported.
     """
     def FFTSpectrum(self, clip: "VideoNode", grid: typing.Optional[int] = None) -> "VideoNode": ...
+
+
+class _Plugin_expr_Core_Unbound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def expr_cpp(self, clips: typing.Union["VideoNode", typing.Sequence["VideoNode"]], code: typing.Union[str, bytes, bytearray, typing.Sequence[typing.Union[str, bytes, bytearray]]], format: typing.Optional[int] = None, source_path: typing.Union[str, bytes, bytearray, None] = None, cxxflags: typing.Union[str, bytes, bytearray, typing.Sequence[typing.Union[str, bytes, bytearray]], None] = None, dump_path: typing.Union[str, bytes, bytearray, None] = None, dump_source: typing.Optional[int] = None, dump_bitcode: typing.Optional[int] = None, dump_binary: typing.Optional[int] = None) -> "VideoNode": ...
 
 
 class _Plugin_vivtc_Core_Unbound(Plugin):
@@ -2092,12 +2156,13 @@ class _Plugin_descale_Core_Unbound(Plugin):
     This class implements the module definitions for the corresponding VapourSynth plugin.
     This class cannot be imported.
     """
-    def Debicubic(self, src: "VideoNode", width: int, height: int, b: typing.Optional[float] = None, c: typing.Optional[float] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None) -> "VideoNode": ...
-    def Debilinear(self, src: "VideoNode", width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None) -> "VideoNode": ...
-    def Delanczos(self, src: "VideoNode", width: int, height: int, taps: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None) -> "VideoNode": ...
-    def Despline16(self, src: "VideoNode", width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None) -> "VideoNode": ...
-    def Despline36(self, src: "VideoNode", width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None) -> "VideoNode": ...
-    def Despline64(self, src: "VideoNode", width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None) -> "VideoNode": ...
+    def Debicubic(self, src: "VideoNode", width: int, height: int, b: typing.Optional[float] = None, c: typing.Optional[float] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, force: typing.Optional[int] = None, force_h: typing.Optional[int] = None, force_v: typing.Optional[int] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+    def Debilinear(self, src: "VideoNode", width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+    def Delanczos(self, src: "VideoNode", width: int, height: int, taps: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, force: typing.Optional[int] = None, force_h: typing.Optional[int] = None, force_v: typing.Optional[int] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+    def Descale(self, src: "VideoNode", width: int, height: int, kernel: typing.Union[str, bytes, bytearray, None] = None, custom_kernel: typing.Optional[typing.Callable[..., typing.Any]] = None, taps: typing.Optional[int] = None, b: typing.Optional[float] = None, c: typing.Optional[float] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, force: typing.Optional[int] = None, force_h: typing.Optional[int] = None, force_v: typing.Optional[int] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+    def Despline16(self, src: "VideoNode", width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, force: typing.Optional[int] = None, force_h: typing.Optional[int] = None, force_v: typing.Optional[int] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+    def Despline36(self, src: "VideoNode", width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, force: typing.Optional[int] = None, force_h: typing.Optional[int] = None, force_v: typing.Optional[int] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+    def Despline64(self, src: "VideoNode", width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, force: typing.Optional[int] = None, force_h: typing.Optional[int] = None, force_v: typing.Optional[int] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
 
 
 class _Plugin_descale_getnative_Core_Unbound(Plugin):
@@ -2126,6 +2191,14 @@ class _Plugin_znedi3_Core_Unbound(Plugin):
     This class cannot be imported.
     """
     def nnedi3(self, clip: "VideoNode", field: int, dh: typing.Optional[int] = None, planes: typing.Union[int, typing.Sequence[int], None] = None, nsize: typing.Optional[int] = None, nns: typing.Optional[int] = None, qual: typing.Optional[int] = None, etype: typing.Optional[int] = None, pscrn: typing.Optional[int] = None, opt: typing.Optional[int] = None, int16_prescreener: typing.Optional[int] = None, int16_predictor: typing.Optional[int] = None, exp: typing.Optional[int] = None, show_mask: typing.Optional[int] = None, x_nnedi3_weights_bin: typing.Union[str, bytes, bytearray, None] = None, x_cpu: typing.Union[str, bytes, bytearray, None] = None) -> "VideoNode": ...
+
+
+class _Plugin_chkdr_VideoNode_Bound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def grain(self, sigma: typing.Optional[float] = None, res: typing.Optional[int] = None, rad: typing.Optional[float] = None, dev: typing.Optional[float] = None, seed: typing.Optional[int] = None, cf: typing.Optional[int] = None, cp: typing.Optional[int] = None, draft: typing.Optional[int] = None, cpuopt: typing.Optional[int] = None) -> "VideoNode": ...
 
 
 class _Plugin_acrop_VideoNode_Bound(Plugin):
@@ -2216,12 +2289,30 @@ class _Plugin_scd_VideoNode_Bound(Plugin):
     def Detect(self, thresh: typing.Optional[int] = None, interval_h: typing.Optional[int] = None, interval_v: typing.Optional[int] = None, log: typing.Union[str, bytes, bytearray, None] = None) -> "VideoNode": ...
 
 
+class _Plugin_eedi2cuda_VideoNode_Bound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def AA2(self, mthresh: typing.Optional[int] = None, lthresh: typing.Optional[int] = None, vthresh: typing.Optional[int] = None, estr: typing.Optional[int] = None, dstr: typing.Optional[int] = None, maxd: typing.Optional[int] = None, map: typing.Optional[int] = None, nt: typing.Optional[int] = None, pp: typing.Optional[int] = None, planes: typing.Union[int, typing.Sequence[int], None] = None, num_streams: typing.Optional[int] = None, device_id: typing.Optional[int] = None) -> "VideoNode": ...
+    def EEDI2(self, field: int, mthresh: typing.Optional[int] = None, lthresh: typing.Optional[int] = None, vthresh: typing.Optional[int] = None, estr: typing.Optional[int] = None, dstr: typing.Optional[int] = None, maxd: typing.Optional[int] = None, map: typing.Optional[int] = None, nt: typing.Optional[int] = None, pp: typing.Optional[int] = None, planes: typing.Union[int, typing.Sequence[int], None] = None, num_streams: typing.Optional[int] = None, device_id: typing.Optional[int] = None) -> "VideoNode": ...
+    def Enlarge2(self, mthresh: typing.Optional[int] = None, lthresh: typing.Optional[int] = None, vthresh: typing.Optional[int] = None, estr: typing.Optional[int] = None, dstr: typing.Optional[int] = None, maxd: typing.Optional[int] = None, map: typing.Optional[int] = None, nt: typing.Optional[int] = None, pp: typing.Optional[int] = None, planes: typing.Union[int, typing.Sequence[int], None] = None, num_streams: typing.Optional[int] = None, device_id: typing.Optional[int] = None) -> "VideoNode": ...
+
+
 class _Plugin_knlm_VideoNode_Bound(Plugin):
     """
     This class implements the module definitions for the corresponding VapourSynth plugin.
     This class cannot be imported.
     """
     def KNLMeansCL(self, d: typing.Optional[int] = None, a: typing.Optional[int] = None, s: typing.Optional[int] = None, h: typing.Optional[float] = None, channels: typing.Union[str, bytes, bytearray, None] = None, wmode: typing.Optional[int] = None, wref: typing.Optional[float] = None, rclip: typing.Optional["VideoNode"] = None, device_type: typing.Union[str, bytes, bytearray, None] = None, device_id: typing.Optional[int] = None, ocl_x: typing.Optional[int] = None, ocl_y: typing.Optional[int] = None, ocl_r: typing.Optional[int] = None, info: typing.Optional[int] = None) -> "VideoNode": ...
+
+
+class _Plugin_wnnm_VideoNode_Bound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def WNNM(self, sigma: typing.Union[float, typing.Sequence[float], None] = None, block_size: typing.Optional[int] = None, block_step: typing.Optional[int] = None, group_size: typing.Optional[int] = None, bm_range: typing.Optional[int] = None, residual: typing.Optional[int] = None, adaptive_aggregation: typing.Optional[int] = None, fast: typing.Optional[int] = None) -> "VideoNode": ...
 
 
 class _Plugin_ftf_VideoNode_Bound(Plugin):
@@ -2271,6 +2362,14 @@ class _Plugin_ccd_VideoNode_Bound(Plugin):
     This class cannot be imported.
     """
     def CCD(self, threshold: typing.Optional[float] = None) -> "VideoNode": ...
+
+
+class _Plugin_amogus_VideoNode_Bound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def Amogus(self, depth: int, range: typing.Optional[int] = None) -> "VideoNode": ...
 
 
 class _Plugin_grain_VideoNode_Bound(Plugin):
@@ -2369,6 +2468,14 @@ class _Plugin_lghost_VideoNode_Bound(Plugin):
     This class cannot be imported.
     """
     def LGhost(self, mode: typing.Union[int, typing.Sequence[int]], shift: typing.Union[int, typing.Sequence[int]], intensity: typing.Union[int, typing.Sequence[int]], planes: typing.Union[int, typing.Sequence[int], None] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+
+
+class _Plugin_nnedi3cl_VideoNode_Bound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def NNEDI3CL(self, field: int, dh: typing.Optional[int] = None, dw: typing.Optional[int] = None, planes: typing.Union[int, typing.Sequence[int], None] = None, nsize: typing.Optional[int] = None, nns: typing.Optional[int] = None, qual: typing.Optional[int] = None, etype: typing.Optional[int] = None, pscrn: typing.Optional[int] = None, device: typing.Optional[int] = None, list_device: typing.Optional[int] = None, info: typing.Optional[int] = None) -> "VideoNode": ...
 
 
 class _Plugin_pp7_VideoNode_Bound(Plugin):
@@ -2983,6 +3090,7 @@ class _Plugin_resize_VideoNode_Bound(Plugin):
     """
     def Bicubic(self, width: typing.Optional[int] = None, height: typing.Optional[int] = None, format: typing.Optional[int] = None, matrix: typing.Optional[int] = None, matrix_s: typing.Union[str, bytes, bytearray, None] = None, transfer: typing.Optional[int] = None, transfer_s: typing.Union[str, bytes, bytearray, None] = None, primaries: typing.Optional[int] = None, primaries_s: typing.Union[str, bytes, bytearray, None] = None, range: typing.Optional[int] = None, range_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc: typing.Optional[int] = None, chromaloc_s: typing.Union[str, bytes, bytearray, None] = None, matrix_in: typing.Optional[int] = None, matrix_in_s: typing.Union[str, bytes, bytearray, None] = None, transfer_in: typing.Optional[int] = None, transfer_in_s: typing.Union[str, bytes, bytearray, None] = None, primaries_in: typing.Optional[int] = None, primaries_in_s: typing.Union[str, bytes, bytearray, None] = None, range_in: typing.Optional[int] = None, range_in_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc_in: typing.Optional[int] = None, chromaloc_in_s: typing.Union[str, bytes, bytearray, None] = None, filter_param_a: typing.Optional[float] = None, filter_param_b: typing.Optional[float] = None, resample_filter_uv: typing.Union[str, bytes, bytearray, None] = None, filter_param_a_uv: typing.Optional[float] = None, filter_param_b_uv: typing.Optional[float] = None, dither_type: typing.Union[str, bytes, bytearray, None] = None, cpu_type: typing.Union[str, bytes, bytearray, None] = None, prefer_props: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, nominal_luminance: typing.Optional[float] = None) -> "VideoNode": ...
     def Bilinear(self, width: typing.Optional[int] = None, height: typing.Optional[int] = None, format: typing.Optional[int] = None, matrix: typing.Optional[int] = None, matrix_s: typing.Union[str, bytes, bytearray, None] = None, transfer: typing.Optional[int] = None, transfer_s: typing.Union[str, bytes, bytearray, None] = None, primaries: typing.Optional[int] = None, primaries_s: typing.Union[str, bytes, bytearray, None] = None, range: typing.Optional[int] = None, range_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc: typing.Optional[int] = None, chromaloc_s: typing.Union[str, bytes, bytearray, None] = None, matrix_in: typing.Optional[int] = None, matrix_in_s: typing.Union[str, bytes, bytearray, None] = None, transfer_in: typing.Optional[int] = None, transfer_in_s: typing.Union[str, bytes, bytearray, None] = None, primaries_in: typing.Optional[int] = None, primaries_in_s: typing.Union[str, bytes, bytearray, None] = None, range_in: typing.Optional[int] = None, range_in_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc_in: typing.Optional[int] = None, chromaloc_in_s: typing.Union[str, bytes, bytearray, None] = None, filter_param_a: typing.Optional[float] = None, filter_param_b: typing.Optional[float] = None, resample_filter_uv: typing.Union[str, bytes, bytearray, None] = None, filter_param_a_uv: typing.Optional[float] = None, filter_param_b_uv: typing.Optional[float] = None, dither_type: typing.Union[str, bytes, bytearray, None] = None, cpu_type: typing.Union[str, bytes, bytearray, None] = None, prefer_props: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, nominal_luminance: typing.Optional[float] = None) -> "VideoNode": ...
+    def Bob(self, filter: typing.Union[str, bytes, bytearray, None] = None, tff: typing.Optional[int] = None, format: typing.Optional[int] = None, matrix: typing.Optional[int] = None, matrix_s: typing.Union[str, bytes, bytearray, None] = None, transfer: typing.Optional[int] = None, transfer_s: typing.Union[str, bytes, bytearray, None] = None, primaries: typing.Optional[int] = None, primaries_s: typing.Union[str, bytes, bytearray, None] = None, range: typing.Optional[int] = None, range_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc: typing.Optional[int] = None, chromaloc_s: typing.Union[str, bytes, bytearray, None] = None, matrix_in: typing.Optional[int] = None, matrix_in_s: typing.Union[str, bytes, bytearray, None] = None, transfer_in: typing.Optional[int] = None, transfer_in_s: typing.Union[str, bytes, bytearray, None] = None, primaries_in: typing.Optional[int] = None, primaries_in_s: typing.Union[str, bytes, bytearray, None] = None, range_in: typing.Optional[int] = None, range_in_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc_in: typing.Optional[int] = None, chromaloc_in_s: typing.Union[str, bytes, bytearray, None] = None, filter_param_a: typing.Optional[float] = None, filter_param_b: typing.Optional[float] = None, resample_filter_uv: typing.Union[str, bytes, bytearray, None] = None, filter_param_a_uv: typing.Optional[float] = None, filter_param_b_uv: typing.Optional[float] = None, dither_type: typing.Union[str, bytes, bytearray, None] = None, cpu_type: typing.Union[str, bytes, bytearray, None] = None, prefer_props: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, nominal_luminance: typing.Optional[float] = None) -> "VideoNode": ...
     def Lanczos(self, width: typing.Optional[int] = None, height: typing.Optional[int] = None, format: typing.Optional[int] = None, matrix: typing.Optional[int] = None, matrix_s: typing.Union[str, bytes, bytearray, None] = None, transfer: typing.Optional[int] = None, transfer_s: typing.Union[str, bytes, bytearray, None] = None, primaries: typing.Optional[int] = None, primaries_s: typing.Union[str, bytes, bytearray, None] = None, range: typing.Optional[int] = None, range_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc: typing.Optional[int] = None, chromaloc_s: typing.Union[str, bytes, bytearray, None] = None, matrix_in: typing.Optional[int] = None, matrix_in_s: typing.Union[str, bytes, bytearray, None] = None, transfer_in: typing.Optional[int] = None, transfer_in_s: typing.Union[str, bytes, bytearray, None] = None, primaries_in: typing.Optional[int] = None, primaries_in_s: typing.Union[str, bytes, bytearray, None] = None, range_in: typing.Optional[int] = None, range_in_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc_in: typing.Optional[int] = None, chromaloc_in_s: typing.Union[str, bytes, bytearray, None] = None, filter_param_a: typing.Optional[float] = None, filter_param_b: typing.Optional[float] = None, resample_filter_uv: typing.Union[str, bytes, bytearray, None] = None, filter_param_a_uv: typing.Optional[float] = None, filter_param_b_uv: typing.Optional[float] = None, dither_type: typing.Union[str, bytes, bytearray, None] = None, cpu_type: typing.Union[str, bytes, bytearray, None] = None, prefer_props: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, nominal_luminance: typing.Optional[float] = None) -> "VideoNode": ...
     def Point(self, width: typing.Optional[int] = None, height: typing.Optional[int] = None, format: typing.Optional[int] = None, matrix: typing.Optional[int] = None, matrix_s: typing.Union[str, bytes, bytearray, None] = None, transfer: typing.Optional[int] = None, transfer_s: typing.Union[str, bytes, bytearray, None] = None, primaries: typing.Optional[int] = None, primaries_s: typing.Union[str, bytes, bytearray, None] = None, range: typing.Optional[int] = None, range_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc: typing.Optional[int] = None, chromaloc_s: typing.Union[str, bytes, bytearray, None] = None, matrix_in: typing.Optional[int] = None, matrix_in_s: typing.Union[str, bytes, bytearray, None] = None, transfer_in: typing.Optional[int] = None, transfer_in_s: typing.Union[str, bytes, bytearray, None] = None, primaries_in: typing.Optional[int] = None, primaries_in_s: typing.Union[str, bytes, bytearray, None] = None, range_in: typing.Optional[int] = None, range_in_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc_in: typing.Optional[int] = None, chromaloc_in_s: typing.Union[str, bytes, bytearray, None] = None, filter_param_a: typing.Optional[float] = None, filter_param_b: typing.Optional[float] = None, resample_filter_uv: typing.Union[str, bytes, bytearray, None] = None, filter_param_a_uv: typing.Optional[float] = None, filter_param_b_uv: typing.Optional[float] = None, dither_type: typing.Union[str, bytes, bytearray, None] = None, cpu_type: typing.Union[str, bytes, bytearray, None] = None, prefer_props: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, nominal_luminance: typing.Optional[float] = None) -> "VideoNode": ...
     def Spline16(self, width: typing.Optional[int] = None, height: typing.Optional[int] = None, format: typing.Optional[int] = None, matrix: typing.Optional[int] = None, matrix_s: typing.Union[str, bytes, bytearray, None] = None, transfer: typing.Optional[int] = None, transfer_s: typing.Union[str, bytes, bytearray, None] = None, primaries: typing.Optional[int] = None, primaries_s: typing.Union[str, bytes, bytearray, None] = None, range: typing.Optional[int] = None, range_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc: typing.Optional[int] = None, chromaloc_s: typing.Union[str, bytes, bytearray, None] = None, matrix_in: typing.Optional[int] = None, matrix_in_s: typing.Union[str, bytes, bytearray, None] = None, transfer_in: typing.Optional[int] = None, transfer_in_s: typing.Union[str, bytes, bytearray, None] = None, primaries_in: typing.Optional[int] = None, primaries_in_s: typing.Union[str, bytes, bytearray, None] = None, range_in: typing.Optional[int] = None, range_in_s: typing.Union[str, bytes, bytearray, None] = None, chromaloc_in: typing.Optional[int] = None, chromaloc_in_s: typing.Union[str, bytes, bytearray, None] = None, filter_param_a: typing.Optional[float] = None, filter_param_b: typing.Optional[float] = None, resample_filter_uv: typing.Union[str, bytes, bytearray, None] = None, filter_param_a_uv: typing.Optional[float] = None, filter_param_b_uv: typing.Optional[float] = None, dither_type: typing.Union[str, bytes, bytearray, None] = None, cpu_type: typing.Union[str, bytes, bytearray, None] = None, prefer_props: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, nominal_luminance: typing.Optional[float] = None) -> "VideoNode": ...
@@ -3128,7 +3236,8 @@ class _Plugin_bm3dcuda_rtc_VideoNode_Bound(Plugin):
     This class implements the module definitions for the corresponding VapourSynth plugin.
     This class cannot be imported.
     """
-    def BM3D(self, clip: "VideoNode", ref: typing.Optional[VideoNode] = None, sigma: typing.Union[float, typing.Sequence[float], None] = None, block_step: typing.Union[int, typing.Sequence[int], None] = None, bm_range: typing.Union[int, typing.Sequence[int], None] = None, radius: typing.Optional[int] = None, ps_num: typing.Union[int, typing.Sequence[int], None] = None, ps_range: typing.Union[int, typing.Sequence[int], None] = None, chroma: typing.Optional[int] = None, device_id: typing.Optional[int] = None, fast: typing.Optional[int] = None, extractor_exp: typing.Optional[int] = None, bm_error_s: typing.Optional[typing.Union[typing.Union[str, bytes, bytearray], typing.Sequence[typing.Union[str, bytes, bytearray]]]] = None, transform_2d_s: typing.Optional[typing.Union[typing.Union[str, bytes, bytearray], typing.Sequence[typing.Union[str, bytes, bytearray]]]] = None, transform_1d_s: typing.Optional[typing.Union[typing.Union[str, bytes, bytearray], typing.Sequence[typing.Union[str, bytes, bytearray]]]] = None) -> VideoNode: ...
+    def BM3D(self, ref: typing.Optional["VideoNode"] = None, sigma: typing.Union[float, typing.Sequence[float], None] = None, block_step: typing.Union[int, typing.Sequence[int], None] = None, bm_range: typing.Union[int, typing.Sequence[int], None] = None, radius: typing.Optional[int] = None, ps_num: typing.Union[int, typing.Sequence[int], None] = None, ps_range: typing.Union[int, typing.Sequence[int], None] = None, chroma: typing.Optional[int] = None, device_id: typing.Optional[int] = None, fast: typing.Optional[int] = None, extractor_exp: typing.Optional[int] = None, transform_2d_s: typing.Union[str, bytes, bytearray, typing.Sequence[typing.Union[str, bytes, bytearray]], None] = None, transform_1d_s: typing.Union[str, bytes, bytearray, typing.Sequence[typing.Union[str, bytes, bytearray]], None] = None) -> "VideoNode": ...
+
 
 class _Plugin_dpid_VideoNode_Bound(Plugin):
     """
@@ -3407,6 +3516,14 @@ class _Plugin_bilateral_VideoNode_Bound(Plugin):
     def Gaussian(self, sigma: typing.Union[float, typing.Sequence[float], None] = None, sigmaV: typing.Union[float, typing.Sequence[float], None] = None) -> "VideoNode": ...
 
 
+class _Plugin_noise_VideoNode_Bound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def Add(self, var: typing.Optional[float] = None, uvar: typing.Optional[float] = None, type: typing.Optional[int] = None, hcorr: typing.Optional[float] = None, vcorr: typing.Optional[float] = None, xsize: typing.Optional[float] = None, ysize: typing.Optional[float] = None, scale: typing.Optional[float] = None, seed: typing.Optional[int] = None, constant: typing.Optional[int] = None, every: typing.Optional[int] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+
+
 class _Plugin_adg_VideoNode_Bound(Plugin):
     """
     This class implements the module definitions for the corresponding VapourSynth plugin.
@@ -3437,6 +3554,14 @@ class _Plugin_fftspectrum_VideoNode_Bound(Plugin):
     This class cannot be imported.
     """
     def FFTSpectrum(self, grid: typing.Optional[int] = None) -> "VideoNode": ...
+
+
+class _Plugin_expr_VideoNode_Bound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def expr_cpp(self, code: typing.Union[str, bytes, bytearray, typing.Sequence[typing.Union[str, bytes, bytearray]]], format: typing.Optional[int] = None, source_path: typing.Union[str, bytes, bytearray, None] = None, cxxflags: typing.Union[str, bytes, bytearray, typing.Sequence[typing.Union[str, bytes, bytearray]], None] = None, dump_path: typing.Union[str, bytes, bytearray, None] = None, dump_source: typing.Optional[int] = None, dump_bitcode: typing.Optional[int] = None, dump_binary: typing.Optional[int] = None) -> "VideoNode": ...
 
 
 class _Plugin_vivtc_VideoNode_Bound(Plugin):
@@ -3485,12 +3610,13 @@ class _Plugin_descale_VideoNode_Bound(Plugin):
     This class implements the module definitions for the corresponding VapourSynth plugin.
     This class cannot be imported.
     """
-    def Debicubic(self, width: int, height: int, b: typing.Optional[float] = None, c: typing.Optional[float] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None) -> "VideoNode": ...
-    def Debilinear(self, width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None) -> "VideoNode": ...
-    def Delanczos(self, width: int, height: int, taps: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None) -> "VideoNode": ...
-    def Despline16(self, width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None) -> "VideoNode": ...
-    def Despline36(self, width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None) -> "VideoNode": ...
-    def Despline64(self, width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None) -> "VideoNode": ...
+    def Debicubic(self, width: int, height: int, b: typing.Optional[float] = None, c: typing.Optional[float] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, force: typing.Optional[int] = None, force_h: typing.Optional[int] = None, force_v: typing.Optional[int] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+    def Debilinear(self, width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+    def Delanczos(self, width: int, height: int, taps: typing.Optional[int] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, force: typing.Optional[int] = None, force_h: typing.Optional[int] = None, force_v: typing.Optional[int] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+    def Descale(self, width: int, height: int, kernel: typing.Union[str, bytes, bytearray, None] = None, custom_kernel: typing.Optional[typing.Callable[..., typing.Any]] = None, taps: typing.Optional[int] = None, b: typing.Optional[float] = None, c: typing.Optional[float] = None, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, force: typing.Optional[int] = None, force_h: typing.Optional[int] = None, force_v: typing.Optional[int] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+    def Despline16(self, width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, force: typing.Optional[int] = None, force_h: typing.Optional[int] = None, force_v: typing.Optional[int] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+    def Despline36(self, width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, force: typing.Optional[int] = None, force_h: typing.Optional[int] = None, force_v: typing.Optional[int] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
+    def Despline64(self, width: int, height: int, src_left: typing.Optional[float] = None, src_top: typing.Optional[float] = None, src_width: typing.Optional[float] = None, src_height: typing.Optional[float] = None, force: typing.Optional[int] = None, force_h: typing.Optional[int] = None, force_v: typing.Optional[int] = None, opt: typing.Optional[int] = None) -> "VideoNode": ...
 
 
 class _Plugin_descale_getnative_VideoNode_Bound(Plugin):
@@ -3543,6 +3669,11 @@ class _Plugin_std_AudioNode_Bound(Plugin):
 
 class VideoNode:
     @property
+    def chkdr(self) -> _Plugin_chkdr_VideoNode_Bound:
+        """
+        Film grain generator
+        """
+    @property
     def acrop(self) -> _Plugin_acrop_VideoNode_Bound:
         """
         VapourSynth Auto Crop
@@ -3588,9 +3719,19 @@ class VideoNode:
         Scene change detect filter for VapourSynth v0.2.0
         """
     @property
+    def eedi2cuda(self) -> _Plugin_eedi2cuda_VideoNode_Bound:
+        """
+        EEDI2 filter using CUDA
+        """
+    @property
     def knlm(self) -> _Plugin_knlm_VideoNode_Bound:
         """
         KNLMeansCL for VapourSynth
+        """
+    @property
+    def wnnm(self) -> _Plugin_wnnm_VideoNode_Bound:
+        """
+        Weighted Nuclear Norm Minimization Denoiser
         """
     @property
     def ftf(self) -> _Plugin_ftf_VideoNode_Bound:
@@ -3621,6 +3762,11 @@ class VideoNode:
     def ccd(self) -> _Plugin_ccd_VideoNode_Bound:
         """
         chroma denoiser
+        """
+    @property
+    def amogus(self) -> _Plugin_amogus_VideoNode_Bound:
+        """
+        Amogus Dither
         """
     @property
     def grain(self) -> _Plugin_grain_VideoNode_Bound:
@@ -3681,6 +3827,11 @@ class VideoNode:
     def lghost(self) -> _Plugin_lghost_VideoNode_Bound:
         """
         Ghost Reduction
+        """
+    @property
+    def nnedi3cl(self) -> _Plugin_nnedi3cl_VideoNode_Bound:
+        """
+        An intra-field only deinterlacer
         """
     @property
     def pp7(self) -> _Plugin_pp7_VideoNode_Bound:
@@ -4188,6 +4339,11 @@ class VideoNode:
         Bilateral filter and Gaussian filter for VapourSynth.
         """
     @property
+    def noise(self) -> _Plugin_noise_VideoNode_Bound:
+        """
+        Noise generator
+        """
+    @property
     def adg(self) -> _Plugin_adg_VideoNode_Bound:
         """
         Adaptive grain
@@ -4206,6 +4362,11 @@ class VideoNode:
     def fftspectrum(self) -> _Plugin_fftspectrum_VideoNode_Bound:
         """
         FFT Spectrum plugin
+        """
+    @property
+    def expr(self) -> _Plugin_expr_VideoNode_Bound:
+        """
+        C++-based Expr
         """
     @property
     def vivtc(self) -> _Plugin_vivtc_VideoNode_Bound:
@@ -4265,9 +4426,12 @@ class VideoNode:
     num_frames: int
 
     # RawNode methods
+    @typing.overload
+    def get_frame_async_raw(self, n: int, cb: typing.Callable[['VideoNode', int, VideoFrame], None]) -> None: ...
+    @typing.overload
     def get_frame_async_raw(self, n: int, cb: _Future[VideoFrame], future_wrapper: typing.Optional[typing.Callable[..., None]] = None) -> _Future[VideoFrame]: ...
     def get_frame_async(self, n: int) -> _Future[VideoFrame]: ...
-    def frames(self, prefetch: typing.Optional[int] = None, backlog: typing.Optional[int] = None) -> typing.Iterator[VideoFrame]: ...
+    def frames(self, prefetch: typing.Optional[int] = None, backlog: typing.Optional[int] = None, close: bool = False) -> typing.Iterator[VideoFrame]: ...
 
     def get_frame(self, n: int) -> VideoFrame: ...
     def set_output(self, index: int = 0, alpha: typing.Optional['VideoNode'] = None, alt_output: int = 0) -> None: ...
@@ -4314,9 +4478,12 @@ class AudioNode:
     num_frames: int
 
     # RawNode methods
+    @typing.overload
+    def get_frame_async_raw(self, n: int, cb: typing.Callable[['AudioNode', int, AudioFrame], None]) -> None: ...
+    @typing.overload
     def get_frame_async_raw(self, n: int, cb: _Future[AudioFrame], future_wrapper: typing.Optional[typing.Callable[..., None]] = None) -> _Future[AudioFrame]: ...
     def get_frame_async(self, n: int) -> _Future[AudioFrame]: ...
-    def frames(self, prefetch: typing.Optional[int] = None, backlog: typing.Optional[int] = None) -> typing.Iterator[AudioFrame]: ...
+    def frames(self, prefetch: typing.Optional[int] = None, backlog: typing.Optional[int] = None, close: bool = False) -> typing.Iterator[AudioFrame]: ...
 
     def get_frame(self, n: int) -> AudioFrame: ...
     def set_output(self, index: int = 0) -> None: ...
@@ -4341,6 +4508,11 @@ class LogHandle:
 
 
 class Core:
+    @property
+    def chkdr(self) -> _Plugin_chkdr_Core_Unbound:
+        """
+        Film grain generator
+        """
     @property
     def acrop(self) -> _Plugin_acrop_Core_Unbound:
         """
@@ -4397,9 +4569,19 @@ class Core:
         Scene change detect filter for VapourSynth v0.2.0
         """
     @property
+    def eedi2cuda(self) -> _Plugin_eedi2cuda_Core_Unbound:
+        """
+        EEDI2 filter using CUDA
+        """
+    @property
     def knlm(self) -> _Plugin_knlm_Core_Unbound:
         """
         KNLMeansCL for VapourSynth
+        """
+    @property
+    def wnnm(self) -> _Plugin_wnnm_Core_Unbound:
+        """
+        Weighted Nuclear Norm Minimization Denoiser
         """
     @property
     def ftf(self) -> _Plugin_ftf_Core_Unbound:
@@ -4430,6 +4612,11 @@ class Core:
     def ccd(self) -> _Plugin_ccd_Core_Unbound:
         """
         chroma denoiser
+        """
+    @property
+    def amogus(self) -> _Plugin_amogus_Core_Unbound:
+        """
+        Amogus Dither
         """
     @property
     def grain(self) -> _Plugin_grain_Core_Unbound:
@@ -4490,6 +4677,11 @@ class Core:
     def lghost(self) -> _Plugin_lghost_Core_Unbound:
         """
         Ghost Reduction
+        """
+    @property
+    def nnedi3cl(self) -> _Plugin_nnedi3cl_Core_Unbound:
+        """
+        An intra-field only deinterlacer
         """
     @property
     def pp7(self) -> _Plugin_pp7_Core_Unbound:
@@ -5027,6 +5219,11 @@ class Core:
         Bilateral filter and Gaussian filter for VapourSynth.
         """
     @property
+    def noise(self) -> _Plugin_noise_Core_Unbound:
+        """
+        Noise generator
+        """
+    @property
     def adg(self) -> _Plugin_adg_Core_Unbound:
         """
         Adaptive grain
@@ -5050,6 +5247,11 @@ class Core:
     def fftspectrum(self) -> _Plugin_fftspectrum_Core_Unbound:
         """
         FFT Spectrum plugin
+        """
+    @property
+    def expr(self) -> _Plugin_expr_Core_Unbound:
+        """
+        C++-based Expr
         """
     @property
     def vivtc(self) -> _Plugin_vivtc_Core_Unbound:
@@ -5129,7 +5331,7 @@ class Core:
     # get_format is deprecated
     def get_format(self, id: typing.Union[VideoFormat, int, PresetFormat]) -> VideoFormat: ...
     def log_message(self, message_type: MessageType, message: str) -> None: ...
-    def add_log_handler(self, handler_func: typing.Optional[typing.Callable[[MessageType, str], None]]) -> None: ...
+    def add_log_handler(self, handler_func: typing.Optional[typing.Callable[[MessageType, str], None]]) -> LogHandle: ...
     def remove_log_handler(self, handle: LogHandle) -> None: ...
 
     def version(self) -> str: ...

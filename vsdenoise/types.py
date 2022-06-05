@@ -38,7 +38,6 @@ class _PluginBm3dcuda_rtcCoreUnbound(Protocol):
         chroma: Optional[int] = None,
         device_id: Optional[int] = None,
         fast: Optional[int] = None, extractor_exp: Optional[int] = None,
-        bm_error_s: Optional[DataArray] = None,
         transform_2d_s: Optional[DataArray] = None,
         transform_1d_s: Optional[DataArray] = None
     ) -> VideoNode:
