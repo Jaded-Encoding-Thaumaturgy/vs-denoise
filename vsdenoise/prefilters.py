@@ -58,7 +58,7 @@ def min_blur_gauss(clip: vs.VideoNode, radius: int = 1) -> vs.VideoNode:
 
         RG11 = clip.std.MakeDiff(RG11DD)
         RG4 = clip.std.Median()
-    elif radius >= 1:
+    else:
         RG11 = clip.std.Convolution(matrix1)
 
         if radius >= 2:
@@ -109,6 +109,8 @@ def prefilter_clip(clip: vs.VideoNode, pref_type: Prefilter) -> vs.VideoNode:
             bm3d_arch, sigma, profile = BM3DCuda, 8, Profile.NORMAL
         elif pref_type == Prefilter.BM3D_CUDA_RTC:
             bm3d_arch, sigma, profile = BM3DCudaRTC, 8, Profile.NORMAL
+        else:
+            raise ValueError
 
         return bm3d_arch(clip, sigma=sigma, radius=1, profile=profile).clip
     elif pref_type == Prefilter.DGDENOISE:
