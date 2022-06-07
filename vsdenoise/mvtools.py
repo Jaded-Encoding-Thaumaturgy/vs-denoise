@@ -492,7 +492,7 @@ class MVTools:
                 bicubic_args |= blackman_args
             return clip.resize.Bicubic(**bicubic_args)
         elif pel_type == PelType.NNEDI3:
-            nnargs = dict(nsize=0, nns=1, qual=1, pscrn=2)
+            nnargs: Dict[str, Any] = dict(nsize=0, nns=1, qual=1, pscrn=2)
 
             plugin: Any = core.znedi3 if hasattr(core, 'znedi3') else core.nnedi3
 
