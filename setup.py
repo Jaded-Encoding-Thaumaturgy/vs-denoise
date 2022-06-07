@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import setuptools  # type: ignore
+import setuptools
 
 with open("requirements.txt") as fh:
     install_requires = fh.read()
