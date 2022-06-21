@@ -104,13 +104,13 @@ class MVToolPlugin(Enum):
 
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
-    super_args = dict[str, Any]()
-    analyze_args = dict[str, Any]()
-    recalculate_args = dict[str, Any]()
-    compensate_args = dict[str, Any]()
-    degrain_args = dict[str, Any]()
+    super_args: Dict[str, Any]
+    analyze_args: Dict[str, Any]
+    recalculate_args: Dict[str, Any]
+    compensate_args: Dict[str, Any]
+    degrain_args: Dict[str, Any]
 
-    vectors = dict[str, Any]()
+    vectors: Dict[str, Any]
 
     clip: vs.VideoNode
 
@@ -193,7 +193,15 @@ class MVTools:
         if isinstance(vectors, MVTools):
             self.vectors = vectors.vectors
         elif vectors:
-            self.vectors = cast(Dict[str, Any], vectors)
+            self.vectors = vectors
+        else:
+            self.vectors = {}
+
+        self.super_args = {}
+        self.analyze_args = {}
+        self.recalculate_args = {}
+        self.compensate_args = {}
+        self.degrain_args = {}
 
         self.hpad = fallback(hpad, 8 if self.is_hd else 16)
         self.hpad_uhd = self.hpad // 2 if self.is_uhd else self.hpad
