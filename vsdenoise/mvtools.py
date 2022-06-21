@@ -19,7 +19,7 @@ from .types import LambdaVSFunction
 __all__ = ['MVTools', 'SourceType', 'PelType', 'Prefilter']
 
 core = vs.core
-blackman_args: Dict[str, Any] = dict(filter_param_a=-0.6, filter_param_b=0.4)
+blackman_args = dict[str, Any](filter_param_a=-0.6, filter_param_b=0.4)
 
 
 class SourceType(IntEnum):
@@ -104,13 +104,13 @@ class MVToolPlugin(Enum):
 
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
-    super_args: Dict[str, Any] = {}
-    analyze_args: Dict[str, Any] = {}
-    recalculate_args: Dict[str, Any] = {}
-    compensate_args: Dict[str, Any] = {}
-    degrain_args: Dict[str, Any] = {}
+    super_args = dict[str, Any]()
+    analyze_args = dict[str, Any]()
+    recalculate_args = dict[str, Any]()
+    compensate_args = dict[str, Any]()
+    degrain_args = dict[str, Any]()
 
-    vectors: Dict[str, Any]
+    vectors = dict[str, Any]()
 
     clip: vs.VideoNode
 
@@ -192,8 +192,8 @@ class MVTools:
 
         if isinstance(vectors, MVTools):
             self.vectors = vectors.vectors
-        else:
-            self.vectors = cast(Dict[str, Any], vectors) or {}
+        elif vectors:
+            self.vectors = cast(Dict[str, Any], vectors)
 
         self.hpad = fallback(hpad, 8 if self.is_hd else 16)
         self.hpad_uhd = self.hpad // 2 if self.is_uhd else self.hpad
@@ -284,12 +284,12 @@ class MVTools:
 
         pelclip, pelclip2 = self.get_subpel_clips(pref, ref)
 
-        common_args: Dict[str, Any] = dict(
+        common_args = dict[str, Any](
             sharp=min(self.subpixel, 2), pel=self.pel,
             vpad=self.vpad_half, hpad=self.hpad_uhd,
             chroma=self.chroma
         ) | self.super_args
-        super_render_args: Dict[str, Any] = common_args | dict(
+        super_render_args = common_args | dict(
             levels=1,
             hpad=self.hpad, vpad=self.vpad,
             chroma=not self.is_gray
@@ -306,14 +306,14 @@ class MVTools:
         recalculate_SAD = round(exp(-101. / (150 * 0.83)) * 360)
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
-        analyse_args: Dict[str, Any] = dict(
+        analyse_args = dict[str, Any](
             plevel=0, pglobal=11, pelsearch=pelsearch,
             blksize=blocksize, overlap=overlap, search=search,
             truemotion=truemotion, searchparam=searchparam,
             chroma=self.chroma, dct=self.DCT
         ) | self.analyze_args
 
-        recalculate_args: Dict[str, Any] = dict(
+        recalculate_args = dict[str, Any](
             search=0, dct=5, thsad=recalculate_SAD,
             blksize=halfblocksize, overlap=halfoverlap,
             truemotion=truemotion, searchparam=searchparamr,
@@ -387,8 +387,8 @@ class MVTools:
 
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
-        vectors_backward: List[vs.VideoNode] = []
-        vectors_forward: List[vs.VideoNode] = []
+        vectors_backward = list[vs.VideoNode]()
+        vectors_forward = list[vs.VideoNode]()
 
         if self.mvtools == MVToolPlugin.FLOAT_NEW:
             vmulti = self.vectors['vmulti']
@@ -456,7 +456,7 @@ class MVTools:
 
         # Finally, MDegrain
 
-        degrain_args: Dict[str, Any] = dict(
+        degrain_args = dict[str, Any](
             thscd1=thrSCD_first, thscd2=thrSCD_second, plane=self.mv_plane
         ) | self.degrain_args
 
@@ -488,14 +488,14 @@ class MVTools:
         return output.std.DoubleWeave(self.source_type.value) if self.source_type.is_inter else output
 
     def subpel_clip(self, clip: vs.VideoNode, pel_type: PelType) -> vs.VideoNode | None:
-        bicubic_args: Dict[str, Any] = dict(width=clip.width * self.pel, height=(clip.height * self.pel))
+        bicubic_args = dict[str, Any](width=clip.width * self.pel, height=(clip.height * self.pel))
 
         if pel_type == PelType.BICUBIC or pel_type == PelType.WIENER:
             if pel_type == PelType.WIENER:
                 bicubic_args |= blackman_args
             return clip.resize.Bicubic(**bicubic_args)
         elif pel_type == PelType.NNEDI3:
-            nnargs: Dict[str, Any] = dict(nsize=0, nns=1, qual=1, pscrn=2)
+            nnargs = dict[str, Any](nsize=0, nns=1, qual=1, pscrn=2)
 
             plugin: Any = core.znedi3 if hasattr(core, 'znedi3') else core.nnedi3
 
