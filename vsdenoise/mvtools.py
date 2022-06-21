@@ -104,9 +104,11 @@ class MVToolPlugin(Enum):
 
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
-    analyze_args: Dict[str, Any]
-    recalculate_args: Dict[str, Any]
-    degrain_args: Dict[str, Any]
+    super_args: Dict[str, Any] = {}
+    analyze_args: Dict[str, Any] = {}
+    recalculate_args: Dict[str, Any] = {}
+    compensate_args: Dict[str, Any] = {}
+    degrain_args: Dict[str, Any] = {}
 
     vectors: Dict[str, Any]
 
@@ -286,7 +288,7 @@ class MVTools:
             sharp=min(self.subpixel, 2), pel=self.pel,
             vpad=self.vpad_half, hpad=self.hpad_uhd,
             chroma=self.chroma
-        )
+        ) | self.super_args
         super_render_args: Dict[str, Any] = common_args | dict(
             levels=1,
             hpad=self.hpad, vpad=self.vpad,
@@ -309,14 +311,14 @@ class MVTools:
             blksize=blocksize, overlap=overlap, search=search,
             truemotion=truemotion, searchparam=searchparam,
             chroma=self.chroma, dct=self.DCT
-        )
+        ) | self.analyze_args
 
         recalculate_args: Dict[str, Any] = dict(
             search=0, dct=5, thsad=recalculate_SAD,
             blksize=halfblocksize, overlap=halfoverlap,
             truemotion=truemotion, searchparam=searchparamr,
             chroma=self.chroma
-        )
+        ) | self.recalculate_args
 
         if self.mvtools == MVToolPlugin.FLOAT_NEW:
             vmulti = self.mvtools.Analyse(super_search, radius=t2, **analyse_args)
@@ -413,13 +415,14 @@ class MVTools:
 
         vect_b, vect_f = self.get_vectors_bf('compensate')
 
+        compensate_args = dict(
+            super=self.vectors['super_render'], thsad=thSAD,
+            tff=self.source_type.is_inter and self.source_type.value or None
+        ) | self.compensate_args
+
         comp_back, comp_forw = tuple(
             map(
-                lambda vect: self.mvtools.Compensate(
-                    ref, super=self.vectors['super_render'],
-                    vectors=vect, thsad=thSAD,
-                    tff=self.source_type.is_inter and self.source_type.value or None
-                ), vectors
+                lambda vect: self.mvtools.Compensate(ref, vectors=vect, **compensate_args), vectors
             ) for vectors in (reversed(vect_b), vect_f)
         )
 
@@ -455,7 +458,7 @@ class MVTools:
 
         degrain_args: Dict[str, Any] = dict(
             thscd1=thrSCD_first, thscd2=thrSCD_second, plane=self.mv_plane
-        )
+        ) | self.degrain_args
 
         if self.mvtools == MVToolPlugin.INTEGER:
             degrain_args.update(
