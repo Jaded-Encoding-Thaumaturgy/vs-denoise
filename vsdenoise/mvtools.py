@@ -193,7 +193,7 @@ class MVTools:
         if isinstance(vectors, MVTools):
             self.vectors = vectors.vectors
         elif vectors:
-            self.vectors = vectors
+            self.vectors = cast(Dict[str, Any], vectors)
         else:
             self.vectors = {}
 
