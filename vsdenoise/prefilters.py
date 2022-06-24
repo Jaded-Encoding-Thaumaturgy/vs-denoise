@@ -23,6 +23,8 @@ core = vs.core
 
 
 class Prefilter(IntEnum):
+    AUTO = -2
+    NONE = -1
     MINBLUR1 = 0
     MINBLUR2 = 1
     MINBLUR3 = 2
@@ -34,8 +36,6 @@ class Prefilter(IntEnum):
     BM3D_CUDA = 8
     BM3D_CUDA_RTC = 9
     DGDENOISE = 10
-    AUTO = 11
-    NONE = 12
 
 
 
