@@ -143,7 +143,7 @@ class MVTools:
         tr: int = 2, refine: int = 3,
         source_type: SourceType = SourceType.PROGRESSIVE,
         prefilter: Prefilter | vs.VideoNode = Prefilter.AUTO,
-        pel_type: Tuple[PelType, PelType] = (PelType.AUTO, PelType.AUTO),
+        pel_type: PelType | Tuple[PelType, PelType] = PelType.AUTO,
         range_in: CRange = CRange.LIMITED,
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
@@ -169,7 +169,7 @@ class MVTools:
 
         self.source_type = source_type
         self.prefilter = prefilter
-        self.pel_type = pel_type
+        self.pel_type = pel_type if isinstance(pel_type, tuple) else (pel_type, pel_type)
         self.range_in = range_in
         self.pel = fallback(pel, 1 + int(not self.is_hd))
         self.subpixel = subpixel
