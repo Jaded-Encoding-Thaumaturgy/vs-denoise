@@ -8,6 +8,7 @@ from enum import IntEnum
 from math import e, log, pi, sin, sqrt
 
 import vapoursynth as vs
+from vsrgtools import minblur
 from vsutil import Dither
 from vsutil import Range as CRange
 from vsutil import depth, get_depth, get_y, scale_value
@@ -37,37 +38,6 @@ class Prefilter(IntEnum):
     NONE = 12
 
 
-def min_blur_gauss(clip: vs.VideoNode, radius: int = 1) -> vs.VideoNode:
-    '''Nifty Gauss/Median combination'''
-    matrix1 = [1, 2, 1, 2, 4, 2, 1, 2, 1]
-    matrix2 = [1, 1, 1, 1, 1, 1, 1, 1, 1]
-
-    if radius <= 0:
-        neutral = get_neutral_value(clip)
-
-        RG11 = clip.std.Convolution(matrix1)
-
-        RG11D = clip.std.MakeDiff(RG11)
-
-        RG11DS = RG11D.std.Convolution(matrix1)
-
-        RG11DD = core.std.Expr(
-            [RG11D, RG11DS],
-            f'x y - x {neutral} - * 0 < {neutral} x y - abs x {neutral} - abs < x y - {neutral} + x ? ?'
-        )
-
-        RG11 = clip.std.MakeDiff(RG11DD)
-        RG4 = clip.std.Median()
-    else:
-        RG11 = clip.std.Convolution(matrix1)
-
-        if radius >= 2:
-            RG11 = RG11.std.Convolution(matrix2)
-            RG4 = clip.ctmf.CTMF(radius=2)
-        else:
-            RG4 = clip.std.Median()
-
-    return core.std.Expr([clip, RG11, RG4], 'x y - x z - * 0 < x x y - abs x z - abs < y z ? ?')
 
 
 def prefilter_clip(clip: vs.VideoNode, pref_type: Prefilter) -> vs.VideoNode:
@@ -76,9 +46,9 @@ def prefilter_clip(clip: vs.VideoNode, pref_type: Prefilter) -> vs.VideoNode:
     if pref_type == Prefilter.NONE:
         return clip
     elif pref_type.value in {0, 1, 2}:
-        return min_blur_gauss(clip, pref_type.value)
+        return minblur(clip, pref_type.value)
     elif pref_type == Prefilter.MINBLURFLUX:
-        return min_blur_gauss(clip, 2).flux.SmoothST(2, 2)
+        return minblur(clip, 2).flux.SmoothST(2, 2)
     elif pref_type == Prefilter.DFTTEST:
         bits = get_depth(clip)
         peak = get_peak_value(clip)
