@@ -6,16 +6,17 @@ from __future__ import annotations
 
 from enum import IntEnum
 from math import e, log, pi, sin, sqrt
+from typing import Type
 
 import vapoursynth as vs
-from vsrgtools import minblur
+from vsrgtools import box_blur, min_blur, gauss_blur
+from vsrgtools.util import wmean_matrix
 from vsutil import Dither
 from vsutil import Range as CRange
 from vsutil import depth, get_depth, get_y, scale_value
-from typing import Type
 
 from .bm3d import BM3D as BM3DM
-from .bm3d import BM3DCPU, BM3DCuda, BM3DCudaRTC, Profile, AbstractBM3D
+from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
 from .knlm import knl_means_cl
 from .utils import get_neutral_value, get_peak_value
 
@@ -36,23 +37,24 @@ class Prefilter(IntEnum):
     BM3D_CUDA = 8
     BM3D_CUDA_RTC = 9
     DGDENOISE = 10
-
-
+    HALFBLUR = 11
+    GAUSSBLUR1 = 12
+    GAUSSBLUR2 = 13
 
 
 def prefilter_clip(clip: vs.VideoNode, pref_type: Prefilter) -> vs.VideoNode:
     pref_type = Prefilter.MINBLUR3 if pref_type == Prefilter.AUTO else pref_type
 
+    bits = get_depth(clip)
+    peak = get_peak_value(clip)
+
     if pref_type == Prefilter.NONE:
         return clip
     elif pref_type.value in {0, 1, 2}:
-        return minblur(clip, pref_type.value)
+        return min_blur(clip, pref_type.value)
     elif pref_type == Prefilter.MINBLURFLUX:
-        return minblur(clip, 2).flux.SmoothST(2, 2)
+        return min_blur(clip, 2).flux.SmoothST(2, 2)
     elif pref_type == Prefilter.DFTTEST:
-        bits = get_depth(clip)
-        peak = get_peak_value(clip)
-
         y = get_y(clip)
         i = scale_value(16, 8, bits, range=CRange.FULL)
         j = scale_value(75, 8, bits, range=CRange.FULL)
@@ -88,6 +90,25 @@ def prefilter_clip(clip: vs.VideoNode, pref_type: Prefilter) -> vs.VideoNode:
 
         # pref = replace_low_frequencies(dgd, pref, w / 2)
         return clip.bilateral.Gaussian(1)
+    elif pref_type == Prefilter.HALFBLUR:
+        half_clip = clip.resize.Bilinear(clip.width // 2, clip.height // 2)
+
+        boxblur = box_blur(half_clip, wmean_matrix)
+
+        return boxblur.resize.Bilinear(clip.width, clip.height)
+    elif pref_type in {Prefilter.GAUSSBLUR1, Prefilter.GAUSSBLUR2}:
+        boxblur = box_blur(clip, wmean_matrix)
+
+        gaussblur = gauss_blur(boxblur, 1.75)
+
+        if pref_type == Prefilter.GAUSSBLUR2:
+            i2, i7 = scale_value(2, 8, bits), scale_value(7, 8, bits)
+
+            merge_expr = f'x {i7} + y < x {i2} + x {i7} - y > x {i2} - x 51 * y 49 * + 100 / ? ?'
+        else:
+            merge_expr = 'x 0.9 * y 0.1 * +'
+
+        return core.std.Expr([gaussblur, clip], merge_expr)
 
     return clip
 
