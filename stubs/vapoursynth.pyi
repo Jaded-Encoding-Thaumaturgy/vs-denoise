@@ -1259,6 +1259,24 @@ class _Plugin_std_AudioNode_Bound(Plugin):
 # end implementation
 
 
+class _Plugin_svp1_Core_Unbound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def Analyse(self, clip: "VideoNode", sdata: int, src: "VideoNode", opt: typing.Union[str, bytes, bytearray]) -> "VideoNode": ...
+    def Super(self, clip: "VideoNode", opt: typing.Union[str, bytes, bytearray]) -> "VideoNode": ...
+
+
+class _Plugin_svp1_VideoNode_Bound(Plugin):
+    """
+    This class implements the module definitions for the corresponding VapourSynth plugin.
+    This class cannot be imported.
+    """
+    def Analyse(self, sdata: int, src: "VideoNode", opt: typing.Union[str, bytes, bytearray]) -> "VideoNode": ...
+    def Super(self, opt: typing.Union[str, bytes, bytearray]) -> "VideoNode": ...
+
+
 # implementation: znedi3
 
 class _Plugin_znedi3_Core_Bound(Plugin):
@@ -1399,6 +1417,11 @@ class VideoNode:
         VapourSynth Core Functions
         """
 # end instance
+    @property
+    def svp1(self) -> _Plugin_svp1_VideoNode_Bound:
+        """
+        SVPFlow1
+        """
 # instance_bound_VideoNode: znedi3
     @property
     def znedi3(self) -> _Plugin_znedi3_VideoNode_Bound:
@@ -1622,6 +1645,11 @@ class Core:
         VapourSynth Core Functions
         """
 # end instance
+    @property
+    def svp1(self) -> _Plugin_svp1_Core_Unbound:
+        """
+        SVPFlow1
+        """
 # instance_bound_Core: znedi3
     @property
     def znedi3(self) -> _Plugin_znedi3_Core_Bound:
