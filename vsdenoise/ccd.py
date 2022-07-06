@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from enum import IntEnum
 from math import sin, sqrt
+from vsrgtools.util import norm_expr_planes, PlanesT, normalise_planes
 # from typing import Any
 
 import vapoursynth as vs
@@ -27,7 +28,7 @@ class CCDMode(IntEnum):
 def ccd(
     src: vs.VideoNode, thr: float = 4, tr: int = 0, ref: vs.VideoNode | None = None,
     mode: CCDMode | None = None, scale: float | None = None, matrix: int | None = None,
-    i444: bool = False,  # , **ssim_kwargs: Any
+    i444: bool = False, planes: PlanesT = None  # , **ssim_kwargs: Any
 ) -> vs.VideoNode:
     assert src.format
 
@@ -59,6 +60,11 @@ def ccd(
     thrs = thr ** 2 / 195075.0
     src_width, src_height = src.width, src.height
     src444_format = src.format.replace(subsampling_w=0, subsampling_h=0)
+
+    if planes is None and mode in {CCDMode.CHROMA_ONLY, CCDMode.BICUBIC_CHROMA}:
+        planes = [1, 2]
+
+    planes = normalise_planes(src, planes)
 
     def expr(src: vs.VideoNode, rgbs: vs.VideoNode) -> vs.VideoNode:
         nonlocal scale
@@ -124,7 +130,9 @@ def ccd(
 
         expression.append('+ + + + + + + + + + + + + + + x + Q@ /')
 
-        return core.akarin.Expr(expr_clips, ' '.join(expression), src444_format.id, True, False)
+        return core.akarin.Expr(
+            expr_clips, norm_expr_planes(src, ' '.join(expression), planes), src444_format.id, True, False
+        )
 
     if not is_yuv:
         rgbs = depth(src, 32)
@@ -166,7 +174,7 @@ def ccd(
             ]) if planes else None for planes in ref_clips
         ]
 
-    assert yuv
+    assert yuv and yuv.format
 
     rgbs = yuv.resize.Point(format=vs.RGBS, matrix_in=matrix)
 
@@ -184,7 +192,7 @@ def ccd(
 
     denoised = denoised.resize.Bicubic(format=down_format.id, matrix=matrix, src_left=src_left)
 
-    if not is_subsampled:
+    if not is_subsampled and 0 in planes:
         return denoised
 
     # if mode == CCDMode.NNEDI_SSIM and not i444:
