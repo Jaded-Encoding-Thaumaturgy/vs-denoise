@@ -190,18 +190,12 @@ def ccd(
     yuv = yuvref = None
 
     if not is_subsampled:
-        src_left = 0.0
-
         yuv = src
         yuvref = ref
     elif mode in {CCDMode.CHROMA_ONLY, CCDMode.BICUBIC_CHROMA, CCDMode.BICUBIC_LUMA}:
-        src_left = -0.25
-
         yuv = src.resize.Bicubic(yuvw, yuvh, src444_format.id)
         yuvref = ref and ref.resize.Bicubic(yuvw, yuvh, src444_format.id)
     else:
-        src_left = -0.5
-
         ref_clips = [split(src), ref and split(ref)]
 
         yuv, yuvref = [
@@ -230,7 +224,7 @@ def ccd(
         #         sample_type=vs.FLOAT, bits_per_sample=32
         #     )
 
-    denoised = denoised.resize.Bicubic(format=down_format.id, matrix=matrix, src_left=src_left)
+    denoised = denoised.resize.Bicubic(format=down_format.id, matrix=matrix)
 
     if not is_subsampled and 0 in planes:
         return denoised
@@ -243,4 +237,4 @@ def ccd(
     # else:
     denoised = core.std.ShufflePlanes([src, denoised], [0, 1, 2], vs.YUV)
 
-    return denoised if i444 else denoised.resize.Point(format=src.format.id)
+    return denoised if i444 else denoised.resize.Bicubic(format=src.format.id)
