@@ -6,15 +6,16 @@ from __future__ import annotations
 
 from enum import IntEnum
 from math import sin, sqrt
-from vsrgtools.util import norm_expr_planes, PlanesT, normalise_planes
-# from typing import Any
 
 import vapoursynth as vs
-from vsutil import EXPR_VARS, split, join, get_peak_value  # , plane
+from vsrgtools.util import PlanesT, norm_expr_planes, normalise_planes
+from vsutil import EXPR_VARS, get_peak_value, join, split  # , plane
+# from typing import Any
+
 
 core = vs.core
 
-__all__ = ['ccd', 'CCDMode']
+__all__ = ['ccd', 'CCDMode', 'CCDPoints']
 
 
 class CCDMode(IntEnum):
@@ -25,9 +26,17 @@ class CCDMode(IntEnum):
     # NNEDI_SSIM = 4
 
 
+class CCDPoints(IntEnum):
+    LOW = 11
+    MEDIUM = 22
+    HIGH = 44
+    ALL = 63
+
+
 def ccd(
     src: vs.VideoNode, thr: float = 4, tr: int = 0, ref: vs.VideoNode | None = None,
     mode: int | CCDMode | None = None, scale: float | None = None, matrix: int | None = None,
+    ref_points: int | CCDPoints | None = CCDPoints.LOW | CCDPoints.MEDIUM,
     i444: bool = False, planes: PlanesT = None  # , **ssim_kwargs: Any
 ) -> vs.VideoNode:
     assert src.format
@@ -68,8 +77,6 @@ def ccd(
     def expr(src: vs.VideoNode, rgb: vs.VideoNode) -> vs.VideoNode:
         nonlocal scale
 
-        tr_nclips = tr * 2 + 1
-
         rgb_clips = [
             core.std.ShufflePlanes([rgb, rgb, rgb], [i, i, i], vs.RGB) for i in range(3)
         ]
@@ -92,18 +99,40 @@ def ccd(
         elif scale == 1:
             scale = src_height / 240
 
-        x_d, y_d = round(scale * 4), round(scale * 12)
+        l_d, m_d, h_d = round(scale * 4), round(scale * 8), round(scale * 12)
 
-        expr_points = {
-            'A': (-y_d, -y_d), 'B': (-x_d, -y_d), 'C': (+x_d, -y_d), 'D': (+y_d, -y_d),
-            'E': (-y_d, -x_d), 'F': (-x_d, -x_d), 'G': (+x_d, -x_d), 'H': (+y_d, -x_d),
-            'I': (-y_d, +x_d), 'J': (-x_d, +x_d), 'K': (+x_d, +x_d), 'L': (+y_d, +x_d),
-            'M': (-y_d, +y_d), 'N': (-x_d, +y_d), 'O': (+x_d, +y_d), 'P': (+y_d, +y_d)
+        low_points = {
+            'F': (-l_d, -l_d), 'G': (+l_d, -l_d),
+            'J': (-l_d, +l_d), 'K': (+l_d, +l_d),
         }
 
-        expression = list[str]()
+        med_points = {
+            'Q': (-m_d, -m_d), 'R': (0, -m_d), 'S': (+m_d, -m_d),
+            'T': (-m_d, 0), '                   U': (+m_d, 0),
+            'V': (-m_d, +m_d), 'W': (0, +m_d), 'X': (+m_d, +m_d),
+        }
+
+        high_points = {
+            'A': (-h_d, -h_d), 'B': (-l_d, -h_d), 'C': (+l_d, -h_d), 'D': (+h_d, -h_d),
+            'E': (-h_d, -l_d), '                                      H': (+h_d, -l_d),
+            'I': (-h_d, +l_d), '                                      L': (+h_d, +l_d),
+            'M': (-h_d, +h_d), 'N': (-l_d, +h_d), 'O': (+l_d, +h_d), 'P': (+h_d, +h_d),
+        }
+
+        if ref_points == CCDPoints.ALL:
+            expr_points = low_points | med_points | high_points
+        elif ref_points == (CCDPoints.LOW | CCDPoints.HIGH):
+            expr_points = low_points | high_points
+        elif ref_points == (CCDPoints.MEDIUM | CCDPoints.HIGH):
+            expr_points = med_points | high_points
+        else:
+            expr_points = low_points | med_points
+
+        tr_nclips = tr * 2 + 1
+        num_points = len(expr_points.keys())
 
         plusses_plane = '+ ' * (tr_nclips - 1)
+        plusses_points = '+ ' * (num_points - 1)
 
         def _get_weight_expr(x: int, y: int, c: str, weight: float | None = None) -> str:
             scale_str = peak != 1 and f'{peak} / ' or ''
@@ -111,7 +140,10 @@ def ccd(
 
             return f'{c}[{x},{y}] {c} - {scale_str} 2 pow {weigth_str}'
 
+        expression = list[str]()
+
         for char, (x, y) in expr_points.items():
+            char = char.strip()
             rgb_expr = []
 
             for i, c in enumerate(EXPR_VARS[1:4], 1):
@@ -132,12 +164,12 @@ def ccd(
         for char in expr_points:
             expression.append(f'{char}@ {thrs} < 1 0 ?')
 
-        expression.append('+ + + + + + + + + + + + + + + 1 + Q!')
+        expression.append(f'{plusses_points} 1 + WQ!')
 
         for char, (x, y) in expr_points.items():
             expression.append(f'{char}@ {thrs} < x[{x},{y}] 0 ?')
 
-        expression.append('+ + + + + + + + + + + + + + + x + Q@ /')
+        expression.append(f'{plusses_points} x + WQ@ /')
 
         return core.akarin.Expr(
             expr_clips, norm_expr_planes(src, ' '.join(expression), planes), src444_format.id, True, False
