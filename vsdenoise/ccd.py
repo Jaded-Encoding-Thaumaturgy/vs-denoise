@@ -27,7 +27,7 @@ class CCDMode(IntEnum):
 
 def ccd(
     src: vs.VideoNode, thr: float = 4, tr: int = 0, ref: vs.VideoNode | None = None,
-    mode: CCDMode | None = None, scale: float | None = None, matrix: int | None = None,
+    mode: int | CCDMode | None = None, scale: float | None = None, matrix: int | None = None,
     i444: bool = False, planes: PlanesT = None  # , **ssim_kwargs: Any
 ) -> vs.VideoNode:
     assert src.format
@@ -52,7 +52,7 @@ def ccd(
     if mode is not None:
         if not is_subsampled:
             raise ValueError('ccd: Mode is available only for subsampled video!')
-        elif mode not in CCDMode:
+        elif mode not in list(CCDMode):
             raise ValueError('ccd: Passed an invalid mode, use CCDMode (0~4).')
     else:
         mode = CCDMode.CHROMA_ONLY
