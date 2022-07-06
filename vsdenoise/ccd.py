@@ -10,7 +10,7 @@ from vsrgtools.util import norm_expr_planes, PlanesT, normalise_planes
 # from typing import Any
 
 import vapoursynth as vs
-from vsutil import EXPR_VARS, depth, split, join  # , plane
+from vsutil import EXPR_VARS, split, join, get_peak_value  # , plane
 
 core = vs.core
 
@@ -57,7 +57,6 @@ def ccd(
     else:
         mode = CCDMode.CHROMA_ONLY
 
-    thrs = thr ** 2 / 195075.0
     src_width, src_height = src.width, src.height
     src444_format = src.format.replace(subsampling_w=0, subsampling_h=0)
 
@@ -66,14 +65,18 @@ def ccd(
 
     planes = normalise_planes(src, planes)
 
-    def expr(src: vs.VideoNode, rgbs: vs.VideoNode) -> vs.VideoNode:
+    def expr(src: vs.VideoNode, rgb: vs.VideoNode) -> vs.VideoNode:
         nonlocal scale
 
         tr_nclips = tr * 2 + 1
 
         rgb_clips = [
-            core.std.ShufflePlanes([rgbs, rgbs, rgbs], [i, i, i], vs.RGB) for i in range(3)
+            core.std.ShufflePlanes([rgb, rgb, rgb], [i, i, i], vs.RGB) for i in range(3)
         ]
+
+        peak = get_peak_value(src, False)
+
+        thrs = thr ** 2 / (255 * 3 * 255)
 
         expr_clips = [src, *rgb_clips]
 
@@ -102,19 +105,25 @@ def ccd(
 
         plusses_plane = '+ ' * (tr_nclips - 1)
 
+        def _get_weight_expr(x: int, y: int, c: str, weight: float | None = None) -> str:
+            scale_str = peak != 1 and f'{peak} / ' or ''
+            weigth_str = weight is not None and f'{weight_b} *' or ''
+
+            return f'{c}[{x},{y}] {c} - {scale_str} 2 pow {weigth_str}'
+
         for char, (x, y) in expr_points.items():
             rgb_expr = []
 
             for i, c in enumerate(EXPR_VARS[1:4], 1):
-                rgb_expr.append(f'{c}[{x},{y}] {c} - 2 pow')
+                rgb_expr.append(_get_weight_expr(x, y, c))
 
                 if tr:
                     for j in range(0, tr):
                         offset = i + 3 + j * 6
                         bc, fc = EXPR_VARS[offset], EXPR_VARS[offset + 1]
                         weight_f, weight_b = sqrt((4 - j) / 8), sin((5 - j) / 8)
-                        rgb_expr.append(f'{bc}[{x},{y}] {bc} - 2 pow {weight_b} *')
-                        rgb_expr.append(f'{fc}[{x},{y}] {fc} - 2 pow {weight_f} *')
+                        rgb_expr.append(_get_weight_expr(x, y, bc, weight_b))
+                        rgb_expr.append(_get_weight_expr(x, y, fc, weight_f))
 
                     rgb_expr.append(f'{plusses_plane} {tr_nclips} /')
 
@@ -135,10 +144,7 @@ def ccd(
         )
 
     if not is_yuv:
-        rgbs = depth(src, 32)
-        refs = depth(ref, 32) if ref else rgbs
-
-        return expr(refs, rgbs)
+        return expr(ref or src, src)
 
     # if matrix is None:
     #     matrix = get_matrix(src)
@@ -176,9 +182,11 @@ def ccd(
 
     assert yuv and yuv.format
 
-    rgbs = yuv.resize.Point(format=vs.RGBS, matrix_in=matrix)
+    rgb = yuv.resize.Point(
+        format=yuv.format.replace(color_family=vs.RGB).id, matrix_in=matrix
+    )
 
-    denoised = expr(yuvref or yuv, rgbs)
+    denoised = expr(yuvref or yuv, rgb)
 
     down_format = src444_format
 
