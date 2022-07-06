@@ -25,7 +25,7 @@ class CCDMode(IntEnum):
 
 
 def ccd(
-    src: vs.VideoNode, threshold: float = 4, tr: int = 0, ref: vs.VideoNode | None = None,
+    src: vs.VideoNode, thr: float = 4, tr: int = 0, ref: vs.VideoNode | None = None,
     mode: CCDMode | None = None, scale: float | None = None, matrix: int | None = None,
     i444: bool = False,  # , **ssim_kwargs: Any
 ) -> vs.VideoNode:
@@ -56,7 +56,7 @@ def ccd(
     else:
         mode = CCDMode.CHROMA_ONLY
 
-    thr = threshold ** 2 / 195075.0
+    thrs = thr ** 2 / 195075.0
     src_width, src_height = src.width, src.height
     src444_format = src.format.replace(subsampling_w=0, subsampling_h=0)
 
@@ -115,12 +115,12 @@ def ccd(
             expression.append(f"{' '.join(rgb_expr)} + + {char}!")
 
         for char in expr_points:
-            expression.append(f'{char}@ {thr} < 1 0 ?')
+            expression.append(f'{char}@ {thrs} < 1 0 ?')
 
         expression.append('+ + + + + + + + + + + + + + + 1 + Q!')
 
         for char, (x, y) in expr_points.items():
-            expression.append(f'{char}@ {thr} < x[{x},{y}] 0 ?')
+            expression.append(f'{char}@ {thrs} < x[{x},{y}] 0 ?')
 
         expression.append('+ + + + + + + + + + + + + + + x + Q@ /')
 
