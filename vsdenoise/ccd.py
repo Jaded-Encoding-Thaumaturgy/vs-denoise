@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from enum import IntEnum
 from math import sin, sqrt
+from typing import List
 
 import vapoursynth as vs
 from vsrgtools.util import PlanesT, norm_expr_planes, normalise_planes
@@ -56,7 +57,7 @@ def ccd(
         raise ValueError('ccd: Temporal radius must be less than half of the clip length!')
 
     is_yuv = src.format.color_family == vs.YUV
-    is_subsampled = src.format.subsampling_h and src.format.subsampling_w
+    is_subsampled = src.format.subsampling_h or src.format.subsampling_w
 
     if mode is not None:
         if not is_subsampled:
@@ -181,30 +182,40 @@ def ccd(
     # if matrix is None:
     #     matrix = get_matrix(src)
 
-    if mode == CCDMode.BICUBIC_LUMA:
+    divw, divh = 1 << src.format.subsampling_w, 1 << src.format.subsampling_h
+
+    if mode == CCDMode.BICUBIC_LUMA or not is_subsampled:
         yuvw, yuvh = src_width, src_height
+        src_left = 0.0
     else:
-        divw, divh = 1 << src.format.subsampling_w, 1 << src.format.subsampling_h
         yuvw, yuvh = src_width // divw, src_height // divh
+
+        src_left = 0.25 - 0.25 * divw
 
     yuv = yuvref = None
 
     if not is_subsampled:
         yuv = src
         yuvref = ref
-    elif mode in {CCDMode.CHROMA_ONLY, CCDMode.BICUBIC_CHROMA, CCDMode.BICUBIC_LUMA}:
-        yuv = src.resize.Bicubic(yuvw, yuvh, src444_format.id)
-        yuvref = ref and ref.resize.Bicubic(yuvw, yuvh, src444_format.id)
-    else:
-        ref_clips = [split(src), ref and split(ref)]
+    elif mode in {CCDMode.NNEDI_BICUBIC}:  # , CCDMode.NNEDI_SSIM}:
+        ref_clips: List[List[vs.VideoNode] | None] = [split(src), ref and split(ref) or None]
+
+        src_left += 0.125 * divw
 
         yuv, yuvref = [
             join(planes[:1] + [
                 p.nnedi3.nnedi3(1, 1, 0, 0, 3, 2).std.Transpose()
                 .nnedi3.nnedi3(1, 1, 0, 0, 3, 2).std.Transpose()
-                .resize.Bicubic(src_top=-0.5) for p in planes[1:]
+                .resize.Bicubic(src_top=-0.25 * divh) if divw == divh != 1 else (
+                    p.nnedi3.nnedi3(1, 1, 0, 0, 3, 2).resize.Bicubic(src_top=-0.125 * divw)
+                    if divh != 1 else p.std.Transpose().nnedi3.nnedi3(1, 1, 0, 0, 3, 2)
+                    .std.Transpose().resize.Bicubic(src_top=-0.125 * divh)
+                ) for p in planes[1:]
             ]) if planes else None for planes in ref_clips
         ]
+    else:
+        yuv = src.resize.Bicubic(yuvw, yuvh, src444_format.id)
+        yuvref = ref and ref.resize.Bicubic(yuvw, yuvh, src444_format.id)
 
     assert yuv and yuv.format
 
@@ -224,7 +235,7 @@ def ccd(
         #         sample_type=vs.FLOAT, bits_per_sample=32
         #     )
 
-    denoised = denoised.resize.Bicubic(format=down_format.id, matrix=matrix)
+    denoised = denoised.resize.Bicubic(format=down_format.id, matrix=matrix, src_left=src_left)
 
     if not is_subsampled and 0 in planes:
         return denoised
