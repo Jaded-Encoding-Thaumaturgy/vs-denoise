@@ -5,17 +5,16 @@ This module implements prefilters for denoisers
 from __future__ import annotations
 
 from enum import IntEnum
-from math import e, log, pi, sin, sqrt
 from typing import Any, Type
 
 import vapoursynth as vs
-from vsrgtools import ConvMode, box_blur, gauss_blur, min_blur
+from vsrgtools import box_blur, gauss_blur, min_blur, replace_low_frequencies
 from vsrgtools.util import PlanesT, norm_expr_planes, normalise_planes, wmean_matrix
 from vsutil import Dither
 from vsutil import Range as CRange
 from vsutil import (
     depth, disallow_variable_format, disallow_variable_resolution, get_depth, get_neutral_value, get_peak_value, get_y,
-    scale_value, split
+    scale_value
 )
 
 from .bm3d import BM3D as BM3DM
@@ -164,39 +163,3 @@ def prefilter_to_full_range(
         )
 
     return pref
-
-
-@disallow_variable_format
-@disallow_variable_resolution
-def replace_low_frequencies(
-    flt: vs.VideoNode, ref: vs.VideoNode, LFR: float, DCTFlicker: bool = False,
-    planes: PlanesT = None, mode: ConvMode = ConvMode.SQUARE
-) -> vs.VideoNode:
-    assert flt.format
-
-    planes = normalise_planes(flt, planes)
-    work_clip, *chroma = split(flt) if planes == [0] else (flt, )
-    assert work_clip.format
-
-    ref_work_clip = get_y(ref) if work_clip.format.num_planes == 1 else ref
-
-    LFR = max(LFR or (300 * work_clip.width / 1920), 50)
-
-    freq_sample = max(work_clip.width, work_clip.height) * 2    # Frequency sample rate is resolution * 2 (for Nyquist)
-    k = sqrt(log(2) / 2) * LFR                                  # Constant for -3dB
-    LFR = freq_sample / (k * 2 * pi)                            # Frequency Cutoff for Gaussian Sigma
-    sec0 = sin(e) + .1
-
-    sec = scale_value(sec0, 8, work_clip.format.bits_per_sample, range=CRange.FULL)
-
-    expr = "x y - z + "
-
-    if DCTFlicker:
-        expr += f"y z - d! y z = swap dup d@ 0 = 0 d@ 0 < -1 1 ? ? {sec} * + ?"
-
-    flt_blur = gauss_blur(work_clip, LFR, None, mode)
-    ref_blur = gauss_blur(ref_work_clip, LFR, None, mode)
-
-    final = core.akarin.Expr([work_clip, flt_blur, ref_blur], norm_expr_planes(work_clip, expr, planes))
-
-    return final if chroma else core.std.ShufflePlanes([final, flt], [0, 1, 2], vs.YUV)
