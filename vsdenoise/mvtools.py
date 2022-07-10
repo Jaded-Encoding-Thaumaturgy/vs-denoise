@@ -285,10 +285,11 @@ class MVTools:
 
         if isinstance(self.prefilter, vs.VideoNode):
             pref = self.prefilter
-        elif self.range_in == CRange.LIMITED:
-            pref = prefilter_to_full_range(ref, self.prefilter, self.range_conversion)
         else:
-            pref = self.prefilter(ref)
+            pref = self.prefilter(ref, self.planes)
+
+            if self.range_in == CRange.LIMITED:
+                pref = prefilter_to_full_range(pref, self.range_conversion, self.planes)
 
         pelclip, pelclip2 = self.get_subpel_clips(pref, ref)
 
