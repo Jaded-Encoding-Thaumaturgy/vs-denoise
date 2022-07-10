@@ -14,7 +14,7 @@ from vsutil import Dither
 from vsutil import Range as CRange
 from vsutil import (
     depth, disallow_variable_format, disallow_variable_resolution, get_depth, get_neutral_value, get_peak_value, get_y,
-    scale_value
+    scale_value, split, join
 )
 
 from .bm3d import BM3D as BM3DM
@@ -125,21 +125,21 @@ class Prefilter(IntEnum):
         return clip
 
 
-def prefilter_to_full_range(
-    pref: vs.VideoNode, prefilter: Prefilter, range_conversion: float
-) -> vs.VideoNode:
-    pref = prefilter(pref)
-    fmt = pref.format
-    assert fmt
+def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
+    assert (fmt := pref.format)
+
+    bits = get_depth(pref)
+    is_gray = fmt.color_family == vs.GRAY
+    is_integer = fmt.sample_type == vs.INTEGER
+
+    planes = normalise_planes(pref, planes)
+    work_clip, *chroma = split(pref) if planes == [0] else (pref, )
+    assert work_clip.format
 
     # Luma expansion TV->PC (up to 16% more values for motion estimation)
     if range_conversion > 1.0:
-        is_gray = fmt.color_family == vs.GRAY
-        is_integer = fmt.sample_type == vs.INTEGER
-
-        bits = get_depth(pref)
-        neutral = get_neutral_value(pref)
-        max_val = get_peak_value(pref)
+        neutral = get_neutral_value(work_clip, True)
+        max_val = get_peak_value(work_clip)
         min_tv_val = scale_value(16, 8, bits)
         max_tv_val = scale_value(219, 8, bits)
 
@@ -148,17 +148,16 @@ def prefilter_to_full_range(
         k = (range_conversion - 1) * c
         t = f'x {min_tv_val} - {max_tv_val} / 0 max 1 min' if is_integer else 'x 0 max 1 min'
 
-        pref = pref.std.Expr([
+        pref_full = work_clip.std.Expr([
             f"{k} {1 + c} {(1 + c) * c} {t} {c} + / - * {t} 1 {k} - * + {f'{max_val} *' if is_integer else ''}",
             f'x {neutral} - 128 * 112 / {neutral} +'
         ][:1 + (not is_gray and is_integer)])
     elif range_conversion > 0.0:
-        pref = pref.retinex.MSRCP(None, range_conversion, None, False, True)
+        pref_full = work_clip.retinex.MSRCP(None, range_conversion, None, False, True)
     else:
-        pref = depth(
-            pref, fmt.bits_per_sample,
-            range=CRange.FULL, range_in=CRange.LIMITED,
-            dither_type=Dither.NONE
-        )
+        pref_full = depth(work_clip, bits, range=CRange.FULL, range_in=CRange.LIMITED, dither_type=Dither.NONE)
 
-    return pref
+    if chroma:
+        return join([pref_full, *chroma], fmt.color_family)
+
+    return pref_full
