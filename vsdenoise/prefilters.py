@@ -6,19 +6,21 @@ from __future__ import annotations
 
 from enum import IntEnum
 from math import e, log, pi, sin, sqrt
-from typing import Type
+from typing import Any, Type
 
 import vapoursynth as vs
-from vsrgtools import box_blur, min_blur, gauss_blur
-from vsrgtools.util import wmean_matrix
+from vsrgtools import ConvMode, box_blur, gauss_blur, min_blur
+from vsrgtools.util import PlanesT, norm_expr_planes, normalise_planes, wmean_matrix
 from vsutil import Dither
 from vsutil import Range as CRange
-from vsutil import depth, get_depth, get_y, scale_value
+from vsutil import (
+    depth, disallow_variable_format, disallow_variable_resolution, get_depth, get_neutral_value, get_peak_value, get_y,
+    scale_value, split
+)
 
 from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
 from .knlm import knl_means_cl
-from .utils import get_neutral_value, get_peak_value
 
 core = vs.core
 
@@ -152,24 +154,37 @@ def prefilter_to_full_range(
     return pref
 
 
+@disallow_variable_format
+@disallow_variable_resolution
 def replace_low_frequencies(
-    flt: vs.VideoNode, ref: vs.VideoNode, LFR: float, DCTFlicker: bool = False, chroma: bool = True
+    flt: vs.VideoNode, ref: vs.VideoNode, LFR: float, DCTFlicker: bool = False,
+    planes: PlanesT = None, mode: ConvMode = ConvMode.SQUARE
 ) -> vs.VideoNode:
     assert flt.format
-    LFR = max(LFR or (300 * flt.width / 1920), 50)
 
-    freq_sample = max(flt.width, flt.height) * 2    # Frequency sample rate is resolution * 2 (for Nyquist)
-    k = sqrt(log(2) / 2) * LFR                      # Constant for -3dB
-    LFR = freq_sample / (k * 2 * pi)                # Frequency Cutoff for Gaussian Sigma
+    planes = normalise_planes(flt, planes)
+    work_clip, *chroma = split(flt) if planes == [0] else (flt, )
+    assert work_clip.format
+
+    ref_work_clip = get_y(ref) if work_clip.format.num_planes == 1 else ref
+
+    LFR = max(LFR or (300 * work_clip.width / 1920), 50)
+
+    freq_sample = max(work_clip.width, work_clip.height) * 2    # Frequency sample rate is resolution * 2 (for Nyquist)
+    k = sqrt(log(2) / 2) * LFR                                  # Constant for -3dB
+    LFR = freq_sample / (k * 2 * pi)                            # Frequency Cutoff for Gaussian Sigma
     sec0 = sin(e) + .1
 
-    sec = scale_value(sec0, 8, flt.format.bits_per_sample, range=CRange.FULL)
+    sec = scale_value(sec0, 8, work_clip.format.bits_per_sample, range=CRange.FULL)
 
     expr = "x y - z + "
 
     if DCTFlicker:
         expr += f"y z - d! y z = swap dup d@ 0 = 0 d@ 0 < -1 1 ? ? {sec} * + ?"
 
-    final = core.akarin.Expr([flt, flt.bilateral.Gaussian(LFR), ref.bilateral.Gaussian(LFR)], expr)
+    flt_blur = gauss_blur(work_clip, LFR, None, mode)
+    ref_blur = gauss_blur(ref_work_clip, LFR, None, mode)
+
+    final = core.akarin.Expr([work_clip, flt_blur, ref_blur], norm_expr_planes(work_clip, expr, planes))
 
     return final if chroma else core.std.ShufflePlanes([final, flt], [0, 1, 2], vs.YUV)
