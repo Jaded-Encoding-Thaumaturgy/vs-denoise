@@ -43,93 +43,92 @@ class Prefilter(IntEnum):
     GAUSSBLUR1 = 12
     GAUSSBLUR2 = 13
 
+    @disallow_variable_format
+    @disallow_variable_resolution
+    def __call__(self, clip: vs.VideoNode, planes: PlanesT = None, **kwargs: Any) -> vs.VideoNode:
+        pref_type = Prefilter.MINBLUR3 if self == Prefilter.AUTO else self
 
-@disallow_variable_format
-@disallow_variable_resolution
-def prefilter_clip(clip: vs.VideoNode, pref_type: Prefilter, planes: PlanesT = None, **kwargs: Any) -> vs.VideoNode:
-    pref_type = Prefilter.MINBLUR3 if pref_type == Prefilter.AUTO else pref_type
+        bits = get_depth(clip)
+        peak = get_peak_value(clip)
+        planes = normalise_planes(clip, planes)
 
-    bits = get_depth(clip)
-    peak = get_peak_value(clip)
-    planes = normalise_planes(clip, planes)
+        if pref_type == Prefilter.NONE:
+            return clip
+        elif pref_type.value in {0, 1, 2}:
+            return min_blur(clip, pref_type.value, planes)
+        elif pref_type == Prefilter.MINBLURFLUX:
+            return min_blur(clip, 2, planes).flux.SmoothST(2, 2, planes)
+        elif pref_type == Prefilter.DFTTEST:
+            dftt_args = dict[str, Any](
+                tbsize=1, sbsize=12, sosize=6, swin=2, slocation=[
+                    0.0, 4.0, 0.2, 9.0, 1.0, 15.0
+                ]
+            ) | kwargs
 
-    if pref_type == Prefilter.NONE:
+            dfft = clip.dfttest.DFTTest(**dftt_args)
+
+            i, j = (scale_value(x, 8, bits, range=CRange.FULL) for x in (16, 75))
+
+            pref_mask = get_y(clip).std.Expr(
+                f'x {i} < {peak} x {j} > 0 {peak} x {i} - {peak} {j} {i} - / * - ? ?'
+            )
+
+            return dfft.std.MaskedMerge(clip, pref_mask, planes)
+        elif pref_type == Prefilter.KNLMEANSCL:
+            knl = knl_means_cl(clip, 7.0, 1, 2, 2, planes_to_channelmode(planes), **kwargs)
+
+            return replace_low_frequencies(knl, clip, 600 * (clip.width / 1920), False, planes)
+        elif pref_type in {Prefilter.BM3D, Prefilter.BM3D_CPU, Prefilter.BM3D_CUDA, Prefilter.BM3D_CUDA_RTC}:
+            bm3d_arch: Type[AbstractBM3D]
+
+            if pref_type == Prefilter.BM3D:
+                bm3d_arch, sigma, profile = BM3DM, 10, Profile.FAST
+            elif pref_type == Prefilter.BM3D_CPU:
+                bm3d_arch, sigma, profile = BM3DCPU, 10, Profile.LOW_COMPLEXITY
+            elif pref_type == Prefilter.BM3D_CUDA:
+                bm3d_arch, sigma, profile = BM3DCuda, 8, Profile.NORMAL
+            elif pref_type == Prefilter.BM3D_CUDA_RTC:
+                bm3d_arch, sigma, profile = BM3DCudaRTC, 8, Profile.NORMAL
+            else:
+                raise ValueError
+
+            sigmas = [sigma if 0 in planes else 0, sigma if (1 in planes or 2 in planes) else 0]
+
+            bm3d_args = dict[str, Any](sigma=sigmas, radius=1, profile=profile) | kwargs
+
+            return bm3d_arch(clip, **bm3d_args).clip
+        elif pref_type == Prefilter.DGDENOISE:
+            # dgd = core.dgdecodenv.DGDenoise(pref, 0.10)
+
+            # pref = replace_low_frequencies(dgd, pref, w / 2)
+            return gauss_blur(clip, 1, planes=planes, **kwargs)
+        elif pref_type == Prefilter.HALFBLUR:
+            half_clip = clip.resize.Bilinear(clip.width // 2, clip.height // 2)
+
+            boxblur = box_blur(half_clip, wmean_matrix, planes, **kwargs)
+
+            return boxblur.resize.Bilinear(clip.width, clip.height)
+        elif pref_type in {Prefilter.GAUSSBLUR1, Prefilter.GAUSSBLUR2}:
+            boxblur = box_blur(clip, wmean_matrix, planes)
+
+            gaussblur = gauss_blur(boxblur, 1.75, planes=planes, **kwargs)
+
+            if pref_type == Prefilter.GAUSSBLUR2:
+                i2, i7 = (scale_value(x, 8, bits) for x in (2, 7))
+
+                merge_expr = f'x {i7} + y < x {i2} + x {i7} - y > x {i2} - x 51 * y 49 * + 100 / ? ?'
+            else:
+                merge_expr = 'x 0.9 * y 0.1 * +'
+
+            return core.std.Expr([gaussblur, clip], norm_expr_planes(clip, merge_expr, planes))
+
         return clip
-    elif pref_type.value in {0, 1, 2}:
-        return min_blur(clip, pref_type.value, planes)
-    elif pref_type == Prefilter.MINBLURFLUX:
-        return min_blur(clip, 2, planes).flux.SmoothST(2, 2, planes)
-    elif pref_type == Prefilter.DFTTEST:
-        dftt_args = dict[str, Any](
-            tbsize=1, sbsize=12, sosize=6, swin=2, slocation=[
-                0.0, 4.0, 0.2, 9.0, 1.0, 15.0
-            ]
-        ) | kwargs
-
-        dfft = clip.dfttest.DFTTest(**dftt_args)
-
-        i, j = (scale_value(x, 8, bits, range=CRange.FULL) for x in (16, 75))
-
-        pref_mask = get_y(clip).std.Expr(
-            f'x {i} < {peak} x {j} > 0 {peak} x {i} - {peak} {j} {i} - / * - ? ?'
-        )
-
-        return dfft.std.MaskedMerge(clip, pref_mask, planes)
-    elif pref_type == Prefilter.KNLMEANSCL:
-        knl = knl_means_cl(clip, 7.0, 1, 2, 2, planes_to_channelmode(planes), **kwargs)
-
-        return replace_low_frequencies(knl, clip, 600 * (clip.width / 1920), False, planes)
-    elif pref_type in {Prefilter.BM3D, Prefilter.BM3D_CPU, Prefilter.BM3D_CUDA, Prefilter.BM3D_CUDA_RTC}:
-        bm3d_arch: Type[AbstractBM3D]
-
-        if pref_type == Prefilter.BM3D:
-            bm3d_arch, sigma, profile = BM3DM, 10, Profile.FAST
-        elif pref_type == Prefilter.BM3D_CPU:
-            bm3d_arch, sigma, profile = BM3DCPU, 10, Profile.LOW_COMPLEXITY
-        elif pref_type == Prefilter.BM3D_CUDA:
-            bm3d_arch, sigma, profile = BM3DCuda, 8, Profile.NORMAL
-        elif pref_type == Prefilter.BM3D_CUDA_RTC:
-            bm3d_arch, sigma, profile = BM3DCudaRTC, 8, Profile.NORMAL
-        else:
-            raise ValueError
-
-        sigmas = [sigma if 0 in planes else 0, sigma if (1 in planes or 2 in planes) else 0]
-
-        bm3d_args = dict[str, Any](sigma=sigmas, radius=1, profile=profile) | kwargs
-
-        return bm3d_arch(clip, **bm3d_args).clip
-    elif pref_type == Prefilter.DGDENOISE:
-        # dgd = core.dgdecodenv.DGDenoise(pref, 0.10)
-
-        # pref = replace_low_frequencies(dgd, pref, w / 2)
-        return gauss_blur(clip, 1, planes=planes, **kwargs)
-    elif pref_type == Prefilter.HALFBLUR:
-        half_clip = clip.resize.Bilinear(clip.width // 2, clip.height // 2)
-
-        boxblur = box_blur(half_clip, wmean_matrix, planes, **kwargs)
-
-        return boxblur.resize.Bilinear(clip.width, clip.height)
-    elif pref_type in {Prefilter.GAUSSBLUR1, Prefilter.GAUSSBLUR2}:
-        boxblur = box_blur(clip, wmean_matrix, planes)
-
-        gaussblur = gauss_blur(boxblur, 1.75, planes=planes, **kwargs)
-
-        if pref_type == Prefilter.GAUSSBLUR2:
-            i2, i7 = (scale_value(x, 8, bits) for x in (2, 7))
-
-            merge_expr = f'x {i7} + y < x {i2} + x {i7} - y > x {i2} - x 51 * y 49 * + 100 / ? ?'
-        else:
-            merge_expr = 'x 0.9 * y 0.1 * +'
-
-        return core.std.Expr([gaussblur, clip], norm_expr_planes(clip, merge_expr, planes))
-
-    return clip
 
 
 def prefilter_to_full_range(
     pref: vs.VideoNode, prefilter: Prefilter, range_conversion: float
 ) -> vs.VideoNode:
-    pref = prefilter_clip(pref, prefilter)
+    pref = prefilter(pref)
     fmt = pref.format
     assert fmt
 

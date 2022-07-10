@@ -13,7 +13,7 @@ import vapoursynth as vs
 from vsutil import Range as CRange
 from vsutil import depth, disallow_variable_format, disallow_variable_resolution, fallback
 
-from .prefilters import Prefilter, prefilter_clip, prefilter_to_full_range
+from .prefilters import Prefilter, prefilter_to_full_range
 from .types import LambdaVSFunction
 
 __all__ = ['MVTools', 'SourceType', 'PelType', 'Prefilter']
@@ -288,7 +288,7 @@ class MVTools:
         elif self.range_in == CRange.LIMITED:
             pref = prefilter_to_full_range(ref, self.prefilter, self.range_conversion)
         else:
-            pref = prefilter_clip(ref, self.prefilter)
+            pref = self.prefilter(ref)
 
         pelclip, pelclip2 = self.get_subpel_clips(pref, ref)
 
