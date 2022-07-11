@@ -4,7 +4,7 @@ This module implements wrappers for mvtool
 
 from __future__ import annotations
 
-from enum import Enum, IntEnum, auto
+from enum import Enum, IntEnum
 from itertools import chain
 from math import ceil, exp
 from typing import Any, Callable, Dict, List, Sequence, Tuple, cast
@@ -15,14 +15,13 @@ from vsutil import depth, disallow_variable_format, disallow_variable_resolution
 
 from vsdenoise.utils import check_ref_clip
 
-from .prefilters import Prefilter, prefilter_to_full_range
+from .prefilters import PelType, Prefilter, prefilter_to_full_range, subpel_clip
 from .types import LambdaVSFunction
 from .utils import planes_to_mvtools
 
 __all__ = ['MVTools', 'SourceType', 'PelType', 'Prefilter']
 
 core = vs.core
-blackman_args = dict[str, Any](filter_param_a=-0.6, filter_param_b=0.4)
 
 
 class SourceType(IntEnum):
@@ -513,4 +512,4 @@ class MVTools:
 
         pel_type, pel2_type = pel_types
 
-        return self.subpel_clip(pref, pel_type), self.subpel_clip(ref, pel2_type)
+        return subpel_clip(pref, pel_type, self.pel), subpel_clip(ref, pel2_type, self.pel)
