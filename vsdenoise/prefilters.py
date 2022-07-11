@@ -167,7 +167,7 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
     return pref_full
 
 
-def subpel_clip(clip: vs.VideoNode, pel_type: PelType, pel: int) -> vs.VideoNode | None:
+def subpel_clip(clip: vs.VideoNode, pel_type: PelType, pel: int, **kwargs: Any) -> vs.VideoNode | None:
     if pel_type == PelType.AUTO:
         pel_type = PelType.NONE if clip.height > 2160 else PelType(1 << 3 - ceil(clip.height / 1000))
 
@@ -178,7 +178,7 @@ def subpel_clip(clip: vs.VideoNode, pel_type: PelType, pel: int) -> vs.VideoNode
         return clip
 
     if pel_type == PelType.NNEDI3:
-        nnargs = dict[str, Any](nsize=0, nns=1, qual=1, pscrn=2)
+        nnargs = dict[str, Any](nsize=0, nns=1, qual=1, pscrn=2) | kwargs
 
         plugin: Any = core.znedi3 if hasattr(core, 'znedi3') else core.nnedi3
 
@@ -200,7 +200,7 @@ def subpel_clip(clip: vs.VideoNode, pel_type: PelType, pel: int) -> vs.VideoNode
 
         return upscale
 
-    bicubic_args = dict[str, Any](width=clip.width * pel, height=clip.height * pel)
+    bicubic_args = dict[str, Any](width=clip.width * pel, height=clip.height * pel) | kwargs
 
     if pel_type == PelType.WIENER:
         bicubic_args |= dict[str, Any](filter_param_a=-0.6, filter_param_b=0.4)
