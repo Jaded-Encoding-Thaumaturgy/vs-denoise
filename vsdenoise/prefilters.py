@@ -24,7 +24,7 @@ from .knlm import knl_means_cl
 from .types import PelType
 from .utils import planes_to_channelmode
 
-__all__ = ['Prefilter', 'prefilter_to_full_range', 'subpel_clip']
+__all__ = ['Prefilter', 'prefilter_to_full_range', 'subpel_clip', 'PelType']
 
 core = vs.core
 
@@ -174,7 +174,7 @@ def subpel_clip(clip: vs.VideoNode, pel_type: PelType, pel: int, **kwargs: Any) 
     if pel_type == PelType.NONE:
         return None
 
-    if pel == 1:
+    if pel <= 1:
         return clip
 
     if pel_type == PelType.NNEDI3:
@@ -186,12 +186,12 @@ def subpel_clip(clip: vs.VideoNode, pel_type: PelType, pel: int, **kwargs: Any) 
 
         for _ in range(int(log2(pel))):
             nnedi3_cpu = plugin.nnedi3(
-                plugin.nnedi3(clip.std.Transpose(), 0, True, **nnargs).std.Transpose(), 0, True, **nnargs
+                plugin.nnedi3(upscale.std.Transpose(), 0, True, **nnargs).std.Transpose(), 0, True, **nnargs
             )
 
             if hasattr(core, 'nnedi3cl'):
                 upscale = core.std.Interleave([
-                    nnedi3_cpu[::2], clip[1::2].nnedi3cl.NNEDI3CL(0, True, True, **nnargs)
+                    nnedi3_cpu[::2], upscale[1::2].nnedi3cl.NNEDI3CL(0, True, True, **nnargs)
                 ])
             else:
                 upscale = nnedi3_cpu

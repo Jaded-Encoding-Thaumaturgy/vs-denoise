@@ -19,7 +19,7 @@ from .prefilters import Prefilter, prefilter_to_full_range, subpel_clip
 from .types import LambdaVSFunction, PelType, SourceType
 from .utils import planes_to_mvtools
 
-__all__ = ['MVTools', 'MVToolPlugin']
+__all__ = ['MVTools', 'MVToolPlugin', 'SourceType']
 
 core = vs.core
 
