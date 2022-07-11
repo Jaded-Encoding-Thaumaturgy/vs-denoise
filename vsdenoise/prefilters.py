@@ -5,6 +5,7 @@ This module implements prefilters for denoisers
 from __future__ import annotations
 
 from enum import IntEnum
+from math import ceil, log2
 from typing import Any, Type
 
 import vapoursynth as vs
@@ -14,13 +15,16 @@ from vsutil import Dither
 from vsutil import Range as CRange
 from vsutil import (
     depth, disallow_variable_format, disallow_variable_resolution, get_depth, get_neutral_value, get_peak_value, get_y,
-    scale_value, split, join
+    join, scale_value, split
 )
 
 from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
 from .knlm import knl_means_cl
+from .types import PelType
 from .utils import planes_to_channelmode
+
+__all__ = ['Prefilter', 'prefilter_to_full_range', 'subpel_clip', 'PelType']
 
 core = vs.core
 
@@ -161,3 +165,44 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
         return join([pref_full, *chroma], fmt.color_family)
 
     return pref_full
+
+
+def subpel_clip(clip: vs.VideoNode, pel_type: PelType, pel: int, **kwargs: Any) -> vs.VideoNode | None:
+    if pel_type == PelType.AUTO:
+        pel_type = PelType.NONE if clip.height > 2160 else PelType(1 << 3 - ceil(clip.height / 1000))
+
+    if pel_type == PelType.NONE:
+        return None
+
+    if pel <= 1:
+        return clip
+
+    if pel_type == PelType.NNEDI3:
+        nnargs = dict[str, Any](nsize=0, nns=1, qual=1, pscrn=2) | kwargs
+
+        plugin: Any = core.znedi3 if hasattr(core, 'znedi3') else core.nnedi3
+
+        upscale = clip
+
+        for _ in range(int(log2(pel))):
+            nnedi3_cpu = plugin.nnedi3(
+                plugin.nnedi3(upscale.std.Transpose(), 0, True, **nnargs).std.Transpose(), 0, True, **nnargs
+            )
+
+            if hasattr(core, 'nnedi3cl'):
+                upscale = core.std.Interleave([
+                    nnedi3_cpu[::2], upscale[1::2].nnedi3cl.NNEDI3CL(0, True, True, **nnargs)
+                ])
+            else:
+                upscale = nnedi3_cpu
+
+            upscale = upscale.resize.Bicubic(src_top=.5, src_left=.5)
+
+        return upscale
+
+    bicubic_args = dict[str, Any](width=clip.width * pel, height=clip.height * pel) | kwargs
+
+    if pel_type == PelType.WIENER:
+        bicubic_args |= dict[str, Any](filter_param_a=-0.6, filter_param_b=0.4)
+
+    return clip.resize.Bicubic(**bicubic_args)
