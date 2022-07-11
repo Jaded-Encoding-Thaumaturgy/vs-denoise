@@ -5,7 +5,7 @@ This module implements prefilters for denoisers
 from __future__ import annotations
 
 from enum import IntEnum
-from math import ceil
+from math import ceil, log2
 from typing import Any, Type
 
 import vapoursynth as vs
@@ -174,28 +174,35 @@ def subpel_clip(clip: vs.VideoNode, pel_type: PelType, pel: int) -> vs.VideoNode
     if pel_type == PelType.NONE:
         return None
 
-    bicubic_args = dict[str, Any](width=clip.width * pel, height=clip.height * pel)
+    if pel == 1:
+        return clip
 
-    if pel_type == PelType.BICUBIC or pel_type == PelType.WIENER:
-        if pel_type == PelType.WIENER:
-            bicubic_args |= dict[str, Any](filter_param_a=-0.6, filter_param_b=0.4)
-        return clip.resize.Bicubic(**bicubic_args)
-    elif pel_type == PelType.NNEDI3:
+    if pel_type == PelType.NNEDI3:
         nnargs = dict[str, Any](nsize=0, nns=1, qual=1, pscrn=2)
 
         plugin: Any = core.znedi3 if hasattr(core, 'znedi3') else core.nnedi3
 
-        nnedi3_cpu = plugin.nnedi3(
-            plugin.nnedi3(clip.std.Transpose(), 0, True, **nnargs).std.Transpose(), 0, True, **nnargs
-        )
+        upscale = clip
 
-        if hasattr(core, 'nnedi3cl'):
-            upscale = core.std.Interleave([
-                nnedi3_cpu[::2], clip[1::2].nnedi3cl.NNEDI3CL(0, True, True, **nnargs)
-            ])
-        else:
-            upscale = nnedi3_cpu
+        for _ in range(int(log2(pel))):
+            nnedi3_cpu = plugin.nnedi3(
+                plugin.nnedi3(clip.std.Transpose(), 0, True, **nnargs).std.Transpose(), 0, True, **nnargs
+            )
 
-        return upscale.resize.Bicubic(src_top=.5, src_left=.5)
+            if hasattr(core, 'nnedi3cl'):
+                upscale = core.std.Interleave([
+                    nnedi3_cpu[::2], clip[1::2].nnedi3cl.NNEDI3CL(0, True, True, **nnargs)
+                ])
+            else:
+                upscale = nnedi3_cpu
 
-    return None
+            upscale = upscale.resize.Bicubic(src_top=.5, src_left=.5)
+
+        return upscale
+
+    bicubic_args = dict[str, Any](width=clip.width * pel, height=clip.height * pel)
+
+    if pel_type == PelType.WIENER:
+        bicubic_args |= dict[str, Any](filter_param_a=-0.6, filter_param_b=0.4)
+
+    return clip.resize.Bicubic(**bicubic_args)
