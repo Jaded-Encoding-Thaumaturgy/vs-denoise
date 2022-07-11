@@ -13,8 +13,11 @@ import vapoursynth as vs
 from vsutil import Range as CRange
 from vsutil import depth, disallow_variable_format, disallow_variable_resolution, fallback
 
+from vsdenoise.utils import check_ref_clip
+
 from .prefilters import Prefilter, prefilter_to_full_range
 from .types import LambdaVSFunction
+from .utils import planes_to_mvtools
 
 __all__ = ['MVTools', 'SourceType', 'PelType', 'Prefilter']
 
@@ -184,7 +187,7 @@ class MVTools:
 
         self.is_gray = planes == [0]
 
-        self.planes, self.mv_plane = self.get_mv_planes(planes)
+        self.planes, self.mv_plane = planes_to_mvtools(planes)
 
         self.chroma = 1 in self.planes or 2 in self.planes
 
@@ -246,8 +249,8 @@ class MVTools:
                 )
             self.mvtools = MVToolPlugin.INTEGER
 
-        if isinstance(prefilter, vs.VideoNode):
-            self.check_ref_clip(prefilter)
+        if not isinstance(prefilter, Prefilter):
+            check_ref_clip(self.workclip, prefilter)
 
     def analyze(
         self, ref: vs.VideoNode | None = None,
@@ -257,7 +260,7 @@ class MVTools:
     ) -> None:
         ref = fallback(ref, self.workclip)
 
-        self.check_ref_clip(ref)
+        check_ref_clip(self.workclip, ref)
 
         truemotion = fallback(truemotion, not self.is_hd)
 
@@ -420,7 +423,7 @@ class MVTools:
     ) -> vs.VideoNode:
         ref = fallback(ref, self.workclip)
 
-        self.check_ref_clip(ref)
+        check_ref_clip(self.workclip, ref)
 
         vect_b, vect_f = self.get_vectors_bf('compensate')
 
@@ -450,7 +453,7 @@ class MVTools:
         thSCD1: int | None = None, thSCD2: int = 130,
         limit: int | None = None, limitC: float | None = None
     ) -> vs.VideoNode:
-        self.check_ref_clip(ref)
+        check_ref_clip(self.workclip, ref)
 
         limit = fallback(limit, 2 if self.is_uhd else 255)
         limitC = fallback(limitC, limit)
@@ -546,28 +549,3 @@ class MVTools:
         pel_type, pel2_type = pel_types
 
         return self.subpel_clip(pref, pel_type), self.subpel_clip(ref, pel2_type)
-
-    def check_ref_clip(self, ref: vs.VideoNode | None) -> None:
-        if ref is None:
-            return
-
-        assert self.workclip.format
-        assert ref.format
-
-        if ref.format.id != self.workclip.format.id:
-            raise ValueError("Ref clip format must match the source clip's!")
-
-        if ref.width != self.workclip.width or ref.height != self.workclip.height:
-            raise ValueError("Ref clip sizes must match the source clip's!")
-
-    def get_mv_planes(self, planes: Sequence[int]) -> Tuple[List[int], int]:
-        if planes == [0, 1, 2]:
-            mv_plane = 4
-        elif len(planes) == 1 and planes[0] in {0, 1, 2}:
-            mv_plane = planes[0]
-        elif planes == [1, 2]:
-            mv_plane = 3
-        else:
-            raise ValueError("Invalid planes specified!")
-
-        return list(planes), mv_plane
