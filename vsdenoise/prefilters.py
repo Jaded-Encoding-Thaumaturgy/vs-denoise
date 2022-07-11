@@ -176,6 +176,8 @@ class PelType(IntEnum):
     @disallow_variable_format
     @disallow_variable_resolution
     def __call__(self, clip: vs.VideoNode, pel: int, **kwargs: Any) -> vs.VideoNode:
+        assert clip.format
+
         pel_type = self
 
         if pel_type == PelType.AUTO:
@@ -185,7 +187,7 @@ class PelType(IntEnum):
             return clip
 
         if pel_type == PelType.NNEDI3:
-            nnargs = dict[str, Any](nsize=0, nns=1, qual=1, pscrn=2) | kwargs
+            nnargs = dict[str, Any](nsize=0, nns=1, qual=1, pscrn=2 - clip.format.sample_type) | kwargs
 
             plugin: Any = core.znedi3 if hasattr(core, 'znedi3') else core.nnedi3
 
