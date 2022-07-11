@@ -12,6 +12,8 @@ import vapoursynth as vs
 from vsrgtools.util import PlanesT, norm_expr_planes, normalise_planes
 from vsutil import EXPR_VARS, get_peak_value, join, split  # , plane
 # from typing import Any
+from vskernels.util import get_matrix
+from vskernels.types import Matrix
 
 
 core = vs.core
@@ -36,7 +38,7 @@ class CCDPoints(IntEnum):
 
 def ccd(
     src: vs.VideoNode, thr: float = 4, tr: int = 0, ref: vs.VideoNode | None = None,
-    mode: int | CCDMode | None = None, scale: float | None = None, matrix: int | None = None,
+    mode: int | CCDMode | None = None, scale: float | None = None, matrix: int | Matrix | None = None,
     ref_points: int | CCDPoints | None = CCDPoints.LOW | CCDPoints.MEDIUM,
     i444: bool = False, planes: PlanesT = None  # , **ssim_kwargs: Any
 ) -> vs.VideoNode:
@@ -179,8 +181,8 @@ def ccd(
     if not is_yuv:
         return expr(ref or src, src)
 
-    # if matrix is None:
-    #     matrix = get_matrix(src)
+    if matrix is None:
+        matrix = get_matrix(src)
 
     divw, divh = 1 << src.format.subsampling_w, 1 << src.format.subsampling_h
 
@@ -235,7 +237,7 @@ def ccd(
         #         sample_type=vs.FLOAT, bits_per_sample=32
         #     )
 
-    denoised = denoised.resize.Bicubic(format=down_format.id, matrix=matrix, src_left=src_left)
+    denoised = denoised.resize.Bicubic(format=down_format.id, src_left=src_left)
 
     if not is_subsampled and 0 in planes:
         return denoised
