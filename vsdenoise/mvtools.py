@@ -83,6 +83,8 @@ class MVTools:
     compensate_args: Dict[str, Any]
     degrain_args: Dict[str, Any]
 
+    subpel_clips: Tuple[vs.VideoNode | None, vs.VideoNode | None] | None
+
     vectors: Dict[str, Any]
 
     clip: vs.VideoNode
@@ -175,6 +177,8 @@ class MVTools:
         self.recalculate_args = {}
         self.compensate_args = {}
         self.degrain_args = {}
+
+        self.subpel_clips = None
 
         self.hpad = fallback(hpad, 8 if self.is_hd else 16)
         self.hpad_uhd = self.hpad // 2 if self.is_uhd else self.hpad
@@ -472,6 +476,9 @@ class MVTools:
     def get_subpel_clips(
         self, pref: vs.VideoNode, ref: vs.VideoNode
     ) -> Tuple[vs.VideoNode | None, vs.VideoNode | None]:
+        if self.subpel_clips:
+            return self.subpel_clips
+
         pref_subpel = ref_subpel = None
 
         for is_ref, (ptype, clip) in enumerate(zip(self.pel_type, (pref, ref))):
