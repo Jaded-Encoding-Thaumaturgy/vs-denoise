@@ -7,7 +7,7 @@ from __future__ import annotations
 from enum import Enum
 from itertools import chain
 from math import ceil, exp
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, cast
+from typing import Any, Callable, Dict, List, Sequence, Tuple, cast
 
 import vapoursynth as vs
 from vsutil import Range as CRange
@@ -472,26 +472,23 @@ class MVTools:
     def get_subpel_clips(
         self, pref: vs.VideoNode, ref: vs.VideoNode
     ) -> Tuple[vs.VideoNode | None, vs.VideoNode | None]:
-        pel_types = list(self.pel_type)
+        pref_subpel = ref_subpel = None
 
-        for i, val in enumerate(pel_types):
-            if val != PelType.AUTO:
+        for is_ref, (ptype, clip) in enumerate(zip(self.pel_type, (pref, ref))):
+            if ptype == PelType.NONE:
                 continue
 
-            if i == 0:
-                if self.prefilter == Prefilter.NONE:
-                    pel_types[i] = PelType.NONE
+            if self.prefilter != Prefilter.NONE:
+                if self.subpixel == 4:
+                    ptype = PelType.NNEDI3
+                elif is_ref:
+                    ptype = PelType.WIENER
                 else:
-                    if self.subpixel == 4:
-                        pel_types[i] = PelType.NNEDI3
-                    else:
-                        pel_types[i] = PelType.BICUBIC
+                    ptype = PelType.BICUBIC
+
+            if is_ref:
+                ref_subpel = ptype(clip, self.pel)
             else:
-                pel_types[i] = PelType.NNEDI3 if self.subpixel == 4 else PelType.WIENER
+                pref_subpel = ptype(clip, self.pel)
 
-        pel_clips = tuple(
-            None if ptype is PelType.NONE else ptype(clip, self.pel)
-            for clip, ptype in zip((pref, ref), pel_types)
-        )
-
-        return cast(Tuple[Optional[vs.VideoNode], Optional[vs.VideoNode]], pel_clips)
+        return (pref_subpel, ref_subpel)

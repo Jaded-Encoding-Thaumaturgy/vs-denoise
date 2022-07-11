@@ -173,6 +173,8 @@ class PelType(IntEnum):
     WIENER = 2
     NNEDI3 = 4
 
+    @disallow_variable_format
+    @disallow_variable_resolution
     def __call__(self, clip: vs.VideoNode, pel: int, **kwargs: Any) -> vs.VideoNode:
         pel_type = self
 
