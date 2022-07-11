@@ -1,3 +1,4 @@
+from enum import IntEnum
 from typing import Literal, Optional, Protocol, Sequence, Union, Any
 
 from vapoursynth import VideoNode
@@ -63,3 +64,30 @@ class ZResizer(Protocol):
 class LambdaVSFunction(Protocol):
     def __call__(self, clip: VideoNode, *args: Any, **kwargs: Any) -> VideoNode:
         ...
+
+
+class SourceType(IntEnum):
+    BFF = 0
+    TFF = 1
+    PROGRESSIVE = 2
+
+    @property
+    def is_inter(self) -> bool:
+        return self != SourceType.PROGRESSIVE
+
+    def __eq__(self, o: Any) -> bool:
+        if not isinstance(o, SourceType):
+            raise NotImplementedError
+
+        return self.value == o.value
+
+    def __ne__(self, o: Any) -> bool:
+        return not (self == o)
+
+
+class PelType(IntEnum):
+    AUTO = -1
+    NONE = 0
+    BICUBIC = 1
+    WIENER = 2
+    NNEDI3 = 4

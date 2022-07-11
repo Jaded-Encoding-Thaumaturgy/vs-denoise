@@ -4,7 +4,7 @@ This module implements wrappers for mvtool
 
 from __future__ import annotations
 
-from enum import Enum, IntEnum
+from enum import Enum
 from itertools import chain
 from math import ceil, exp
 from typing import Any, Callable, Dict, List, Sequence, Tuple, cast
@@ -15,32 +15,13 @@ from vsutil import depth, disallow_variable_format, disallow_variable_resolution
 
 from vsdenoise.utils import check_ref_clip
 
-from .prefilters import PelType, Prefilter, prefilter_to_full_range, subpel_clip
-from .types import LambdaVSFunction
+from .prefilters import Prefilter, prefilter_to_full_range, subpel_clip
+from .types import LambdaVSFunction, PelType, SourceType
 from .utils import planes_to_mvtools
 
-__all__ = ['MVTools', 'SourceType', 'PelType', 'Prefilter']
+__all__ = ['MVTools', 'MVToolPlugin']
 
 core = vs.core
-
-
-class SourceType(IntEnum):
-    BFF = 0
-    TFF = 1
-    PROGRESSIVE = 2
-
-    @property
-    def is_inter(self) -> bool:
-        return self != SourceType.PROGRESSIVE
-
-    def __eq__(self, o: Any) -> bool:
-        if not isinstance(o, SourceType):
-            raise NotImplementedError
-
-        return self.value == o.value
-
-    def __ne__(self, o: Any) -> bool:
-        return not (self == o)
 
 
 class MVToolPlugin(Enum):

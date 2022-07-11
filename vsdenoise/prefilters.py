@@ -15,13 +15,16 @@ from vsutil import Dither
 from vsutil import Range as CRange
 from vsutil import (
     depth, disallow_variable_format, disallow_variable_resolution, get_depth, get_neutral_value, get_peak_value, get_y,
-    scale_value, split, join
+    join, scale_value, split
 )
 
 from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
 from .knlm import knl_means_cl
+from .types import PelType
 from .utils import planes_to_channelmode
+
+__all__ = ['Prefilter', 'prefilter_to_full_range', 'subpel_clip']
 
 core = vs.core
 
@@ -164,17 +167,6 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
     return pref_full
 
 
-class PelType(IntEnum):
-    AUTO = -1
-    NONE = 0
-    BICUBIC = 1
-    WIENER = 2
-    NNEDI3 = 4
-
-
-blackman_args = dict[str, Any](filter_param_a=-0.6, filter_param_b=0.4)
-
-
 def subpel_clip(clip: vs.VideoNode, pel_type: PelType, pel: int) -> vs.VideoNode | None:
     if pel_type == PelType.AUTO:
         pel_type = PelType.NONE if clip.height > 2160 else PelType(1 << 3 - ceil(clip.height / 1000))
@@ -186,7 +178,7 @@ def subpel_clip(clip: vs.VideoNode, pel_type: PelType, pel: int) -> vs.VideoNode
 
     if pel_type == PelType.BICUBIC or pel_type == PelType.WIENER:
         if pel_type == PelType.WIENER:
-            bicubic_args |= blackman_args
+            bicubic_args |= dict[str, Any](filter_param_a=-0.6, filter_param_b=0.4)
         return clip.resize.Bicubic(**bicubic_args)
     elif pel_type == PelType.NNEDI3:
         nnargs = dict[str, Any](nsize=0, nns=1, qual=1, pscrn=2)
