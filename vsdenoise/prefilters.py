@@ -5,6 +5,7 @@ This module implements prefilters for denoisers
 from __future__ import annotations
 
 from enum import IntEnum
+from math import ceil
 from typing import Any, Type
 
 import vapoursynth as vs
@@ -164,18 +165,24 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
 
 
 class PelType(IntEnum):
-    AUTO = auto()
-    NONE = auto()
-    BICUBIC = auto()
-    WIENER = auto()
-    NNEDI3 = auto()
+    AUTO = -1
+    NONE = 0
+    BICUBIC = 1
+    WIENER = 2
+    NNEDI3 = 4
 
 
 blackman_args = dict[str, Any](filter_param_a=-0.6, filter_param_b=0.4)
 
 
-def subpel_clip(self, clip: vs.VideoNode, pel_type: PelType) -> vs.VideoNode | None:
-    bicubic_args = dict[str, Any](width=clip.width * self.pel, height=(clip.height * self.pel))
+def subpel_clip(clip: vs.VideoNode, pel_type: PelType, pel: int) -> vs.VideoNode | None:
+    if pel_type == PelType.AUTO:
+        pel_type = PelType.NONE if clip.height > 2160 else PelType(1 << 3 - ceil(clip.height / 1000))
+
+    if pel_type == PelType.NONE:
+        return None
+
+    bicubic_args = dict[str, Any](width=clip.width * pel, height=clip.height * pel)
 
     if pel_type == PelType.BICUBIC or pel_type == PelType.WIENER:
         if pel_type == PelType.WIENER:
