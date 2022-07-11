@@ -83,11 +83,3 @@ class SourceType(IntEnum):
 
     def __ne__(self, o: Any) -> bool:
         return not (self == o)
-
-
-class PelType(IntEnum):
-    AUTO = -1
-    NONE = 0
-    BICUBIC = 1
-    WIENER = 2
-    NNEDI3 = 4

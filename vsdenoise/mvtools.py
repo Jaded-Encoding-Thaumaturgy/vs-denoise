@@ -7,17 +7,15 @@ from __future__ import annotations
 from enum import Enum
 from itertools import chain
 from math import ceil, exp
-from typing import Any, Callable, Dict, List, Sequence, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, cast
 
 import vapoursynth as vs
 from vsutil import Range as CRange
 from vsutil import depth, disallow_variable_format, disallow_variable_resolution, fallback
 
-from vsdenoise.utils import check_ref_clip
-
-from .prefilters import Prefilter, prefilter_to_full_range, subpel_clip
-from .types import LambdaVSFunction, PelType, SourceType
-from .utils import planes_to_mvtools
+from .prefilters import PelType, Prefilter, prefilter_to_full_range
+from .types import LambdaVSFunction, SourceType
+from .utils import check_ref_clip, planes_to_mvtools
 
 __all__ = ['MVTools', 'MVToolPlugin', 'SourceType']
 
@@ -491,6 +489,9 @@ class MVTools:
             else:
                 pel_types[i] = PelType.NNEDI3 if self.subpixel == 4 else PelType.WIENER
 
-        pel_type, pel2_type = pel_types
+        pel_clips = tuple(
+            None if ptype is PelType.NONE else ptype(clip, self.pel)
+            for clip, ptype in zip((pref, ref), pel_types)
+        )
 
-        return subpel_clip(pref, pel_type, self.pel), subpel_clip(ref, pel2_type, self.pel)
+        return cast(Tuple[Optional[vs.VideoNode], Optional[vs.VideoNode]], pel_clips)
