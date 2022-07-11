@@ -161,3 +161,42 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
         return join([pref_full, *chroma], fmt.color_family)
 
     return pref_full
+
+
+class PelType(IntEnum):
+    AUTO = auto()
+    NONE = auto()
+    BICUBIC = auto()
+    WIENER = auto()
+    NNEDI3 = auto()
+
+
+blackman_args = dict[str, Any](filter_param_a=-0.6, filter_param_b=0.4)
+
+
+def subpel_clip(self, clip: vs.VideoNode, pel_type: PelType) -> vs.VideoNode | None:
+    bicubic_args = dict[str, Any](width=clip.width * self.pel, height=(clip.height * self.pel))
+
+    if pel_type == PelType.BICUBIC or pel_type == PelType.WIENER:
+        if pel_type == PelType.WIENER:
+            bicubic_args |= blackman_args
+        return clip.resize.Bicubic(**bicubic_args)
+    elif pel_type == PelType.NNEDI3:
+        nnargs = dict[str, Any](nsize=0, nns=1, qual=1, pscrn=2)
+
+        plugin: Any = core.znedi3 if hasattr(core, 'znedi3') else core.nnedi3
+
+        nnedi3_cpu = plugin.nnedi3(
+            plugin.nnedi3(clip.std.Transpose(), 0, True, **nnargs).std.Transpose(), 0, True, **nnargs
+        )
+
+        if hasattr(core, 'nnedi3cl'):
+            upscale = core.std.Interleave([
+                nnedi3_cpu[::2], clip[1::2].nnedi3cl.NNEDI3CL(0, True, True, **nnargs)
+            ])
+        else:
+            upscale = nnedi3_cpu
+
+        return upscale.resize.Bicubic(src_top=.5, src_left=.5)
+
+    return None
