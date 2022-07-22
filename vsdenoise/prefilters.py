@@ -9,7 +9,7 @@ from math import ceil, log2
 from typing import Any, Type
 
 import vapoursynth as vs
-from vsrgtools import box_blur, gauss_blur, min_blur, replace_low_frequencies
+from vsrgtools import gauss_blur, min_blur, replace_low_frequencies
 from vsrgtools.util import PlanesT, norm_expr_planes, normalise_planes, wmean_matrix
 from vsutil import Dither
 from vsutil import Range as CRange
@@ -108,11 +108,11 @@ class Prefilter(IntEnum):
         elif pref_type == Prefilter.HALFBLUR:
             half_clip = clip.resize.Bilinear(clip.width // 2, clip.height // 2)
 
-            boxblur = box_blur(half_clip, wmean_matrix, planes, **kwargs)
+            boxblur = half_clip.std.Convolution(wmean_matrix, planes=planes, **kwargs)
 
             return boxblur.resize.Bilinear(clip.width, clip.height)
         elif pref_type in {Prefilter.GAUSSBLUR1, Prefilter.GAUSSBLUR2}:
-            boxblur = box_blur(clip, wmean_matrix, planes)
+            boxblur = clip.std.Convolution(wmean_matrix, planes=planes, **kwargs)
 
             gaussblur = gauss_blur(boxblur, 1.75, planes=planes, **kwargs)
 
