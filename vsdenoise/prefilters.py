@@ -129,15 +129,13 @@ class Prefilter(IntEnum):
 
 
 def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
-    assert (fmt := pref.format)
+    planes = normalise_planes(pref, planes)
+    work_clip, *chroma = split(pref) if planes == [0] else (pref, )
+    assert (fmt := work_clip.format) and pref.format
 
     bits = get_depth(pref)
     is_gray = fmt.color_family == vs.GRAY
     is_integer = fmt.sample_type == vs.INTEGER
-
-    planes = normalise_planes(pref, planes)
-    work_clip, *chroma = split(pref) if planes == [0] else (pref, )
-    assert work_clip.format
 
     # Luma expansion TV->PC (up to 16% more values for motion estimation)
     if range_conversion > 1.0:
@@ -161,7 +159,7 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
         pref_full = depth(work_clip, bits, range=CRange.FULL, range_in=CRange.LIMITED, dither_type=Dither.NONE)
 
     if chroma:
-        return join([pref_full, *chroma], fmt.color_family)
+        return join([pref_full, *chroma], pref.format.color_family)
 
     return pref_full
 
