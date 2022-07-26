@@ -9,12 +9,11 @@ from math import sin, sqrt
 from typing import List
 
 import vapoursynth as vs
-from vsrgtools.util import PlanesT, norm_expr_planes, normalise_planes
-from vsutil import EXPR_VARS, get_peak_value, join, split  # , plane
+from vsexprtools.util import PlanesT, norm_expr_planes, normalise_planes
+from vskernels.types import Matrix
 # from typing import Any
 from vskernels.util import get_matrix
-from vskernels.types import Matrix
-
+from vsutil import EXPR_VARS, get_peak_value, join, split  # , plane
 
 core = vs.core
 

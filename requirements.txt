@@ -1,4 +1,5 @@
 vsutil>=0.8.0
-vsrgtools>=0.1.7
+vsexprtools>=0.0.2
+vsrgtools>=0.1.8
 vskernels>=0.1.5
 VapourSynth>=59

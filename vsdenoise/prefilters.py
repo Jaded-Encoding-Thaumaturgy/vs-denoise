@@ -9,8 +9,9 @@ from math import ceil, log2
 from typing import Any, Type
 
 import vapoursynth as vs
+from vsexprtools.util import PlanesT, norm_expr_planes, normalise_planes
 from vsrgtools import gauss_blur, min_blur, replace_low_frequencies
-from vsrgtools.util import PlanesT, norm_expr_planes, normalise_planes, wmean_matrix
+from vsrgtools.util import wmean_matrix
 from vsutil import Dither
 from vsutil import Range as CRange
 from vsutil import (
