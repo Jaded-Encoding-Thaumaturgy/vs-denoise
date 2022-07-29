@@ -9,18 +9,15 @@ from math import ceil, log2
 from typing import Any, Type
 
 import vapoursynth as vs
-from vsexprtools.util import PlanesT, norm_expr_planes, normalise_planes
+from vsexprtools import PlanesT, norm_expr_planes, normalise_planes
 from vsrgtools import gauss_blur, min_blur, replace_low_frequencies
 from vsrgtools.util import wmean_matrix
-from vsutil import Dither
-from vsutil import Range as CRange
 from vsutil import (
-    depth, disallow_variable_format, disallow_variable_resolution, get_depth, get_neutral_value, get_peak_value, get_y,
-    join, scale_value, split
+    Dither, Range as CRange, depth, disallow_variable_format, disallow_variable_resolution, get_depth,
+    get_neutral_value, get_peak_value, get_y, join, scale_value, split
 )
 
-from .bm3d import BM3D as BM3DM
-from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
+from .bm3d import BM3D as BM3DM, BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
 from .knlm import knl_means_cl
 from .utils import planes_to_channelmode
 

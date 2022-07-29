@@ -1,10 +1,11 @@
 from __future__ import annotations
-import vapoursynth as vs
+
 from typing import List, Sequence, Tuple, TypeVar
 
+import vapoursynth as vs
 from vsutil import disallow_variable_format, disallow_variable_resolution
 
-from vsdenoise.knlm import ChannelMode
+from .knlm import ChannelMode
 
 T = TypeVar('T')
 
