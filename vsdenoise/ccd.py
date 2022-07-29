@@ -6,13 +6,13 @@ from __future__ import annotations
 
 from enum import IntEnum
 from math import sin, sqrt
-from typing import List
+from typing import List, Any
 
 import vapoursynth as vs
 from vsexprtools import PlanesT, norm_expr_planes, normalise_planes
-from vskernels import Matrix, get_matrix
-# from typing import Any
-from vsutil import EXPR_VARS, get_peak_value, join, split  # , plane
+from vskernels import Matrix
+from vsscale import ssim_downsample
+from vsutil import EXPR_VARS, get_peak_value, join, split, plane
 
 core = vs.core
 
@@ -24,7 +24,7 @@ class CCDMode(IntEnum):
     BICUBIC_CHROMA = 1
     BICUBIC_LUMA = 2
     NNEDI_BICUBIC = 3
-    # NNEDI_SSIM = 4
+    NNEDI_SSIM = 4
 
 
 class CCDPoints(IntEnum):
@@ -38,7 +38,7 @@ def ccd(
     src: vs.VideoNode, thr: float = 4, tr: int = 0, ref: vs.VideoNode | None = None,
     mode: int | CCDMode | None = None, scale: float | None = None, matrix: int | Matrix | None = None,
     ref_points: int | CCDPoints | None = CCDPoints.LOW | CCDPoints.MEDIUM,
-    i444: bool = False, planes: PlanesT = None  # , **ssim_kwargs: Any
+    i444: bool = False, planes: PlanesT = None, **ssim_kwargs: Any
 ) -> vs.VideoNode:
     assert src.format
 
@@ -180,7 +180,7 @@ def ccd(
         return expr(ref or src, src)
 
     if matrix is None:
-        matrix = get_matrix(src)
+        matrix = Matrix.from_video(src)
 
     divw, divh = 1 << src.format.subsampling_w, 1 << src.format.subsampling_h
 
@@ -197,7 +197,7 @@ def ccd(
     if not is_subsampled:
         yuv = src
         yuvref = ref
-    elif mode in {CCDMode.NNEDI_BICUBIC}:  # , CCDMode.NNEDI_SSIM}:
+    elif mode in {CCDMode.NNEDI_BICUBIC, CCDMode.NNEDI_SSIM}:
         ref_clips: List[List[vs.VideoNode] | None] = [split(src), ref and split(ref) or None]
 
         src_left += 0.125 * divw
@@ -230,22 +230,22 @@ def ccd(
     if not i444:
         if mode == CCDMode.NNEDI_BICUBIC:
             down_format = src.format
-        # elif mode == CCDMode.NNEDI_SSIM:
-        #     down_format = down_format.replace(
-        #         sample_type=vs.FLOAT, bits_per_sample=32
-        #     )
+        elif mode == CCDMode.NNEDI_SSIM:
+            down_format = down_format.replace(
+                sample_type=vs.FLOAT, bits_per_sample=32
+            )
 
     denoised = denoised.resize.Bicubic(format=down_format.id, src_left=src_left)
 
     if not is_subsampled and 0 in planes:
         return denoised
 
-    # if mode == CCDMode.NNEDI_SSIM and not i444:
-    #     u = ssim_downsample(plane(denoised, 1), yuvw, yuvh, **ssim_kwargs)
-    #     v = ssim_downsample(plane(denoised, 2), yuvw, yuvh, **ssim_kwargs)
+    if mode == CCDMode.NNEDI_SSIM and not i444:
+        u = ssim_downsample(plane(denoised, 1), yuvw, yuvh, **ssim_kwargs)
+        v = ssim_downsample(plane(denoised, 2), yuvw, yuvh, **ssim_kwargs)
 
-    #     denoised = core.std.ShufflePlanes([denoised, u, v], [0, 0, 0], vs.YUV)
-    # else:
-    denoised = core.std.ShufflePlanes([src, denoised], [0, 1, 2], vs.YUV)
+        denoised = core.std.ShufflePlanes([denoised, u, v], [0, 0, 0], vs.YUV)
+    else:
+        denoised = core.std.ShufflePlanes([src, denoised], [0, 1, 2], vs.YUV)
 
     return denoised if i444 else denoised.resize.Bicubic(format=src.format.id)
