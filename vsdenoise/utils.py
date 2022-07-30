@@ -5,7 +5,6 @@ from typing import List, Sequence, Tuple, TypeVar
 import vapoursynth as vs
 from vsutil import disallow_variable_format, disallow_variable_resolution
 
-from .knlm import ChannelMode
 
 T = TypeVar('T')
 

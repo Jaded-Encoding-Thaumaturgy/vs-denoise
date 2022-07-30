@@ -1,9 +1,7 @@
 from enum import IntEnum
-from typing import Literal, Optional, Protocol, Sequence, Union, Any
+from typing import Optional, Protocol, Sequence, Union, Any
 
 from vapoursynth import VideoNode
-
-MATRIX = Literal[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
 
 Data = Union[str, bytes, bytearray]
 DataArray = Union[Data, Sequence[Data]]
