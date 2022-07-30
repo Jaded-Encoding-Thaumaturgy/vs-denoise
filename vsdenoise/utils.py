@@ -29,18 +29,6 @@ def check_ref_clip(src: vs.VideoNode, ref: vs.VideoNode | None) -> None:
         raise ValueError("Ref clip sizes must match the source clip's!")
 
 
-def planes_to_channelmode(planes: Sequence[int]) -> ChannelMode:
-    planes = list(planes)
-
-    if planes == [0]:
-        return ChannelMode.LUMA
-
-    if 0 not in planes:
-        return ChannelMode.CHROMA
-
-    return ChannelMode.ALL_PLANES
-
-
 def planes_to_mvtools(planes: Sequence[int]) -> Tuple[List[int], int]:
     planes = list(planes)
 

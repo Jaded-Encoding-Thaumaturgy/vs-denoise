@@ -21,6 +21,18 @@ class ChannelMode(Enum):
     LUMA = auto()
     CHROMA = auto()
 
+    @classmethod
+    def from_planes(cls, planes: Sequence[int]) -> ChannelMode:
+        planes = list(planes)
+
+        if planes == [0]:
+            return cls.LUMA
+
+        if 0 not in planes:
+            return cls.CHROMA
+
+        return cls.ALL_PLANES
+
 
 @final
 class DeviceType(str, Enum):

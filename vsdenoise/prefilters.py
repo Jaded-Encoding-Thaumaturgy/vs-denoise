@@ -18,8 +18,7 @@ from vsutil import (
 )
 
 from .bm3d import BM3D as BM3DM, BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
-from .knlm import knl_means_cl
-from .utils import planes_to_channelmode
+from .knlm import ChannelMode, knl_means_cl
 
 __all__ = ['Prefilter', 'prefilter_to_full_range', 'PelType']
 
@@ -76,7 +75,7 @@ class Prefilter(IntEnum):
 
             return dfft.std.MaskedMerge(clip, pref_mask, planes)
         elif pref_type == Prefilter.KNLMEANSCL:
-            knl = knl_means_cl(clip, 7.0, 1, 2, 2, planes_to_channelmode(planes), **kwargs)
+            knl = knl_means_cl(clip, 7.0, 1, 2, 2, ChannelMode.from_planes(planes), **kwargs)
 
             return replace_low_frequencies(knl, clip, 600 * (clip.width / 1920), False, planes)
         elif pref_type in {Prefilter.BM3D, Prefilter.BM3D_CPU, Prefilter.BM3D_CUDA, Prefilter.BM3D_CUDA_RTC}:
