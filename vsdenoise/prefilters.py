@@ -135,7 +135,7 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
     is_integer = fmt.sample_type == vs.INTEGER
 
     # Luma expansion TV->PC (up to 16% more values for motion estimation)
-    if range_conversion > 1.0:
+    if range_conversion >= 1.0:
         neutral = get_neutral_value(work_clip, True)
         max_val = get_peak_value(work_clip)
         min_tv_val = scale_value(16, 8, bits)
