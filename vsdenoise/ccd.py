@@ -6,17 +6,20 @@ from __future__ import annotations
 
 from enum import IntEnum
 from math import sin, sqrt
-from typing import List, Any
+from typing import Any
 
 import vapoursynth as vs
-from vsexprtools import PlanesT, norm_expr_planes, normalise_planes
-from vskernels import Matrix
-from vsscale import ssim_downsample
-from vsutil import EXPR_VARS, get_peak_value, join, split, plane
+from vsaa import Nnedi3
+from vsexprtools import PlanesT, expr_func, norm_expr_planes, normalise_planes
+from vskernels import Matrix, MatrixT
+from vsscale import SSIM
+from vsutil import EXPR_VARS, get_peak_value, join, plane, split
 
 core = vs.core
 
-__all__ = ['ccd', 'CCDMode', 'CCDPoints']
+__all__ = [
+    'ccd', 'CCDMode', 'CCDPoints'
+]
 
 
 class CCDMode(IntEnum):
@@ -36,7 +39,7 @@ class CCDPoints(IntEnum):
 
 def ccd(
     src: vs.VideoNode, thr: float = 4, tr: int = 0, ref: vs.VideoNode | None = None,
-    mode: int | CCDMode | None = None, scale: float | None = None, matrix: int | Matrix | None = None,
+    mode: int | CCDMode | None = None, scale: float | None = None, matrix: MatrixT | None = None,
     ref_points: int | CCDPoints | None = CCDPoints.LOW | CCDPoints.MEDIUM,
     i444: bool = False, planes: PlanesT = None, **ssim_kwargs: Any
 ) -> vs.VideoNode:
@@ -172,7 +175,7 @@ def ccd(
 
         expression.append(f'{plusses_points} x + WQ@ /')
 
-        return core.akarin.Expr(
+        return expr_func(
             expr_clips, norm_expr_planes(src, ' '.join(expression), planes), src444_format.id, True, False
         )
 
@@ -180,7 +183,7 @@ def ccd(
         return expr(ref or src, src)
 
     if matrix is None:
-        matrix = Matrix.from_video(src)
+        matrix = Matrix.from_video(src, True)
 
     divw, divh = 1 << src.format.subsampling_w, 1 << src.format.subsampling_h
 
@@ -195,22 +198,15 @@ def ccd(
     yuv = yuvref = None
 
     if not is_subsampled:
-        yuv = src
-        yuvref = ref
+        yuv, yuvref = src, ref
     elif mode in {CCDMode.NNEDI_BICUBIC, CCDMode.NNEDI_SSIM}:
-        ref_clips: List[List[vs.VideoNode] | None] = [split(src), ref and split(ref) or None]
+        ref_clips = list[list[vs.VideoNode] | None]([split(src), ref and split(ref) or None])
 
         src_left += 0.125 * divw
 
         yuv, yuvref = [
             join(planes[:1] + [
-                p.nnedi3.nnedi3(1, 1, 0, 0, 3, 2).std.Transpose()
-                .nnedi3.nnedi3(1, 1, 0, 0, 3, 2).std.Transpose()
-                .resize.Bicubic(src_top=-0.25 * divh) if divw == divh != 1 else (
-                    p.nnedi3.nnedi3(1, 1, 0, 0, 3, 2).resize.Bicubic(src_top=-0.125 * divw)
-                    if divh != 1 else p.std.Transpose().nnedi3.nnedi3(1, 1, 0, 0, 3, 2)
-                    .std.Transpose().resize.Bicubic(src_top=-0.125 * divh)
-                ) for p in planes[1:]
+                Nnedi3().scale(p, p.width * divw, p.height * divh) for p in planes[1:]
             ]) if planes else None for planes in ref_clips
         ]
     else:
@@ -231,9 +227,7 @@ def ccd(
         if mode == CCDMode.NNEDI_BICUBIC:
             down_format = src.format
         elif mode == CCDMode.NNEDI_SSIM:
-            down_format = down_format.replace(
-                sample_type=vs.FLOAT, bits_per_sample=32
-            )
+            down_format = down_format.replace(sample_type=vs.FLOAT, bits_per_sample=32)
 
     denoised = denoised.resize.Bicubic(format=down_format.id, src_left=src_left)
 
@@ -241,8 +235,8 @@ def ccd(
         return denoised
 
     if mode == CCDMode.NNEDI_SSIM and not i444:
-        u = ssim_downsample(plane(denoised, 1), yuvw, yuvh, **ssim_kwargs)
-        v = ssim_downsample(plane(denoised, 2), yuvw, yuvh, **ssim_kwargs)
+        u = SSIM(**ssim_kwargs).scale(plane(denoised, 1), yuvw, yuvh)
+        v = SSIM(**ssim_kwargs).scale(plane(denoised, 2), yuvw, yuvh)
 
         denoised = core.std.ShufflePlanes([denoised, u, v], [0, 0, 0], vs.YUV)
     else:
