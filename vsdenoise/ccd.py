@@ -10,7 +10,7 @@ from typing import Any
 
 import vapoursynth as vs
 from vsaa import Nnedi3
-from vsexprtools import PlanesT, expr_func, norm_expr_planes, normalise_planes
+from vsexprtools import PlanesT, expr, normalise_planes
 from vskernels import Matrix, MatrixT
 from vsscale import SSIM
 from vsutil import EXPR_VARS, get_peak_value, join, plane, split
@@ -78,7 +78,7 @@ def ccd(
 
     planes = normalise_planes(src, planes)
 
-    def expr(src: vs.VideoNode, rgb: vs.VideoNode) -> vs.VideoNode:
+    def _ccd_expr(src: vs.VideoNode, rgb: vs.VideoNode) -> vs.VideoNode:
         nonlocal scale
 
         rgb_clips = [
@@ -175,12 +175,10 @@ def ccd(
 
         expression.append(f'{plusses_points} x + WQ@ /')
 
-        return expr_func(
-            expr_clips, norm_expr_planes(src, ' '.join(expression), planes), src444_format.id, True, False
-        )
+        return expr(expr_clips, expression, planes, format=src444_format, force_akarin='vsdenoise.ccd')
 
     if not is_yuv:
-        return expr(ref or src, src)
+        return _ccd_expr(ref or src, src)
 
     if matrix is None:
         matrix = Matrix.from_video(src, True)
@@ -219,7 +217,7 @@ def ccd(
         format=yuv.format.replace(color_family=vs.RGB).id, matrix_in=matrix
     )
 
-    denoised = expr(yuvref or yuv, rgb)
+    denoised = _ccd_expr(yuvref or yuv, rgb)
 
     down_format = src444_format
 
