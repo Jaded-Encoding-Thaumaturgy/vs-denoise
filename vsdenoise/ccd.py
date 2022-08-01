@@ -10,7 +10,7 @@ from typing import Any
 
 import vapoursynth as vs
 from vsaa import Nnedi3
-from vsexprtools import PlanesT, expr, normalise_planes
+from vsexprtools import PlanesT, norm_expr, normalise_planes
 from vskernels import Matrix, MatrixT
 from vsscale import SSIM
 from vsutil import EXPR_VARS, get_peak_value, join, plane, split
@@ -175,7 +175,7 @@ def ccd(
 
         expression.append(f'{plusses_points} x + WQ@ /')
 
-        return expr(expr_clips, expression, planes, format=src444_format, force_akarin='vsdenoise.ccd')
+        return norm_expr(expr_clips, expression, planes, src444_format, force_akarin='vsdenoise.ccd')
 
     if not is_yuv:
         return _ccd_expr(ref or src, src)
