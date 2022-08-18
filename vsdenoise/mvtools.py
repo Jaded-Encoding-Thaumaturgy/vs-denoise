@@ -7,7 +7,7 @@ from __future__ import annotations
 from enum import Enum
 from itertools import chain
 from math import ceil, exp
-from typing import Any, Callable, Dict, List, Sequence, Tuple, cast
+from typing import Any, Callable, Sequence, cast
 
 import vapoursynth as vs
 from vsutil import Range as CRange
@@ -77,15 +77,15 @@ class MVToolPlugin(Enum):
 
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
-    super_args: Dict[str, Any]
-    analyze_args: Dict[str, Any]
-    recalculate_args: Dict[str, Any]
-    compensate_args: Dict[str, Any]
-    degrain_args: Dict[str, Any]
+    super_args: dict[str, Any]
+    analyze_args: dict[str, Any]
+    recalculate_args: dict[str, Any]
+    compensate_args: dict[str, Any]
+    degrain_args: dict[str, Any]
 
-    subpel_clips: Tuple[vs.VideoNode | None, vs.VideoNode | None] | None
+    subpel_clips: tuple[vs.VideoNode | None, vs.VideoNode | None] | None
 
-    vectors: Dict[str, Any]
+    vectors: dict[str, Any]
 
     clip: vs.VideoNode
 
@@ -95,13 +95,13 @@ class MVTools:
     refine: int
     source_type: SourceType
     prefilter: Prefilter | vs.VideoNode
-    pel_type: Tuple[PelType, PelType]
+    pel_type: tuple[PelType, PelType]
     range_in: CRange
     pel: int
     subpixel: int
     chroma: bool
     is_gray: bool
-    planes: List[int]
+    planes: list[int]
     mv_plane: int
     range_conversion: float
     hpad: int
@@ -118,14 +118,14 @@ class MVTools:
         tr: int = 2, refine: int = 3,
         source_type: SourceType = SourceType.PROGRESSIVE,
         prefilter: Prefilter | vs.VideoNode = Prefilter.AUTO,
-        pel_type: PelType | Tuple[PelType, PelType] = PelType.AUTO,
+        pel_type: PelType | tuple[PelType, PelType] = PelType.AUTO,
         range_in: CRange = CRange.LIMITED,
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
         highprecision: bool = False,
         fix_fades: bool = False, range_conversion: float = 5.0,
         hpad: int | None = None, vpad: int | None = None,
-        rfilter: int = 3, vectors: Dict[str, Any] | MVTools | None = None
+        rfilter: int = 3, vectors: dict[str, Any] | MVTools | None = None
     ) -> None:
         assert clip.format
 
@@ -168,7 +168,7 @@ class MVTools:
         if isinstance(vectors, MVTools):
             self.vectors = vectors.vectors
         elif vectors:
-            self.vectors = cast(Dict[str, Any], vectors)
+            self.vectors = cast(dict[str, Any], vectors)
         else:
             self.vectors = {}
 
@@ -202,10 +202,10 @@ class MVTools:
 
         if highprecision or fmt.bits_per_sample == 32 or fmt.sample_type == vs.FLOAT or refine == 6 or tr > 3:
             self.workclip = depth(self.workclip, 32)
-            
+
             if isinstance(self.prefilter, vs.VideoNode):
                 self.prefilter = depth(self.prefilter, 32)
-            
+
             self.mvtools = MVToolPlugin.FLOAT_NEW
             if not hasattr(core, 'mvsf'):
                 raise ImportError(
@@ -341,7 +341,7 @@ class MVTools:
                 else:
                     vects = {
                         'b': self.mvtools.Analyse(super_search, **(analyse_args | dict(isb=True, delta=delta))),
-                        'f': self.mvtools.Analyse(super_search,  **(analyse_args | dict(isb=False, delta=delta)))
+                        'f': self.mvtools.Analyse(super_search, **(analyse_args | dict(isb=False, delta=delta)))
                     }
 
                 for k, vect in vects.items():
@@ -371,7 +371,7 @@ class MVTools:
 
         self.vectors['super_render'] = super_render
 
-    def get_vectors_bf(self, func_name: str = '') -> Tuple[List[vs.VideoNode], List[vs.VideoNode]]:
+    def get_vectors_bf(self, func_name: str = '') -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
         if not self.vectors:
             raise RuntimeError(
                 f"MVTools{'.' if func_name else ''}{func_name}: you first need to analyze the clip!"
@@ -481,7 +481,7 @@ class MVTools:
 
     def get_subpel_clips(
         self, pref: vs.VideoNode, ref: vs.VideoNode
-    ) -> Tuple[vs.VideoNode | None, vs.VideoNode | None]:
+    ) -> tuple[vs.VideoNode | None, vs.VideoNode | None]:
         if self.subpel_clips:
             return self.subpel_clips
 
