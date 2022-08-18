@@ -194,12 +194,18 @@ class MVTools:
             self.workclip = self.clip
         else:
             self.workclip = self.clip.std.SeparateFields(int(self.source_type))
+            if isinstance(self.prefilter, vs.VideoNode):
+                self.prefilter = self.prefilter.std.SeparateFields(int(self.source_type))
 
         fmt = self.workclip.format
         assert fmt
 
         if highprecision or fmt.bits_per_sample == 32 or fmt.sample_type == vs.FLOAT or refine == 6 or tr > 3:
             self.workclip = depth(self.workclip, 32)
+            
+            if isinstance(self.prefilter, vs.VideoNode):
+                self.prefilter = depth(self.prefilter, 32)
+            
             self.mvtools = MVToolPlugin.FLOAT_NEW
             if not hasattr(core, 'mvsf'):
                 raise ImportError(
@@ -223,8 +229,8 @@ class MVTools:
                 )
             self.mvtools = MVToolPlugin.INTEGER
 
-        if not isinstance(prefilter, Prefilter):
-            check_ref_clip(self.workclip, prefilter)
+        if not isinstance(self.prefilter, Prefilter):
+            check_ref_clip(self.workclip, self.prefilter)
 
     def analyze(
         self, ref: vs.VideoNode | None = None,
