@@ -291,9 +291,9 @@ class MVTools:
             common_args |= dict(pelclip=pelclip)
             super_render_args |= dict(pelclip=pelclip2)
 
-        super_search = self.mvtools.Super(ref, **common_args, rfilter=self.rfilter)
+        super_search = self.mvtools.Super(ref, **(common_args | dict(rfilter=self.rfilter)))
         super_render = self.mvtools.Super(self.workclip, **super_render_args)
-        super_recalculate = self.mvtools.Super(pref, **common_args, levels=1) if self.refine else super_render
+        super_recalculate = self.mvtools.Super(pref, **(common_args | dict(levels=1))) if self.refine else super_render
 
         recalculate_SAD = round(exp(-101. / (150 * 0.83)) * 360)
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
@@ -313,7 +313,7 @@ class MVTools:
         ) | self.recalculate_args
 
         if self.mvtools == MVToolPlugin.FLOAT_NEW:
-            vmulti = self.mvtools.Analyse(super_search, radius=t2, **analyse_args)
+            vmulti = self.mvtools.Analyse(super_search, **(analyse_args | dict(radius=t2)))
 
             if self.source_type.is_inter:
                 vmulti = vmulti.std.SelectEvery(4, 2, 3)
@@ -340,8 +340,8 @@ class MVTools:
                     }
                 else:
                     vects = {
-                        'b': self.mvtools.Analyse(super_search, isb=True, delta=delta, **analyse_args),
-                        'f': self.mvtools.Analyse(super_search, isb=False, delta=delta, **analyse_args)
+                        'b': self.mvtools.Analyse(super_search, **(analyse_args | dict(isb=True, delta=delta))),
+                        'f': self.mvtools.Analyse(super_search,  **(analyse_args | dict(isb=False, delta=delta)))
                     }
 
                 for k, vect in vects.items():
@@ -414,7 +414,7 @@ class MVTools:
 
         comp_back, comp_forw = tuple(
             map(
-                lambda vect: self.mvtools.Compensate(ref, vectors=vect, **compensate_args), vectors
+                lambda vect: self.mvtools.Compensate(ref, **(compensate_args | dict(vectors=vect))), vectors
             ) for vectors in (reversed(vect_b), vect_f)
         )
 
