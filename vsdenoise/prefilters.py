@@ -23,7 +23,9 @@ from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
 from .knlm import ChannelMode, knl_means_cl
 
-__all__ = ['Prefilter', 'prefilter_to_full_range', 'PelType']
+__all__ = [
+    'Prefilter', 'prefilter_to_full_range', 'PelType'
+]
 
 core = vs.core
 

@@ -4,7 +4,9 @@ This module implements a wrapper for KNLMeansCL
 
 from __future__ import annotations
 
-__all__ = ['ChannelMode', 'DeviceType', 'knl_means_cl']
+__all__ = [
+    'ChannelMode', 'DeviceType', 'knl_means_cl'
+]
 
 import warnings
 from enum import Enum, auto
