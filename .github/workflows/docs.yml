@@ -16,15 +16,24 @@ on:
 jobs:
   docs:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        versions:
+          - 59
+        python-version:
+          - "3.10"
     steps:
       - uses: actions/checkout@v2
-      - name: Setup Python 3.10
-        uses: actions/setup-python@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
+          pip install vapoursynth-portable==${{ matrix.versions }}
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
           pip install -r docs/requirements.txt
       - name: Building sphinx
         run: python3 setup.py build_sphinx -W --keep-going
