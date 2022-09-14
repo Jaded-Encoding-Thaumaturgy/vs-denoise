@@ -1,0 +1,30 @@
+name: Build documentation
+
+on:
+  push:
+    paths:
+      - "**.py"
+      - "**.rst"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "**.py"
+      - "**.rst"
+
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r docs/requirements.txt
+      - name: Building sphinx
+        run: python3 setup.py build_sphinx -W --keep-going

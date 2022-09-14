@@ -38,5 +38,13 @@ setuptools.setup(
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
-    ]
+    ],
+    command_options={
+        "build_sphinx": {
+            "project": ("setup.py", package_name),
+            "version": ("setup.py", meta['__version__']),
+            "release": ("setup.py", meta['__version__']),
+            "source_dir": ("setup.py", "docs")
+        }
+    }
 )
