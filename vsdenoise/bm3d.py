@@ -15,7 +15,8 @@ from enum import Enum
 from typing import Any, ClassVar, Dict, NamedTuple, Optional, Sequence, Union, cast, final
 
 import vapoursynth as vs
-from vstools import Dither, get_depth, get_y, iterate
+from vskernels import Bicubic, Kernel
+from vstools import DitherType, get_depth, get_y, iterate
 
 from .types import ZResizer, _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
 
@@ -199,7 +200,7 @@ class AbstractBM3D(ABC):
                 self.wclip = core.std.ShufflePlanes([self.wclip, self._clip], [0, 1, 2], vs.YUV)
         else:
             default = inspect.signature(self.rgb2yuv).parameters['dither_type'].default
-            dither = cast(Dither, default) if default else dither
+            dither = cast(DitherType, default) if default else dither
             self.wclip = self.rgb2yuv(
                 self.opp2rgb(self.wclip),
                 format=self._format.id, matrix=self._matrix, dither_type=dither
