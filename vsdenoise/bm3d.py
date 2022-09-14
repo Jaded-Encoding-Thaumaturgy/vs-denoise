@@ -9,14 +9,13 @@ __all__ = [
     'BM3D', 'BM3DCuda', 'BM3DCudaRTC', 'BM3DCPU'
 ]
 
-import inspect
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, ClassVar, Dict, NamedTuple, Optional, Sequence, Union, cast, final
 
 import vapoursynth as vs
 from vskernels import Bicubic, Kernel
-from vstools import DitherType, get_depth, get_y, iterate
+from vstools import DitherType, get_y, iterate
 
 from .types import _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
 
@@ -186,8 +185,7 @@ class AbstractBM3D(ABC):
 
     def _post_processing(self) -> None:
         # Resize
-        dither = DitherType.ERROR_DIFFUSION  \
-            if self._format.bits_per_sample < get_depth(self.wclip) else DitherType.NONE
+        dither = DitherType.ERROR_DIFFUSION if DitherType.should_dither(self._format, self.wclip) else DitherType.NONE
 
         if self.is_gray:
             self.wclip = core.resize.Point(
@@ -199,11 +197,9 @@ class AbstractBM3D(ABC):
             if self._format.color_family == vs.YUV:
                 self.wclip = core.std.ShufflePlanes([self.wclip, self._clip], [0, 1, 2], vs.YUV)
         else:
-            default = inspect.signature(self.rgb2yuv).parameters['dither_type'].default
-            dither = cast(DitherType, default) if default else dither
-            self.wclip = self.rgb2yuv(
-                self.opp2rgb(self.wclip),
-                format=self._format.id, matrix=self._matrix, dither_type=dither
+            dither = DitherType.from_param(self.rgb2yuv.kwargs.get('dither_type', None)) or dither
+            self.wclip = self.rgb2yuv.resample(
+                self.opp2rgb(self.wclip), format=self._format, matrix=self._matrix, dither_type=dither
             )
 
         if self.sigma.y == 0:
@@ -311,8 +307,8 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
         profile: Profile = Profile.FAST,
         ref: Optional[vs.VideoNode] = None,
         refine: int = 1,
-        yuv2rgb: Kernel = core.resize.Bicubic,
-        rgb2yuv: Kernel = core.resize.Bicubic
+        yuv2rgb: Kernel = Bicubic(),
+        rgb2yuv: Kernel = Bicubic()
     ) -> None:
         super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb, rgb2yuv)
         if self.profile == Profile.VERY_NOISY:
