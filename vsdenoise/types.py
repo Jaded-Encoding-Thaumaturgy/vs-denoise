@@ -53,12 +53,6 @@ class _PluginBm3dcpuCoreUnbound(Protocol):
         ...
 
 
-class ZResizer(Protocol):
-    def __call__(self, clip: VideoNode, *, format: Optional[int] = ..., matrix: Optional[int] = ...,
-                 dither_type: Optional[Data] = ...) -> VideoNode:
-        ...
-
-
 class LambdaVSFunction(Protocol):
     def __call__(self, clip: VideoNode, *args: Any, **kwargs: Any) -> VideoNode:
         ...
