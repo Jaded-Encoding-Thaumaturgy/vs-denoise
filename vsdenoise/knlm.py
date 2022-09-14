@@ -10,6 +10,7 @@ import warnings
 from enum import Enum, auto
 from typing import Any, List, Literal, Sequence, final
 
+from vstools import disallow_variable_format
 import vapoursynth as vs
 
 core = vs.core
@@ -45,6 +46,7 @@ class DeviceType(str, Enum):
 DEVICETYPE = Literal['accelerator', 'cpu', 'gpu', 'auto']
 
 
+@disallow_variable_format
 def knl_means_cl(
     clip: vs.VideoNode, /, strength: float | Sequence[float] = 1.2,
     tr: int | Sequence[int] = 1, sr: int | Sequence[int] = 2, simr: int | Sequence[int] = 4,
@@ -78,8 +80,7 @@ def knl_means_cl(
     :param kwargs:          Additional settings
     :return:                Denoised clip.
     """
-    if clip.format is None:
-        raise ValueError("knl_means_cl: Variable format clips not supported")
+    assert clip.format
 
     if isinstance(strength, (float, int)):
         strength = [strength]
