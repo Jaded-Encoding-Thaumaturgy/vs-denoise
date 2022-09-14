@@ -4,7 +4,7 @@ This module implements wrappers for mvtool
 
 from __future__ import annotations
 
-from enum import Enum, IntEnum, auto
+from enum import Enum
 from itertools import chain
 from math import ceil, exp
 from typing import Any, Callable, Dict, List, Sequence, Tuple, cast
@@ -13,40 +13,13 @@ import vapoursynth as vs
 from vsutil import Range as CRange
 from vsutil import depth, disallow_variable_format, disallow_variable_resolution, fallback
 
-from .prefilters import Prefilter, prefilter_clip, prefilter_to_full_range
-from .types import LambdaVSFunction
+from .prefilters import PelType, Prefilter, prefilter_to_full_range
+from .types import LambdaVSFunction, SourceType
+from .utils import check_ref_clip, planes_to_mvtools
 
-__all__ = ['MVTools', 'SourceType', 'PelType', 'Prefilter']
+__all__ = ['MVTools', 'MVToolPlugin', 'SourceType']
 
 core = vs.core
-blackman_args = dict[str, Any](filter_param_a=-0.6, filter_param_b=0.4)
-
-
-class SourceType(IntEnum):
-    BFF = 0
-    TFF = 1
-    PROGRESSIVE = 2
-
-    @property
-    def is_inter(self) -> bool:
-        return self != SourceType.PROGRESSIVE
-
-    def __eq__(self, o: Any) -> bool:
-        if not isinstance(o, SourceType):
-            raise NotImplementedError
-
-        return self.value == o.value
-
-    def __ne__(self, o: Any) -> bool:
-        return not (self == o)
-
-
-class PelType(IntEnum):
-    AUTO = auto()
-    NONE = auto()
-    BICUBIC = auto()
-    WIENER = auto()
-    NNEDI3 = auto()
 
 
 class MVToolPlugin(Enum):
@@ -110,6 +83,8 @@ class MVTools:
     compensate_args: Dict[str, Any]
     degrain_args: Dict[str, Any]
 
+    subpel_clips: Tuple[vs.VideoNode | None, vs.VideoNode | None] | None
+
     vectors: Dict[str, Any]
 
     clip: vs.VideoNode
@@ -143,7 +118,7 @@ class MVTools:
         tr: int = 2, refine: int = 3,
         source_type: SourceType = SourceType.PROGRESSIVE,
         prefilter: Prefilter | vs.VideoNode = Prefilter.AUTO,
-        pel_type: Tuple[PelType, PelType] = (PelType.AUTO, PelType.AUTO),
+        pel_type: PelType | Tuple[PelType, PelType] = PelType.AUTO,
         range_in: CRange = CRange.LIMITED,
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
@@ -169,7 +144,7 @@ class MVTools:
 
         self.source_type = source_type
         self.prefilter = prefilter
-        self.pel_type = pel_type
+        self.pel_type = pel_type if isinstance(pel_type, tuple) else (pel_type, pel_type)
         self.range_in = range_in
         self.pel = fallback(pel, 1 + int(not self.is_hd))
         self.subpixel = subpixel
@@ -184,7 +159,7 @@ class MVTools:
 
         self.is_gray = planes == [0]
 
-        self.planes, self.mv_plane = self.get_mv_planes(planes)
+        self.planes, self.mv_plane = planes_to_mvtools(planes)
 
         self.chroma = 1 in self.planes or 2 in self.planes
 
@@ -202,6 +177,8 @@ class MVTools:
         self.recalculate_args = {}
         self.compensate_args = {}
         self.degrain_args = {}
+
+        self.subpel_clips = None
 
         self.hpad = fallback(hpad, 8 if self.is_hd else 16)
         self.hpad_uhd = self.hpad // 2 if self.is_uhd else self.hpad
@@ -246,8 +223,8 @@ class MVTools:
                 )
             self.mvtools = MVToolPlugin.INTEGER
 
-        if isinstance(prefilter, vs.VideoNode):
-            self.check_ref_clip(prefilter)
+        if not isinstance(prefilter, Prefilter):
+            check_ref_clip(self.workclip, prefilter)
 
     def analyze(
         self, ref: vs.VideoNode | None = None,
@@ -257,7 +234,7 @@ class MVTools:
     ) -> None:
         ref = fallback(ref, self.workclip)
 
-        self.check_ref_clip(ref)
+        check_ref_clip(self.workclip, ref)
 
         truemotion = fallback(truemotion, not self.is_hd)
 
@@ -285,10 +262,11 @@ class MVTools:
 
         if isinstance(self.prefilter, vs.VideoNode):
             pref = self.prefilter
-        elif self.range_in == CRange.LIMITED:
-            pref = prefilter_to_full_range(ref, self.prefilter, self.range_conversion)
         else:
-            pref = prefilter_clip(ref, self.prefilter)
+            pref = self.prefilter(ref, self.planes)
+
+            if self.range_in == CRange.LIMITED:
+                pref = prefilter_to_full_range(pref, self.range_conversion, self.planes)
 
         pelclip, pelclip2 = self.get_subpel_clips(pref, ref)
 
@@ -419,7 +397,7 @@ class MVTools:
     ) -> vs.VideoNode:
         ref = fallback(ref, self.workclip)
 
-        self.check_ref_clip(ref)
+        check_ref_clip(self.workclip, ref)
 
         vect_b, vect_f = self.get_vectors_bf('compensate')
 
@@ -449,7 +427,7 @@ class MVTools:
         thSCD1: int | None = None, thSCD2: int = 130,
         limit: int | None = None, limitC: float | None = None
     ) -> vs.VideoNode:
-        self.check_ref_clip(ref)
+        check_ref_clip(self.workclip, ref)
 
         limit = fallback(limit, 2 if self.is_uhd else 255)
         limitC = fallback(limitC, limit)
@@ -495,78 +473,29 @@ class MVTools:
 
         return output.std.DoubleWeave(self.source_type.value) if self.source_type.is_inter else output
 
-    def subpel_clip(self, clip: vs.VideoNode, pel_type: PelType) -> vs.VideoNode | None:
-        bicubic_args = dict[str, Any](width=clip.width * self.pel, height=(clip.height * self.pel))
-
-        if pel_type == PelType.BICUBIC or pel_type == PelType.WIENER:
-            if pel_type == PelType.WIENER:
-                bicubic_args |= blackman_args
-            return clip.resize.Bicubic(**bicubic_args)
-        elif pel_type == PelType.NNEDI3:
-            nnargs = dict[str, Any](nsize=0, nns=1, qual=1, pscrn=2)
-
-            plugin: Any = core.znedi3 if hasattr(core, 'znedi3') else core.nnedi3
-
-            nnedi3_cpu = plugin.nnedi3(
-                plugin.nnedi3(clip.std.Transpose(), 0, True, **nnargs).std.Transpose(), 0, True, **nnargs
-            )
-
-            if hasattr(core, 'nnedi3cl'):
-                upscale = core.std.Interleave([
-                    nnedi3_cpu[::2], clip[1::2].nnedi3cl.NNEDI3CL(0, True, True, **nnargs)
-                ])
-            else:
-                upscale = nnedi3_cpu
-
-            return upscale.resize.Bicubic(src_top=.5, src_left=.5)
-
-        return None
-
     def get_subpel_clips(
         self, pref: vs.VideoNode, ref: vs.VideoNode
     ) -> Tuple[vs.VideoNode | None, vs.VideoNode | None]:
-        pel_types = list(self.pel_type)
+        if self.subpel_clips:
+            return self.subpel_clips
 
-        for i, val in enumerate(pel_types):
-            if val != PelType.AUTO:
+        pref_subpel = ref_subpel = None
+
+        for is_ref, (ptype, clip) in enumerate(zip(self.pel_type, (pref, ref))):
+            if ptype == PelType.NONE:
                 continue
 
-            if i == 0:
-                if self.prefilter == Prefilter.NONE:
-                    pel_types[i] = PelType.NONE
+            if self.prefilter != Prefilter.NONE:
+                if self.subpixel == 4:
+                    ptype = PelType.NNEDI3
+                elif is_ref:
+                    ptype = PelType.WIENER
                 else:
-                    if self.subpixel == 4:
-                        pel_types[i] = PelType.NNEDI3
-                    else:
-                        pel_types[i] = PelType.BICUBIC
+                    ptype = PelType.BICUBIC
+
+            if is_ref:
+                ref_subpel = ptype(clip, self.pel)
             else:
-                pel_types[i] = PelType.NNEDI3 if self.subpixel == 4 else PelType.WIENER
+                pref_subpel = ptype(clip, self.pel)
 
-        pel_type, pel2_type = pel_types
-
-        return self.subpel_clip(pref, pel_type), self.subpel_clip(ref, pel2_type)
-
-    def check_ref_clip(self, ref: vs.VideoNode | None) -> None:
-        if ref is None:
-            return
-
-        assert self.workclip.format
-        assert ref.format
-
-        if ref.format.id != self.workclip.format.id:
-            raise ValueError("Ref clip format must match the source clip's!")
-
-        if ref.width != self.workclip.width or ref.height != self.workclip.height:
-            raise ValueError("Ref clip sizes must match the source clip's!")
-
-    def get_mv_planes(self, planes: Sequence[int]) -> Tuple[List[int], int]:
-        if planes == [0, 1, 2]:
-            mv_plane = 4
-        elif len(planes) == 1 and planes[0] in {0, 1, 2}:
-            mv_plane = planes[0]
-        elif planes == [1, 2]:
-            mv_plane = 3
-        else:
-            raise ValueError("Invalid planes specified!")
-
-        return list(planes), mv_plane
+        return (pref_subpel, ref_subpel)

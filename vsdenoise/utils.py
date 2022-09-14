@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import List, Sequence, TypeVar
+from typing import List, Sequence, Tuple, TypeVar
 
 import vapoursynth as vs
-from vsutil import get_depth
+from vsutil import disallow_variable_format, disallow_variable_resolution
+
 
 T = TypeVar('T')
 
@@ -12,15 +13,31 @@ def arr_to_len(array: Sequence[T], length: int = 3) -> List[T]:
     return (list(array) + [array[-1]] * length)[:length]
 
 
-# here until vsutil gets a new release
-def get_peak_value(clip: vs.VideoNode, chroma: bool = False) -> float:
-    assert clip.format
-    return (0.5 if chroma else 1.) if clip.format.sample_type == vs.FLOAT else (1 << get_depth(clip)) - 1.
+@disallow_variable_format
+@disallow_variable_resolution
+def check_ref_clip(src: vs.VideoNode, ref: vs.VideoNode | None) -> None:
+    if ref is None:
+        return
+
+    assert src.format and ref.format
+
+    if ref.format.id != src.format.id:
+        raise ValueError("Ref clip format must match the source clip's!")
+
+    if ref.width != src.width or ref.height != src.height:
+        raise ValueError("Ref clip sizes must match the source clip's!")
 
 
-def get_neutral_value(clip: vs.VideoNode, chroma: bool = False) -> float:
-    assert clip.format
+def planes_to_mvtools(planes: Sequence[int]) -> Tuple[List[int], int]:
+    planes = list(planes)
 
-    is_float = clip.format.sample_type == vs.FLOAT
+    if planes == [0, 1, 2]:
+        mv_plane = 4
+    elif len(planes) == 1 and planes[0] in {0, 1, 2}:
+        mv_plane = planes[0]
+    elif planes == [1, 2]:
+        mv_plane = 3
+    else:
+        raise ValueError("Invalid planes specified!")
 
-    return (0. if chroma else 0.5) if is_float else float(1 << (get_depth(clip) - 1))
+    return list(planes), mv_plane
