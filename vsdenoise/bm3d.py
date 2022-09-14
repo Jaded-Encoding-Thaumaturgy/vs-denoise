@@ -14,7 +14,7 @@ from enum import Enum
 from typing import Any, ClassVar, Dict, NamedTuple, Optional, Sequence, Union, cast, final
 
 import vapoursynth as vs
-from vskernels import Bicubic, Kernel
+from vskernels import Bicubic, Kernel, KernelT
 from vstools import DitherType, get_y, iterate
 
 from .types import _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
@@ -78,8 +78,8 @@ class AbstractBM3D(ABC):
         profile: Profile = Profile.FAST,
         ref: Optional[vs.VideoNode] = None,
         refine: int = 1,
-        yuv2rgb: Kernel = Bicubic(),
-        rgb2yuv: Kernel = Bicubic()
+        yuv2rgb: KernelT = Bicubic,
+        rgb2yuv: KernelT = Bicubic
     ) -> None:
         """
         :param clip:                Source clip
@@ -118,8 +118,8 @@ class AbstractBM3D(ABC):
         self.profile = profile
         self.ref = ref
         self.refine = refine
-        self.yuv2rgb = yuv2rgb
-        self.rgb2yuv = rgb2yuv
+        self.yuv2rgb = Kernel.from_param(yuv2rgb, self.__class__)()
+        self.rgb2yuv = Kernel.from_param(rgb2yuv, self.__class__)()
 
         self.is_gray = clip.format.color_family == vs.GRAY
 
@@ -224,8 +224,8 @@ class BM3D(AbstractBM3D):
         profile: Profile = Profile.FAST,
         pre: Optional[vs.VideoNode] = None, ref: Optional[vs.VideoNode] = None,
         refine: int = 1,
-        yuv2rgb: Kernel = Bicubic(),
-        rgb2yuv: Kernel = Bicubic()
+        yuv2rgb: KernelT = Bicubic,
+        rgb2yuv: KernelT = Bicubic
     ) -> None:
         """
         :param clip:                Source clip
@@ -307,8 +307,8 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
         profile: Profile = Profile.FAST,
         ref: Optional[vs.VideoNode] = None,
         refine: int = 1,
-        yuv2rgb: Kernel = Bicubic(),
-        rgb2yuv: Kernel = Bicubic()
+        yuv2rgb: KernelT = Bicubic,
+        rgb2yuv: KernelT = Bicubic
     ) -> None:
         super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb, rgb2yuv)
         if self.profile == Profile.VERY_NOISY:
