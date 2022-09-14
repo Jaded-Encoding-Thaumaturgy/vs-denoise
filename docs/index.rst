@@ -53,7 +53,6 @@ Check out the `how to contribute <contribute>` section!
     submodules/knlm
     submodules/mvtools
     submodules/prefilters
-    submodules/types
     submodules/utils
 
 
