@@ -51,6 +51,8 @@ class Prefilter(IntEnum):
     @disallow_variable_format
     @disallow_variable_resolution
     def __call__(self, clip: vs.VideoNode, planes: PlanesT = None, **kwargs: Any) -> vs.VideoNode:
+        """@@PLACEHOLDER@@"""
+
         pref_type = Prefilter.MINBLUR3 if self == Prefilter.AUTO else self
 
         bits = get_depth(clip)
@@ -139,6 +141,7 @@ class Prefilter(IntEnum):
 
 
 def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
+    """@@PLACEHOLDER@@"""
     planes = normalize_planes(pref, planes)
     work_clip, *chroma = split(pref) if planes == [0] else (pref, )
     assert (fmt := work_clip.format) and pref.format
@@ -177,15 +180,28 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
 
 
 class PelType(IntEnum):
+    """@@PLACEHOLDER@@"""
+
     AUTO = -1
+    """@@PLACEHOLDER@@"""
+
     NONE = 0
+    """@@PLACEHOLDER@@"""
+
     BICUBIC = 1
+    """@@PLACEHOLDER@@"""
+
     WIENER = 2
+    """@@PLACEHOLDER@@"""
+
     NNEDI3 = 4
+    """@@PLACEHOLDER@@"""
 
     @disallow_variable_format
     @disallow_variable_resolution
     def __call__(self, clip: vs.VideoNode, pel: int, **kwargs: Any) -> vs.VideoNode:
+        """@@PLACEHOLDER@@"""
+
         assert clip.format
 
         pel_type = self
