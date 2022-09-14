@@ -37,6 +37,6 @@ def planes_to_mvtools(planes: Sequence[int]) -> Tuple[List[int], int]:
     elif planes == [1, 2]:
         mv_plane = 3
     else:
-        raise ValueError("Invalid planes specified!")
+        raise CustomValueError("Invalid planes specified!", planes_to_mvtools)
 
     return list(planes), mv_plane
