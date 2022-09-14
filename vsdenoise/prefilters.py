@@ -9,15 +9,16 @@ from math import ceil, log2
 from typing import Any, Type
 
 import vapoursynth as vs
-from vsexprtools import PlanesT, norm_expr_planes, normalise_planes
+from vsexprtools import norm_expr_planes
 from vsrgtools import gauss_blur, min_blur, replace_low_frequencies
 from vsrgtools.util import wmean_matrix
-from vsutil import (
-    Dither, Range as CRange, depth, disallow_variable_format, disallow_variable_resolution, get_depth,
-    get_neutral_value, get_peak_value, get_y, join, scale_value, split
+from vstools import (
+    ColorRange, Dither, PlanesT, depth, disallow_variable_format, disallow_variable_resolution, get_depth,
+    get_neutral_value, get_peak_value, get_y, join, normalize_planes, scale_value, split
 )
 
-from .bm3d import BM3D as BM3DM, BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
+from .bm3d import BM3D as BM3DM
+from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
 from .knlm import ChannelMode, knl_means_cl
 
 __all__ = ['Prefilter', 'prefilter_to_full_range', 'PelType']
@@ -50,7 +51,7 @@ class Prefilter(IntEnum):
 
         bits = get_depth(clip)
         peak = get_peak_value(clip)
-        planes = normalise_planes(clip, planes)
+        planes = normalize_planes(clip, planes)
 
         if pref_type == Prefilter.NONE:
             return clip
@@ -67,7 +68,7 @@ class Prefilter(IntEnum):
 
             dfft = clip.dfttest.DFTTest(**dftt_args)
 
-            i, j = (scale_value(x, 8, bits, range=CRange.FULL) for x in (16, 75))
+            i, j = (scale_value(x, 8, bits, range_out=ColorRange.FULL) for x in (16, 75))
 
             pref_mask = get_y(clip).std.Expr(
                 f'x {i} < {peak} x {j} > 0 {peak} x {i} - {peak} {j} {i} - / * - ? ?'
@@ -126,7 +127,7 @@ class Prefilter(IntEnum):
 
 
 def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
-    planes = normalise_planes(pref, planes)
+    planes = normalize_planes(pref, planes)
     work_clip, *chroma = split(pref) if planes == [0] else (pref, )
     assert (fmt := work_clip.format) and pref.format
 
@@ -153,7 +154,9 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
     elif range_conversion > 0.0:
         pref_full = work_clip.retinex.MSRCP(None, range_conversion, None, False, True)
     else:
-        pref_full = depth(work_clip, bits, range=CRange.FULL, range_in=CRange.LIMITED, dither_type=Dither.NONE)
+        pref_full = depth(
+            work_clip, bits, range_out=ColorRange.FULL, range_in=ColorRange.LIMITED, dither_type=Dither.NONE
+        )
 
     if chroma:
         return join([pref_full, *chroma], pref.format.color_family)

@@ -3,8 +3,7 @@ from __future__ import annotations
 from typing import List, Sequence, Tuple, TypeVar
 
 import vapoursynth as vs
-from vsutil import disallow_variable_format, disallow_variable_resolution
-
+from vstools import disallow_variable_format, disallow_variable_resolution
 
 T = TypeVar('T')
 

@@ -10,10 +10,10 @@ from typing import Any
 
 import vapoursynth as vs
 from vsaa import Nnedi3
-from vsexprtools import PlanesT, norm_expr, normalise_planes
+from vsexprtools import EXPR_VARS, norm_expr
 from vskernels import Matrix, MatrixT
 from vsscale import SSIM
-from vsutil import EXPR_VARS, get_peak_value, join, plane, split
+from vstools import PlanesT, get_peak_value, join, normalize_planes, plane, split
 
 core = vs.core
 
@@ -76,7 +76,7 @@ def ccd(
     if planes is None and mode in {CCDMode.CHROMA_ONLY, CCDMode.BICUBIC_CHROMA}:
         planes = [1, 2]
 
-    planes = normalise_planes(src, planes)
+    planes = normalize_planes(src, planes)
 
     def _ccd_expr(src: vs.VideoNode, rgb: vs.VideoNode) -> vs.VideoNode:
         nonlocal scale

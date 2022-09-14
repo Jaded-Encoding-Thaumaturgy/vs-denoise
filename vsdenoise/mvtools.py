@@ -10,8 +10,7 @@ from math import ceil, exp
 from typing import Any, Callable, Dict, List, Sequence, Tuple, cast
 
 import vapoursynth as vs
-from vsutil import Range as CRange
-from vsutil import depth, disallow_variable_format, disallow_variable_resolution, fallback
+from vstools import ColorRange, depth, disallow_variable_format, disallow_variable_resolution, fallback
 
 from .prefilters import PelType, Prefilter, prefilter_to_full_range
 from .types import LambdaVSFunction, SourceType
@@ -96,7 +95,7 @@ class MVTools:
     source_type: SourceType
     prefilter: Prefilter | vs.VideoNode
     pel_type: Tuple[PelType, PelType]
-    range_in: CRange
+    range_in: ColorRange
     pel: int
     subpixel: int
     chroma: bool
@@ -119,7 +118,7 @@ class MVTools:
         source_type: SourceType = SourceType.PROGRESSIVE,
         prefilter: Prefilter | vs.VideoNode = Prefilter.AUTO,
         pel_type: PelType | Tuple[PelType, PelType] = PelType.AUTO,
-        range_in: CRange = CRange.LIMITED,
+        range_in: ColorRange = ColorRange.LIMITED,
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
         highprecision: bool = False,
@@ -265,7 +264,7 @@ class MVTools:
         else:
             pref = self.prefilter(ref, self.planes)
 
-            if self.range_in == CRange.LIMITED:
+            if self.range_in == ColorRange.LIMITED:
                 pref = prefilter_to_full_range(pref, self.range_conversion, self.planes)
 
         pelclip, pelclip2 = self.get_subpel_clips(pref, ref)

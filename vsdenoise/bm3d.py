@@ -15,8 +15,7 @@ from enum import Enum
 from typing import Any, ClassVar, Dict, NamedTuple, Optional, Sequence, Union, cast, final
 
 import vapoursynth as vs
-from vsutil import Dither as DitherType
-from vsutil import get_depth, get_y, iterate
+from vstools import Dither, get_depth, get_y, iterate
 
 from .types import ZResizer, _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
 
@@ -186,8 +185,8 @@ class AbstractBM3D(ABC):
 
     def _post_processing(self) -> None:
         # Resize
-        dither = DitherType.ERROR_DIFFUSION  \
-            if self._format.bits_per_sample < get_depth(self.wclip) else DitherType.NONE
+        dither = Dither.ERROR_DIFFUSION  \
+            if self._format.bits_per_sample < get_depth(self.wclip) else Dither.NONE
 
         if self.is_gray:
             self.wclip = core.resize.Point(
@@ -200,7 +199,7 @@ class AbstractBM3D(ABC):
                 self.wclip = core.std.ShufflePlanes([self.wclip, self._clip], [0, 1, 2], vs.YUV)
         else:
             default = inspect.signature(self.rgb2yuv).parameters['dither_type'].default
-            dither = cast(DitherType, default) if default else dither
+            dither = cast(Dither, default) if default else dither
             self.wclip = self.rgb2yuv(
                 self.opp2rgb(self.wclip),
                 format=self._format.id, matrix=self._matrix, dither_type=dither
