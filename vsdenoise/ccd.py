@@ -11,9 +11,8 @@ from typing import Any
 import vapoursynth as vs
 from vsaa import Nnedi3
 from vsexprtools import EXPR_VARS, norm_expr
-from vskernels import Matrix, MatrixT
 from vsscale import SSIM
-from vstools import PlanesT, get_peak_value, join, normalize_planes, plane, split
+from vstools import Matrix, MatrixT, PlanesT, get_peak_value, join, normalize_planes, plane, split
 
 core = vs.core
 

@@ -13,7 +13,7 @@ from vsexprtools import norm_expr_planes
 from vsrgtools import gauss_blur, min_blur, replace_low_frequencies
 from vsrgtools.util import wmean_matrix
 from vstools import (
-    ColorRange, Dither, PlanesT, depth, disallow_variable_format, disallow_variable_resolution, get_depth,
+    ColorRange, DitherType, PlanesT, depth, disallow_variable_format, disallow_variable_resolution, get_depth,
     get_neutral_value, get_peak_value, get_y, join, normalize_planes, scale_value, split
 )
 
@@ -155,7 +155,7 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
         pref_full = work_clip.retinex.MSRCP(None, range_conversion, None, False, True)
     else:
         pref_full = depth(
-            work_clip, bits, range_out=ColorRange.FULL, range_in=ColorRange.LIMITED, dither_type=Dither.NONE
+            work_clip, bits, range_out=ColorRange.FULL, range_in=ColorRange.LIMITED, dither_type=DitherType.NONE
         )
 
     if chroma:
