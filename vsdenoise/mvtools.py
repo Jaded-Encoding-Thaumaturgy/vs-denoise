@@ -9,10 +9,10 @@ from itertools import chain
 from math import ceil, exp
 from typing import Any, Callable, Dict, List, Sequence, Tuple, cast
 
-import vapoursynth as vs
+
 from vstools import (
     ColorRange, FieldBased, FieldBasedT, GenericVSFunction, check_ref_clip, depth, disallow_variable_format,
-    disallow_variable_resolution, fallback
+    disallow_variable_resolution, fallback, vs, core
 )
 
 from .prefilters import PelType, Prefilter, prefilter_to_full_range
@@ -21,8 +21,6 @@ from .utils import planes_to_mvtools
 __all__ = [
     'MVTools', 'MVToolPlugin'
 ]
-
-core = vs.core
 
 
 class MVToolPlugin(Enum):

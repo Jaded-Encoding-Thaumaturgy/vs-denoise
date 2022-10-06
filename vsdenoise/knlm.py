@@ -10,10 +10,7 @@ import warnings
 from enum import Enum, auto
 from typing import Any, List, Literal, Sequence, final
 
-from vstools import disallow_variable_format
-import vapoursynth as vs
-
-core = vs.core
+from vstools import core, disallow_variable_format, vs
 
 
 @final

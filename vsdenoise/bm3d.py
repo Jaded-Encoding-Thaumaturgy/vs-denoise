@@ -13,13 +13,10 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, ClassVar, Dict, NamedTuple, Optional, Sequence, Union, cast, final
 
-import vapoursynth as vs
 from vskernels import Bicubic, Kernel, KernelT
-from vstools import DitherType, get_y, iterate
+from vstools import DitherType, core, get_y, iterate, vs
 
 from .types import _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
-
-core = vs.core
 
 
 @final

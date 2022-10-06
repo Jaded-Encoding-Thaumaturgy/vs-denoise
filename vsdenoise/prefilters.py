@@ -8,15 +8,15 @@ from enum import IntEnum
 from math import ceil
 from typing import Any, Type
 
-import vapoursynth as vs
 from vsaa import Nnedi3, Znedi3
 from vsexprtools import ExprOp, norm_expr
 from vskernels import Bicubic, BicubicZopti, Bilinear
 from vsrgtools import gauss_blur, min_blur, replace_low_frequencies
 from vsrgtools.util import wmean_matrix
 from vstools import (
-    ColorRange, CustomRuntimeError, DitherType, PlanesT, depth, disallow_variable_format, disallow_variable_resolution,
-    get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes, scale_8bit, scale_value, split
+    ColorRange, CustomRuntimeError, DitherType, PlanesT, core, depth, disallow_variable_format,
+    disallow_variable_resolution, get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes,
+    scale_8bit, scale_value, split, vs
 )
 
 from .bm3d import BM3D as BM3DM
@@ -24,8 +24,6 @@ from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
 from .knlm import ChannelMode, knl_means_cl
 
 __all__ = ['Prefilter', 'prefilter_to_full_range', 'PelType']
-
-core = vs.core
 
 
 class Prefilter(IntEnum):

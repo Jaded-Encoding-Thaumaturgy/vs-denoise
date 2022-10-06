@@ -7,14 +7,13 @@ from __future__ import annotations
 from math import sin, sqrt
 from typing import Any
 
-import vapoursynth as vs
 from vsaa import Nnedi3
 from vsexprtools import EXPR_VARS, norm_expr
 from vskernels import Bicubic, Point
 from vsscale import SSIM
 from vstools import (
     CustomIndexError, CustomIntEnum, InvalidColorFamilyError, Matrix, MatrixT, PlanesT, UnsupportedSubsamplingError,
-    check_ref_clip, get_peak_value, join, normalize_planes, plane, shift_clip, split
+    check_ref_clip, get_peak_value, join, normalize_planes, plane, shift_clip, split, vs
 )
 
 __all__ = [
