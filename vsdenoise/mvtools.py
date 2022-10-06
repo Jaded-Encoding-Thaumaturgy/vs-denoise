@@ -9,17 +9,18 @@ from itertools import chain
 from math import ceil, exp
 from typing import Any, Callable, Dict, List, Sequence, Tuple, cast
 
-import vapoursynth as vs
-from vsutil import Range as CRange
-from vsutil import depth, disallow_variable_format, disallow_variable_resolution, fallback
+
+from vstools import (
+    ColorRange, FieldBased, FieldBasedT, GenericVSFunction, check_ref_clip, depth, disallow_variable_format,
+    disallow_variable_resolution, fallback, vs, core
+)
 
 from .prefilters import PelType, Prefilter, prefilter_to_full_range
-from .types import LambdaVSFunction, SourceType
-from .utils import check_ref_clip, planes_to_mvtools
+from .utils import planes_to_mvtools
 
-__all__ = ['MVTools', 'MVToolPlugin', 'SourceType']
-
-core = vs.core
+__all__ = [
+    'MVTools', 'MVToolPlugin'
+]
 
 
 class MVToolPlugin(Enum):
@@ -93,10 +94,10 @@ class MVTools:
     is_uhd: bool
     tr: int
     refine: int
-    source_type: SourceType
+    source_type: FieldBased
     prefilter: Prefilter | vs.VideoNode
     pel_type: Tuple[PelType, PelType]
-    range_in: CRange
+    range_in: ColorRange
     pel: int
     subpixel: int
     chroma: bool
@@ -116,10 +117,10 @@ class MVTools:
     def __init__(
         self, clip: vs.VideoNode,
         tr: int = 2, refine: int = 3,
-        source_type: SourceType = SourceType.PROGRESSIVE,
+        source_type: FieldBasedT | None = None,
         prefilter: Prefilter | vs.VideoNode = Prefilter.AUTO,
         pel_type: PelType | Tuple[PelType, PelType] = PelType.AUTO,
-        range_in: CRange = CRange.LIMITED,
+        range_in: ColorRange = ColorRange.LIMITED,
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
         highprecision: bool = False,
@@ -142,7 +143,7 @@ class MVTools:
             raise ValueError("refine > 6 is not supported")
         self.refine = refine
 
-        self.source_type = source_type
+        self.source_type = FieldBased.from_param(source_type, MVTools) or FieldBased.from_video(self.clip)
         self.prefilter = prefilter
         self.pel_type = pel_type if isinstance(pel_type, tuple) else (pel_type, pel_type)
         self.range_in = range_in
@@ -190,7 +191,7 @@ class MVTools:
 
         self.DCT = 5 if fix_fades else 0
 
-        if self.source_type == SourceType.PROGRESSIVE:
+        if self.source_type is FieldBased.PROGRESSIVE:
             self.workclip = self.clip
         else:
             self.workclip = self.clip.std.SeparateFields(int(self.source_type))
@@ -265,7 +266,7 @@ class MVTools:
         else:
             pref = self.prefilter(ref, self.planes)
 
-            if self.range_in == CRange.LIMITED:
+            if self.range_in == ColorRange.LIMITED:
                 pref = prefilter_to_full_range(pref, self.range_conversion, self.planes)
 
         pelclip, pelclip2 = self.get_subpel_clips(pref, ref)
@@ -391,7 +392,7 @@ class MVTools:
         return (vectors_backward, vectors_forward)
 
     def compensate(
-        self, func: LambdaVSFunction,
+        self, func: GenericVSFunction,
         ref: vs.VideoNode | None = None,
         thSAD: int = 150, **kwargs: Any
     ) -> vs.VideoNode:
