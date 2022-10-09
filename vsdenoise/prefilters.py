@@ -73,7 +73,8 @@ class Prefilter(IntEnum):
 
             i, j = (scale_value(x, 8, bits, range_out=ColorRange.FULL) for x in (16, 75))
 
-            pref_mask = get_y(clip).std.Expr(
+            pref_mask = norm_expr(
+                get_y(clip),
                 f'x {i} < {peak} x {j} > 0 {peak} x {i} - {peak} {j} {i} - / * - ? ?'
             )
 
@@ -140,7 +141,6 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
     assert (fmt := work_clip.format) and pref.format
 
     bits = get_depth(pref)
-    is_gray = fmt.color_family == vs.GRAY
     is_integer = fmt.sample_type == vs.INTEGER
 
     # Luma expansion TV->PC (up to 16% more values for motion estimation)
@@ -155,10 +155,10 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
         k = (range_conversion - 1) * c
         t = f'x {min_tv_val} - {max_tv_val} / {ExprOp.clamp(0, 1)}' if is_integer else ExprOp.clamp(0, 1, 'x')
 
-        pref_full = work_clip.std.Expr([
+        pref_full = norm_expr(work_clip, [
             f"{k} {1 + c} {(1 + c) * c} {t} {c} + / - * {t} 1 {k} - * + {f'{max_val} *' if is_integer else ''}",
             f'x {neutral} - 128 * 112 / {neutral} +'
-        ][:1 + (not is_gray and is_integer)])
+        ], planes)
     elif range_conversion > 0.0:
         pref_full = work_clip.retinex.MSRCP(None, range_conversion, None, False, True)
     else:
