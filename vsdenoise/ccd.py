@@ -46,7 +46,7 @@ def ccd(
 
     check_ref_clip(src, ref)
 
-    InvalidColorFamilyError.check(src, vs.GRAY, ccd)
+    InvalidColorFamilyError.check(src, (vs.YUV, vs.RGB), ccd)
 
     if tr < 0 or tr > 3:
         raise CustomIndexError('Temporal radius must be between 0 and 3 (inclusive)!', ccd)
