@@ -60,7 +60,8 @@ def ccd(
         raise UnsupportedSubsamplingError(f'{mode} is available only for subsampled video!', ccd)
 
     mode = CCDMode.from_param(mode) or CCDMode.CHROMA_ONLY
-    ref_points = CCDPoints.from_param(ref_points)
+    if not isinstance(ref_points, int):
+        ref_points = CCDPoints.from_param(ref_points).value
 
     src_width, src_height = src.width, src.height
     src444_format = src.format.replace(subsampling_w=0, subsampling_h=0)
