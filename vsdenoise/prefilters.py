@@ -155,10 +155,10 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
         k = (range_conversion - 1) * c
         t = f'x {min_tv_val} - {max_tv_val} / {ExprOp.clamp(0, 1)}' if is_integer else ExprOp.clamp(0, 1, 'x')
 
-        pref_full = norm_expr(work_clip, [
+        pref_full = norm_expr(work_clip, (
             f"{k} {1 + c} {(1 + c) * c} {t} {c} + / - * {t} 1 {k} - * + {f'{max_val} *' if is_integer else ''}",
             f'x {neutral} - 128 * 112 / {neutral} +'
-        ], planes)
+        ), planes)
     elif range_conversion > 0.0:
         pref_full = work_clip.retinex.MSRCP(None, range_conversion, None, False, True)
     else:
