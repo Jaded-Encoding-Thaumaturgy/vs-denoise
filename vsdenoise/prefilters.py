@@ -202,7 +202,9 @@ class PelType(IntEnum):
             if not any((nnedi, znedi, nnedicl)):
                 raise CustomRuntimeError('Missing any nnedi3 implementation!', PelType.NNEDI3)
 
-            upscaler = Nnedi3(0, 1, 1, **kwargs, opencl=nnedicl) if do_nnedi else Znedi3(0, 1, 1, **kwargs)
+            kwargs |= {'nsize': 0, 'nns': 1, 'qual': 1} | kwargs
+
+            upscaler = Nnedi3(**kwargs, opencl=nnedicl) if do_nnedi else Znedi3(**kwargs)
 
             return upscaler.scale(clip, width, height)
 
