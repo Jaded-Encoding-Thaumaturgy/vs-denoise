@@ -1,6 +1,6 @@
 VapourSynth>=59
 vstools>=1.2.0
-vsexprtools>=1.2.1
+vsexprtools>=1.2.3
 vskernels>=2.1.0
 vsrgtools>=1.1.0
 vsaa>=1.2.1
