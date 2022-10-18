@@ -27,5 +27,4 @@ jobs:
       - name: Running flake8
         run: flake8 vsdenoise
       - name: Running mypy
-        if: steps.dependencies.outcome == 'success'
         run: mypy vsdenoise
