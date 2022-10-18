@@ -197,7 +197,7 @@ def chroma_reconstruct(
 
     kernel = Kernel.ensure_obj(kernel, chroma_reconstruct)
     scaler = Scaler.ensure_obj(scaler, chroma_reconstruct)
-    downscaler = Scaler.ensure_obj(downscaler, chroma_reconstruct)
+    downscaler = kernel.ensure_obj(downscaler, chroma_reconstruct)
 
     if get_subsampling(clip) != '420':
         raise InvalidSubsamplingError(chroma_reconstruct, clip)
