@@ -61,7 +61,7 @@ def ccd(
 
     mode = CCDMode.from_param(mode) or CCDMode.CHROMA_ONLY
     if not isinstance(ref_points, int):
-        ref_points = CCDPoints.from_param(ref_points).value
+        ref_points = (CCDPoints.from_param(ref_points) or CCDPoints.MEDIUM).value
 
     src_width, src_height = src.width, src.height
     src444_format = src.format.replace(subsampling_w=0, subsampling_h=0)
