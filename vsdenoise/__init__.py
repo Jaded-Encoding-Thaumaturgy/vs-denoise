@@ -4,3 +4,4 @@ from .ccd import *
 from .knlm import *
 from .mvtools import *
 from .prefilters import *
+from .regress import *

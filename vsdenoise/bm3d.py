@@ -13,13 +13,10 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, ClassVar, Dict, NamedTuple, Optional, Sequence, Union, cast, final
 
-import vapoursynth as vs
 from vskernels import Bicubic, Kernel, KernelT
-from vstools import DitherType, get_y, iterate
+from vstools import DitherType, core, get_y, iterate, vs
 
 from .types import _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
-
-core = vs.core
 
 
 @final
@@ -30,15 +27,10 @@ class Profile(str, Enum):
     https://github.com/HomeOfVapourSynthEvolution/VapourSynth-BM3D#profile-default
     """
     FAST = 'fast'
-    """@@PLACEHOLDER@@"""
     LOW_COMPLEXITY = 'lc'
-    """@@PLACEHOLDER@@"""
     NORMAL = 'np'
-    """@@PLACEHOLDER@@"""
     HIGH = 'high'
-    """@@PLACEHOLDER@@"""
     VERY_NOISY = 'vn'
-    """@@PLACEHOLDER@@"""
 
     F = FAST
     LC = LOW_COMPLEXITY
@@ -61,9 +53,7 @@ class AbstractBM3D(ABC):
     is_gray: bool
 
     basic_args: Dict[str, Any]
-    """@@PLACEHOLDER@@"""
     final_args: Dict[str, Any]
-    """@@PLACEHOLDER@@"""
 
     _refv: vs.VideoNode
     _clip: vs.VideoNode
@@ -140,28 +130,24 @@ class AbstractBM3D(ABC):
             self.is_gray = True
 
     def yuv2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
         return self.rgb2opp(self.yuv2rgb.resample(clip, vs.RGBS))
 
     def rgb2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
         return clip.bm3d.RGB2OPP(sample=1)
 
     def opp2rgb(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
         return clip.bm3d.OPP2RGB(sample=1)
 
     def to_fullgray(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
         return get_y(clip).resize.Point(format=vs.GRAYS)
 
     @abstractmethod
     def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
+        ...
 
     @abstractmethod
     def final(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
+        ...
 
     @property
     def clip(self) -> vs.VideoNode:

@@ -8,26 +8,22 @@ from enum import IntEnum
 from math import ceil
 from typing import Any, Type
 
-import vapoursynth as vs
 from vsaa import Nnedi3, Znedi3
 from vsexprtools import ExprOp, norm_expr
 from vskernels import Bicubic, BicubicZopti, Bilinear
 from vsrgtools import gauss_blur, min_blur, replace_low_frequencies
 from vsrgtools.util import wmean_matrix
 from vstools import (
-    ColorRange, CustomRuntimeError, DitherType, PlanesT, depth, disallow_variable_format, disallow_variable_resolution,
-    get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes, scale_8bit, scale_value, split
+    ColorRange, CustomRuntimeError, DitherType, PlanesT, core, depth, disallow_variable_format,
+    disallow_variable_resolution, get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes,
+    scale_8bit, scale_value, split, vs
 )
 
 from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
 from .knlm import ChannelMode, knl_means_cl
 
-__all__ = [
-    'Prefilter', 'prefilter_to_full_range', 'PelType'
-]
-
-core = vs.core
+__all__ = ['Prefilter', 'prefilter_to_full_range', 'PelType']
 
 
 class Prefilter(IntEnum):
@@ -51,8 +47,6 @@ class Prefilter(IntEnum):
     @disallow_variable_format
     @disallow_variable_resolution
     def __call__(self, clip: vs.VideoNode, planes: PlanesT = None, **kwargs: Any) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
-
         pref_type = Prefilter.MINBLUR3 if self == Prefilter.AUTO else self
 
         bits = get_depth(clip)
@@ -79,7 +73,8 @@ class Prefilter(IntEnum):
 
             i, j = (scale_value(x, 8, bits, range_out=ColorRange.FULL) for x in (16, 75))
 
-            pref_mask = get_y(clip).std.Expr(
+            pref_mask = norm_expr(
+                get_y(clip),
                 f'x {i} < {peak} x {j} > 0 {peak} x {i} - {peak} {j} {i} - / * - ? ?'
             )
 
@@ -141,13 +136,11 @@ class Prefilter(IntEnum):
 
 
 def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
-    """@@PLACEHOLDER@@"""
     planes = normalize_planes(pref, planes)
     work_clip, *chroma = split(pref) if planes == [0] else (pref, )
     assert (fmt := work_clip.format) and pref.format
 
     bits = get_depth(pref)
-    is_gray = fmt.color_family == vs.GRAY
     is_integer = fmt.sample_type == vs.INTEGER
 
     # Luma expansion TV->PC (up to 16% more values for motion estimation)
@@ -162,10 +155,10 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
         k = (range_conversion - 1) * c
         t = f'x {min_tv_val} - {max_tv_val} / {ExprOp.clamp(0, 1)}' if is_integer else ExprOp.clamp(0, 1, 'x')
 
-        pref_full = work_clip.std.Expr([
+        pref_full = norm_expr(work_clip, (
             f"{k} {1 + c} {(1 + c) * c} {t} {c} + / - * {t} 1 {k} - * + {f'{max_val} *' if is_integer else ''}",
             f'x {neutral} - 128 * 112 / {neutral} +'
-        ][:1 + (not is_gray and is_integer)])
+        ), planes)
     elif range_conversion > 0.0:
         pref_full = work_clip.retinex.MSRCP(None, range_conversion, None, False, True)
     else:
@@ -180,28 +173,15 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
 
 
 class PelType(IntEnum):
-    """@@PLACEHOLDER@@"""
-
     AUTO = -1
-    """@@PLACEHOLDER@@"""
-
     NONE = 0
-    """@@PLACEHOLDER@@"""
-
     BICUBIC = 1
-    """@@PLACEHOLDER@@"""
-
     WIENER = 2
-    """@@PLACEHOLDER@@"""
-
     NNEDI3 = 4
-    """@@PLACEHOLDER@@"""
 
     @disallow_variable_format
     @disallow_variable_resolution
     def __call__(self, clip: vs.VideoNode, pel: int, **kwargs: Any) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
-
         assert clip.format
 
         pel_type = self
@@ -222,7 +202,9 @@ class PelType(IntEnum):
             if not any((nnedi, znedi, nnedicl)):
                 raise CustomRuntimeError('Missing any nnedi3 implementation!', PelType.NNEDI3)
 
-            upscaler = Nnedi3(0, 1, 1, **kwargs, opencl=nnedicl) if do_nnedi else Znedi3(0, 1, 1, **kwargs)
+            kwargs |= {'nsize': 0, 'nns': 1, 'qual': 1} | kwargs
+
+            upscaler = Nnedi3(**kwargs, opencl=nnedicl) if do_nnedi else Znedi3(**kwargs)
 
             return upscaler.scale(clip, width, height)
 

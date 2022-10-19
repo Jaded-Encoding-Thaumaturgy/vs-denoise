@@ -9,10 +9,10 @@ from itertools import chain
 from math import ceil, exp
 from typing import Any, Callable, Dict, List, Sequence, Tuple, cast
 
-import vapoursynth as vs
+
 from vstools import (
     ColorRange, FieldBased, FieldBasedT, GenericVSFunction, check_ref_clip, depth, disallow_variable_format,
-    disallow_variable_resolution, fallback
+    disallow_variable_resolution, fallback, vs, core
 )
 
 from .prefilters import PelType, Prefilter, prefilter_to_full_range
@@ -22,8 +22,6 @@ __all__ = [
     'MVTools', 'MVToolPlugin'
 ]
 
-core = vs.core
-
 
 class MVToolPlugin(Enum):
     INTEGER = 0
@@ -32,8 +30,6 @@ class MVToolPlugin(Enum):
 
     @property
     def namespace(self) -> Any:
-        """@@PLACEHOLDER@@"""
-
         if self == MVToolPlugin.INTEGER:
             return core.mv
         else:
@@ -82,21 +78,11 @@ class MVToolPlugin(Enum):
 
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
-
     super_args: Dict[str, Any]
-    """@@PLACEHOLDER@@"""
-
     analyze_args: Dict[str, Any]
-    """@@PLACEHOLDER@@"""
-
     recalculate_args: Dict[str, Any]
-    """@@PLACEHOLDER@@"""
-
     compensate_args: Dict[str, Any]
-    """@@PLACEHOLDER@@"""
-
     degrain_args: Dict[str, Any]
-    """@@PLACEHOLDER@@"""
 
     subpel_clips: Tuple[vs.VideoNode | None, vs.VideoNode | None] | None
 
@@ -142,8 +128,6 @@ class MVTools:
         hpad: int | None = None, vpad: int | None = None,
         rfilter: int = 3, vectors: Dict[str, Any] | MVTools | None = None
     ) -> None:
-        """@@PLACEHOLDER@@"""
-
         assert clip.format
 
         if clip.format.color_family not in {vs.GRAY, vs.YUV}:
@@ -249,8 +233,6 @@ class MVTools:
         search: int | None = None, pelsearch: int | None = None,
         searchparam: int | None = None, truemotion: bool | None = None
     ) -> None:
-        """@@PLACEHOLDER@@"""
-
         ref = fallback(ref, self.workclip)
 
         check_ref_clip(self.workclip, ref)
@@ -385,8 +367,6 @@ class MVTools:
         self.vectors['super_render'] = super_render
 
     def get_vectors_bf(self, func_name: str = '') -> Tuple[List[vs.VideoNode], List[vs.VideoNode]]:
-        """@@PLACEHOLDER@@"""
-
         if not self.vectors:
             raise RuntimeError(
                 f"MVTools{'.' if func_name else ''}{func_name}: you first need to analyze the clip!"
@@ -416,8 +396,6 @@ class MVTools:
         ref: vs.VideoNode | None = None,
         thSAD: int = 150, **kwargs: Any
     ) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
-
         ref = fallback(ref, self.workclip)
 
         check_ref_clip(self.workclip, ref)
@@ -450,8 +428,6 @@ class MVTools:
         thSCD1: int | None = None, thSCD2: int = 130,
         limit: int | None = None, limitC: float | None = None
     ) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
-
         check_ref_clip(self.workclip, ref)
 
         limit = fallback(limit, 2 if self.is_uhd else 255)
@@ -501,8 +477,6 @@ class MVTools:
     def get_subpel_clips(
         self, pref: vs.VideoNode, ref: vs.VideoNode
     ) -> Tuple[vs.VideoNode | None, vs.VideoNode | None]:
-        """@@PLACEHOLDER@@"""
-
         if self.subpel_clips:
             return self.subpel_clips
 

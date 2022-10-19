@@ -4,37 +4,23 @@ This module implements a wrapper for KNLMeansCL
 
 from __future__ import annotations
 
-__all__ = [
-    'ChannelMode', 'DeviceType', 'knl_means_cl'
-]
+__all__ = ['ChannelMode', 'DeviceType', 'knl_means_cl']
 
 import warnings
 from enum import Enum, auto
 from typing import Any, List, Literal, Sequence, final
 
-from vstools import disallow_variable_format
-import vapoursynth as vs
-
-core = vs.core
+from vstools import core, disallow_variable_format, vs
 
 
 @final
 class ChannelMode(Enum):
-    """@@PLACEHOLDER@@"""
-
     ALL_PLANES = auto()
-    """@@PLACEHOLDER@@"""
-
     LUMA = auto()
-    """@@PLACEHOLDER@@"""
-
     CHROMA = auto()
-    """@@PLACEHOLDER@@"""
 
     @classmethod
     def from_planes(cls, planes: Sequence[int]) -> ChannelMode:
-        """@@PLACEHOLDER@@"""
-
         planes = list(planes)
 
         if planes == [0]:
@@ -48,19 +34,10 @@ class ChannelMode(Enum):
 
 @final
 class DeviceType(str, Enum):
-    """@@PLACEHOLDER@@"""
-
     ACCELERATOR = 'accelerator'
-    """@@PLACEHOLDER@@"""
-
     CPU = 'cpu'
-    """@@PLACEHOLDER@@"""
-
     GPU = 'gpu'
-    """@@PLACEHOLDER@@"""
-
     AUTO = 'auto'
-    """@@PLACEHOLDER@@"""
 
 
 DEVICETYPE = Literal['accelerator', 'cpu', 'gpu', 'auto']

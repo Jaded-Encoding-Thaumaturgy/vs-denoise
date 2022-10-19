@@ -7,14 +7,13 @@ from __future__ import annotations
 from math import sin, sqrt
 from typing import Any
 
-import vapoursynth as vs
 from vsaa import Nnedi3
 from vsexprtools import EXPR_VARS, norm_expr
 from vskernels import Bicubic, Point
 from vsscale import SSIM
 from vstools import (
     CustomIndexError, CustomIntEnum, InvalidColorFamilyError, Matrix, MatrixT, PlanesT, UnsupportedSubsamplingError,
-    check_ref_clip, get_peak_value, join, normalize_planes, plane, shift_clip, split
+    check_ref_clip, get_peak_value, join, normalize_planes, plane, shift_clip, split, vs
 )
 
 __all__ = [
@@ -23,38 +22,18 @@ __all__ = [
 
 
 class CCDMode(CustomIntEnum):
-    """@@PLACEHOLDER@@"""
-
     CHROMA_ONLY = 0
-    """@@PLACEHOLDER@@"""
-
     BICUBIC_CHROMA = 1
-    """@@PLACEHOLDER@@"""
-
     BICUBIC_LUMA = 2
-    """@@PLACEHOLDER@@"""
-
     NNEDI_BICUBIC = 3
-    """@@PLACEHOLDER@@"""
-
     NNEDI_SSIM = 4
-    """@@PLACEHOLDER@@"""
 
 
 class CCDPoints(CustomIntEnum):
-    """@@PLACEHOLDER@@"""
-
     LOW = 11
-    """@@PLACEHOLDER@@"""
-
     MEDIUM = 22
-    """@@PLACEHOLDER@@"""
-
     HIGH = 44
-    """@@PLACEHOLDER@@"""
-
     ALL = 63
-    """@@PLACEHOLDER@@"""
 
 
 def ccd(
@@ -63,13 +42,11 @@ def ccd(
     ref_points: int | CCDPoints | None = CCDPoints.LOW | CCDPoints.MEDIUM,
     i444: bool = False, planes: PlanesT = None, **ssim_kwargs: Any
 ) -> vs.VideoNode:
-    """@@PLACEHOLDER@@"""
-
     assert src.format
 
     check_ref_clip(src, ref)
 
-    InvalidColorFamilyError.check(src, vs.GRAY, ccd)
+    InvalidColorFamilyError.check(src, (vs.YUV, vs.RGB), ccd)
 
     if tr < 0 or tr > 3:
         raise CustomIndexError('Temporal radius must be between 0 and 3 (inclusive)!', ccd)
@@ -83,7 +60,8 @@ def ccd(
         raise UnsupportedSubsamplingError(f'{mode} is available only for subsampled video!', ccd)
 
     mode = CCDMode.from_param(mode) or CCDMode.CHROMA_ONLY
-    ref_points = CCDPoints.from_param(ref_points)
+    if not isinstance(ref_points, int):
+        ref_points = (CCDPoints.from_param(ref_points) or CCDPoints.MEDIUM).value
 
     src_width, src_height = src.width, src.height
     src444_format = src.format.replace(subsampling_w=0, subsampling_h=0)
