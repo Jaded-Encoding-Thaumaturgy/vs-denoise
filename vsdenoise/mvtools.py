@@ -24,6 +24,8 @@ __all__ = [
 
 
 class MVToolPlugin(Enum):
+    """@@PLACEHOLDER@@"""
+
     INTEGER = 0
     FLOAT_OLD = 1
     FLOAT_NEW = 2
@@ -78,17 +80,30 @@ class MVToolPlugin(Enum):
 
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
+
     super_args: Dict[str, Any]
+    """@@PLACEHOLDER@@"""
+
     analyze_args: Dict[str, Any]
+    """@@PLACEHOLDER@@"""
+
     recalculate_args: Dict[str, Any]
+    """@@PLACEHOLDER@@"""
+
     compensate_args: Dict[str, Any]
+    """@@PLACEHOLDER@@"""
+
     degrain_args: Dict[str, Any]
+    """@@PLACEHOLDER@@"""
 
     subpel_clips: Tuple[vs.VideoNode | None, vs.VideoNode | None] | None
+    """@@PLACEHOLDER@@"""
 
     vectors: Dict[str, Any]
+    """@@PLACEHOLDER@@"""
 
     clip: vs.VideoNode
+    """@@PLACEHOLDER@@"""
 
     is_hd: bool
     is_uhd: bool
@@ -128,6 +143,8 @@ class MVTools:
         hpad: int | None = None, vpad: int | None = None,
         rfilter: int = 3, vectors: Dict[str, Any] | MVTools | None = None
     ) -> None:
+        """@@PLACEHOLDER@@"""
+
         assert clip.format
 
         if clip.format.color_family not in {vs.GRAY, vs.YUV}:
@@ -233,6 +250,8 @@ class MVTools:
         search: int | None = None, pelsearch: int | None = None,
         searchparam: int | None = None, truemotion: bool | None = None
     ) -> None:
+        """@@PLACEHOLDER@@"""
+
         ref = fallback(ref, self.workclip)
 
         check_ref_clip(self.workclip, ref)
@@ -367,6 +386,8 @@ class MVTools:
         self.vectors['super_render'] = super_render
 
     def get_vectors_bf(self, func_name: str = '') -> Tuple[List[vs.VideoNode], List[vs.VideoNode]]:
+        """@@PLACEHOLDER@@"""
+
         if not self.vectors:
             raise RuntimeError(
                 f"MVTools{'.' if func_name else ''}{func_name}: you first need to analyze the clip!"
@@ -396,6 +417,8 @@ class MVTools:
         ref: vs.VideoNode | None = None,
         thSAD: int = 150, **kwargs: Any
     ) -> vs.VideoNode:
+        """@@PLACEHOLDER@@"""
+
         ref = fallback(ref, self.workclip)
 
         check_ref_clip(self.workclip, ref)
@@ -428,6 +451,8 @@ class MVTools:
         thSCD1: int | None = None, thSCD2: int = 130,
         limit: int | None = None, limitC: float | None = None
     ) -> vs.VideoNode:
+        """@@PLACEHOLDER@@"""
+
         check_ref_clip(self.workclip, ref)
 
         limit = fallback(limit, 2 if self.is_uhd else 255)
@@ -477,6 +502,8 @@ class MVTools:
     def get_subpel_clips(
         self, pref: vs.VideoNode, ref: vs.VideoNode
     ) -> Tuple[vs.VideoNode | None, vs.VideoNode | None]:
+        """@@PLACEHOLDER@@"""
+
         if self.subpel_clips:
             return self.subpel_clips
 

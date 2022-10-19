@@ -22,16 +22,27 @@ _cached_blurs = WeakValueDictionary[int, vs.VideoNode]()
 
 @dataclass
 class Regression:
+    """@@PLACEHOLDER@@"""
+
     @dataclass
     class Linear:
+        """@@PLACEHOLDER@@"""
+
         slope: vs.VideoNode
+        """@@PLACEHOLDER@@"""
+
         intercept: vs.VideoNode
+        """@@PLACEHOLDER@@"""
+
         correlation: vs.VideoNode
+        """@@PLACEHOLDER@@"""
 
     class BlurConf:
         def __init__(
             self, func: Callable[Concatenate[vs.VideoNode, P], vs.VideoNode], /, *args: P.args, **kwargs: P.kwargs
         ) -> None:
+            """@@PLACEHOLDER@@"""
+
             self.func = func
             self.args = args
             self.kwargs = kwargs
@@ -41,12 +52,16 @@ class Regression:
             self, func: Callable[Concatenate[vs.VideoNode, P1], vs.VideoNode] | Regression.BlurConf,
             *args: P1.args, **kwargs: P1.kwargs
         ) -> Regression.BlurConf:
+            """@@PLACEHOLDER@@"""
+
             if isinstance(func, Regression.BlurConf):
                 return func.extend(*args, **kwargs)
 
             return Regression.BlurConf(func, *args, **kwargs)
 
         def extend(self, *args: Any, **kwargs: Any) -> Regression.BlurConf:
+            """@@PLACEHOLDER@@"""
+
             if args or kwargs:
                 return Regression.BlurConf(
                     self.func, *(args or self.args), **(self.kwargs | kwargs)  # type: ignore[arg-type]
@@ -56,6 +71,8 @@ class Regression:
         def __call__(
             self, clip: vs.VideoNode, chroma_only: bool = False, *args: Any, **kwargs: Any
         ) -> vs.VideoNode:
+            """@@PLACEHOLDER@@"""
+
             if not args:
                 args = self.args
 
@@ -91,11 +108,15 @@ class Regression:
             return _cached_blurs.setdefault(key, out)
 
         def blur(self, clip: vs.VideoNode, chroma_only: bool = False, *args: Any, **kwargs: Any) -> Any:
+            """@@PLACEHOLDER@@"""
+
             return self(clip, chroma_only, *args, **kwargs)
 
         def get_bases(
             self, clip: vs.VideoNode | Sequence[vs.VideoNode]
         ) -> tuple[list[vs.VideoNode], list[vs.VideoNode], list[vs.VideoNode]]:
+            """@@PLACEHOLDER@@"""
+
             planes = split(clip) if isinstance(clip, vs.VideoNode) else clip
 
             blur = [self(shifted) for shifted in planes]
@@ -117,7 +138,10 @@ class Regression:
     blur_func: BlurConf | Callable[  # type: ignore[misc]
         Concatenate[vs.VideoNode, P0], vs.VideoNode
     ] = BlurConf(box_blur, radius=2)
+    """@@PLACEHOLDER@@"""
+
     eps: float = 1e-7
+    """@@PLACEHOLDER@@"""
 
     def __post_init__(self) -> None:
         self.blur_conf = Regression.BlurConf.from_param(self.blur_func)
@@ -128,6 +152,8 @@ class Regression:
         eps: float = 1e-7,
         *args: P1.args, **kwargs: P1.kwargs
     ) -> Regression:
+        """@@PLACEHOLDER@@"""
+
         return Regression(
             Regression.BlurConf.from_param(func, *args, **kwargs), eps
         )
@@ -135,6 +161,8 @@ class Regression:
     def linear(
         self, clip: vs.VideoNode | Sequence[vs.VideoNode], eps: float | None = None, *args: Any, **kwargs: Any
     ) -> list[Regression.Linear]:
+        """@@PLACEHOLDER@@"""
+
         eps = eps or self.eps
         blur_conf = self.blur_conf.extend(*args, **kwargs)
 
@@ -160,6 +188,8 @@ class Regression:
         self, clip: vs.VideoNode | Sequence[vs.VideoNode],
         eps: float | None = None, avg: bool = False, *args: Any, **kwargs: Any
     ) -> list[vs.VideoNode]:
+        """@@PLACEHOLDER@@"""
+
         eps = eps or self.eps
         blur_conf = self.blur_conf.extend(*args, **kwargs)
 
@@ -193,6 +223,8 @@ def chroma_reconstruct(
     ] | Regression.BlurConf = Regression.BlurConf(box_blur, radius=2),
     eps: float = 1e-7, *args: P.args, **kwargs: P.kwargs
 ) -> vs.VideoNode:
+    """@@PLACEHOLDER@@"""
+
     assert check_variable(clip, chroma_reconstruct)
 
     kernel = Kernel.ensure_obj(kernel, chroma_reconstruct)

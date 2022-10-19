@@ -22,18 +22,38 @@ __all__ = [
 
 
 class CCDMode(CustomIntEnum):
+    """@@PLACEHOLDER@@"""
+
     CHROMA_ONLY = 0
+    """@@PLACEHOLDER@@"""
+
     BICUBIC_CHROMA = 1
+    """@@PLACEHOLDER@@"""
+
     BICUBIC_LUMA = 2
+    """@@PLACEHOLDER@@"""
+
     NNEDI_BICUBIC = 3
+    """@@PLACEHOLDER@@"""
+
     NNEDI_SSIM = 4
+    """@@PLACEHOLDER@@"""
 
 
 class CCDPoints(CustomIntEnum):
+    """@@PLACEHOLDER@@"""
+
     LOW = 11
+    """@@PLACEHOLDER@@"""
+
     MEDIUM = 22
+    """@@PLACEHOLDER@@"""
+
     HIGH = 44
+    """@@PLACEHOLDER@@"""
+
     ALL = 63
+    """@@PLACEHOLDER@@"""
 
 
 def ccd(
@@ -42,6 +62,8 @@ def ccd(
     ref_points: int | CCDPoints | None = CCDPoints.LOW | CCDPoints.MEDIUM,
     i444: bool = False, planes: PlanesT = None, **ssim_kwargs: Any
 ) -> vs.VideoNode:
+    """@@PLACEHOLDER@@"""
+
     assert src.format
 
     check_ref_clip(src, ref)

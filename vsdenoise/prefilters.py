@@ -27,26 +27,61 @@ __all__ = ['Prefilter', 'prefilter_to_full_range', 'PelType']
 
 
 class Prefilter(IntEnum):
+    """@@PLACEHOLDER@@"""
+
     AUTO = -2
+    """@@PLACEHOLDER@@"""
+
     NONE = -1
+    """@@PLACEHOLDER@@"""
+
     MINBLUR1 = 0
+    """@@PLACEHOLDER@@"""
+
     MINBLUR2 = 1
+    """@@PLACEHOLDER@@"""
+
     MINBLUR3 = 2
+    """@@PLACEHOLDER@@"""
+
     MINBLURFLUX = 3
+    """@@PLACEHOLDER@@"""
+
     DFTTEST = 4
+    """@@PLACEHOLDER@@"""
+
     KNLMEANSCL = 5
+    """@@PLACEHOLDER@@"""
+
     BM3D = 6
+    """@@PLACEHOLDER@@"""
+
     BM3D_CPU = 7
+    """@@PLACEHOLDER@@"""
+
     BM3D_CUDA = 8
+    """@@PLACEHOLDER@@"""
+
     BM3D_CUDA_RTC = 9
+    """@@PLACEHOLDER@@"""
+
     DGDENOISE = 10
+    """@@PLACEHOLDER@@"""
+
     HALFBLUR = 11
+    """@@PLACEHOLDER@@"""
+
     GAUSSBLUR1 = 12
+    """@@PLACEHOLDER@@"""
+
     GAUSSBLUR2 = 13
+    """@@PLACEHOLDER@@"""
 
     @disallow_variable_format
     @disallow_variable_resolution
     def __call__(self, clip: vs.VideoNode, planes: PlanesT = None, **kwargs: Any) -> vs.VideoNode:
+        """@@PLACEHOLDER@@"""
+
         pref_type = Prefilter.MINBLUR3 if self == Prefilter.AUTO else self
 
         bits = get_depth(clip)
@@ -136,6 +171,8 @@ class Prefilter(IntEnum):
 
 
 def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
+    """@@PLACEHOLDER@@"""
+
     planes = normalize_planes(pref, planes)
     work_clip, *chroma = split(pref) if planes == [0] else (pref, )
     assert (fmt := work_clip.format) and pref.format
@@ -173,15 +210,28 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
 
 
 class PelType(IntEnum):
+    """@@PLACEHOLDER@@"""
+
     AUTO = -1
+    """@@PLACEHOLDER@@"""
+
     NONE = 0
+    """@@PLACEHOLDER@@"""
+
     BICUBIC = 1
+    """@@PLACEHOLDER@@"""
+
     WIENER = 2
+    """@@PLACEHOLDER@@"""
+
     NNEDI3 = 4
+    """@@PLACEHOLDER@@"""
 
     @disallow_variable_format
     @disallow_variable_resolution
     def __call__(self, clip: vs.VideoNode, pel: int, **kwargs: Any) -> vs.VideoNode:
+        """@@PLACEHOLDER@@"""
+
         assert clip.format
 
         pel_type = self
