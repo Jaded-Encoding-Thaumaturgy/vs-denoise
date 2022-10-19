@@ -6,7 +6,6 @@ vsdenoise.mvtools
 
     vsdenoise.mvtools.MVTools
     vsdenoise.mvtools.MVToolPlugin
-    vsdenoise.mvtools.SourceType
 
 .. automodule:: vsdenoise.mvtools
     :members:
