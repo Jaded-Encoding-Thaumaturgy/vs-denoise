@@ -55,7 +55,6 @@ class AbstractBM3D(ABC):
     basic_args: Dict[str, Any]
     final_args: Dict[str, Any]
 
-    _refv: vs.VideoNode
     _clip: vs.VideoNode
     _format: vs.VideoFormat
     _matrix: int
@@ -146,7 +145,7 @@ class AbstractBM3D(ABC):
         ...
 
     @abstractmethod
-    def final(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def final(self, clip: vs.VideoNode, ref: vs.VideoNode | None = None) -> vs.VideoNode:
         ...
 
     @property
@@ -159,15 +158,15 @@ class AbstractBM3D(ABC):
 
         # Make basic estimation
         if self.ref is None:
-            self._refv = self.basic(self.wclip)
+            refv = self.basic(self.wclip)
         else:
             if self.is_gray:
-                self._refv = self.to_fullgray(self.ref)
+                refv = self.to_fullgray(self.ref)
             else:
-                self._refv = self.yuv2opp(self.ref)
+                refv = self.yuv2opp(self.ref)
 
         # Make final estimation
-        self.wclip = iterate(self.wclip, self.final, self.refine)
+        self.wclip = iterate(self.wclip, self.final, self.refine, ref=refv)
 
         self._post_processing()
 
@@ -264,15 +263,19 @@ class BM3D(AbstractBM3D):
             clip = core.bm3d.Basic(clip, **kwargs | self.basic_args)
         return clip
 
-    def final(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def final(self, clip: vs.VideoNode, ref: vs.VideoNode | None = None) -> vs.VideoNode:
         kwargs: Dict[str, Any] = dict(profile=self.profile, sigma=self.sigma, matrix=100)
+
+        if ref is None:
+            ref = self.basic(self.wclip)
+
         if self.radius.final:
             clip = core.bm3d.VFinal(
-                clip, ref=self._refv, radius=self.radius.final,
+                clip, ref=ref, radius=self.radius.final,
                 **kwargs | self.final_args
             ).bm3d.VAggregate(self.radius.final, self.fp32)
         else:
-            clip = core.bm3d.Final(clip, ref=self._refv, **kwargs | self.final_args)
+            clip = core.bm3d.Final(clip, ref=ref, **kwargs | self.final_args)
         return clip
 
     def _preprocessing(self) -> None:
@@ -349,15 +352,15 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
             )
         return clip
 
-    def final(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def final(self, clip: vs.VideoNode, ref: vs.VideoNode | None = None) -> vs.VideoNode:
         if self.radius.final:
             clip = self.plugin.BM3D(
-                clip, self._refv, self.sigma, radius=self.radius.final,
+                clip, ref, self.sigma, radius=self.radius.final,
                 **self.CUDA_VFINAL_PROFILES[self.profile] | self.final_args
             ).bm3d.VAggregate(self.radius.final, 1)
         else:
             clip = self.plugin.BM3D(
-                clip, self._refv, self.sigma, radius=0,
+                clip, ref, self.sigma, radius=0,
                 **self.CUDA_FINAL_PROFILES[self.profile] | self.final_args
             )
         return clip
