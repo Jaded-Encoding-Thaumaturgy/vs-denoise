@@ -10,7 +10,8 @@ from typing import Any, Callable, Sequence, cast
 
 from vstools import (
     ColorRange, FieldBased, FieldBasedT, GenericVSFunction, check_ref_clip, depth, disallow_variable_format,
-    disallow_variable_resolution, fallback, vs, core
+    disallow_variable_resolution, fallback, vs, core, CustomIntEnum, CustomValueError, CustomNotImplementedError,
+    InvalidColorFamilyError, check_variable, CustomOverflowError
 )
 
 from .prefilters import PelType, Prefilter, prefilter_to_full_range
@@ -58,18 +59,18 @@ class MVToolPlugin(CustomIntEnum):
 
     def Degrain(self, radius: int | None = None) -> Callable[..., vs.VideoNode]:
         if radius is None and self != MVToolPlugin.FLOAT_NEW:
-            raise ValueError(f"{self.name}.Degrain needs radius")
+            raise CustomValueError('This implementation needs a radius!', f'{self.name}.Degrain')
 
         try:
             return cast(Callable[..., vs.VideoNode], getattr(
                 self.namespace, f"Degrain{fallback(radius, '')}"
             ))
         except AttributeError:
-            raise ValueError(f"{self.name}.Degrain doesn't support a radius of {radius}")
+            raise CustomValueError(f'This radius isn\'t support! ({radius})', f'{self.name}.Degrain')
 
     def __eq__(self, o: Any) -> bool:
         if not isinstance(o, MVToolPlugin):
-            raise NotImplementedError
+            raise CustomNotImplementedError
 
         return self.value == o.value
 
@@ -126,10 +127,10 @@ class MVTools:
         hpad: int | None = None, vpad: int | None = None,
         rfilter: int = 3, vectors: dict[str, Any] | MVTools | None = None
     ) -> None:
-        assert clip.format
+        assert check_variable(clip)
 
-        if clip.format.color_family not in {vs.GRAY, vs.YUV}:
-            raise ValueError("MVTools: Only GRAY or YUV format clips supported")
+        InvalidColorFamilyError.check(clip, (vs.GRAY, vs.YUV), self.__class__)
+
         self.clip = clip
 
         self.is_hd = clip.width >= 1100 or clip.height >= 600
@@ -138,7 +139,8 @@ class MVTools:
         self.tr = tr
 
         if refine > 6:
-            raise ValueError("refine > 6 is not supported")
+            raise CustomOverflowError(f'Refine > 6 is not supported! ({refine})', self.__class__)
+
         self.refine = refine
 
         self.source_type = FieldBased.from_param(source_type, MVTools) or FieldBased.from_video(self.clip)
@@ -209,7 +211,7 @@ class MVTools:
             if not hasattr(core.mvsf, 'Degrain'):
                 if tr > 24:
                     raise ImportError(
-                        "MVTools: With the current settings, (temporal radius > 24) you're gonna need the latest "
+                        "MVTools: With the current settings, temporal radius > 24, you're gonna need the latest "
                         "master of mvsf and you're using an older version."
                         "\n\tPlease build it from: https://github.com/IFeelBloated/vapoursynth-mvtools-sf"
                     )
