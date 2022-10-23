@@ -6,7 +6,13 @@ from typing import List, Sequence, Tuple
 
 
 def planes_to_mvtools(planes: Sequence[int]) -> Tuple[List[int], int]:
-    """@@PLACEHOLDER@@"""
+    """
+    Util function to normalize planes, and converting them to mvtools planes param.
+
+    :param planes:  Sequence of planes to be processed.
+
+    :return:        Tuple of planes, and mv planes.
+    """
 
     planes = list(planes)
 
