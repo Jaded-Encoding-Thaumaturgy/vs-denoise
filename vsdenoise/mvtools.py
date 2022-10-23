@@ -478,23 +478,14 @@ class MVTools:
         if self.subpel_clips:
             return self.subpel_clips
 
-        pref_subpel = ref_subpel = None
-
-        for is_ref, (ptype, clip) in enumerate(zip(self.pel_type, (pref, ref))):
-            if ptype == PelType.NONE:
-                continue
-
-            if self.prefilter != Prefilter.NONE:
-                if self.subpixel == 4:
-                    ptype = PelType.NNEDI3
-                elif is_ref:
-                    ptype = PelType.WIENER
-                else:
-                    ptype = PelType.BICUBIC
-
-            if is_ref:
-                ref_subpel = ptype(clip, self.pel)
-            else:
-                pref_subpel = ptype(clip, self.pel)
-
-        return (pref_subpel, ref_subpel)
+        return tuple(
+            None if ptype == PelType.NONE else (
+                ((
+                    PelType.NNEDI3 if self.subpixel == 4 else (
+                        PelType.WIENER if is_ref else PelType.BICUBIC
+                    )
+                ) if self.prefilter is Prefilter.NONE else ptype
+                )(clip, self.pel)
+            )
+            for is_ref, ptype, clip in zip((False, True), self.pel_type, (pref, ref))
+        )
