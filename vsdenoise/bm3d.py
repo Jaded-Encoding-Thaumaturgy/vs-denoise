@@ -32,12 +32,6 @@ class Profile(str, Enum):
     HIGH = 'high'
     VERY_NOISY = 'vn'
 
-    F = FAST
-    LC = LOW_COMPLEXITY
-    NP = NORMAL
-    H = HIGH
-    VN = VERY_NOISY
-
 
 class AbstractBM3D(ABC):
     """Abstract BM3D based denoiser interface"""
@@ -316,26 +310,26 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
 
     CUDA_BASIC_PROFILES: ClassVar[Dict[str, Dict[str, Any]]] = {
         Profile.FAST: dict(block_step=8, bm_range=9),
-        Profile.LC: dict(block_step=6, bm_range=9),
-        Profile.NP: dict(block_step=4, bm_range=16),
+        Profile.LOW_COMPLEXITY: dict(block_step=6, bm_range=9),
+        Profile.NORMAL: dict(block_step=4, bm_range=16),
         Profile.HIGH: dict(block_step=3, bm_range=16),
     }
     CUDA_FINAL_PROFILES: ClassVar[Dict[str, Dict[str, Any]]] = {
         Profile.FAST: dict(block_step=7, bm_range=9),
-        Profile.LC: dict(block_step=5, bm_range=9),
-        Profile.NP: dict(block_step=3, bm_range=16),
+        Profile.LOW_COMPLEXITY: dict(block_step=5, bm_range=9),
+        Profile.NORMAL: dict(block_step=3, bm_range=16),
         Profile.HIGH: dict(block_step=2, bm_range=16),
     }
     CUDA_VBASIC_PROFILES: ClassVar[Dict[str, Dict[str, Any]]] = {
         Profile.FAST: dict(block_step=8, bm_range=7, ps_num=2, ps_range=4),
-        Profile.LC: dict(block_step=6, bm_range=9, ps_num=2, ps_range=4),
-        Profile.NP: dict(block_step=4, bm_range=12, ps_num=2, ps_range=5),
+        Profile.LOW_COMPLEXITY: dict(block_step=6, bm_range=9, ps_num=2, ps_range=4),
+        Profile.NORMAL: dict(block_step=4, bm_range=12, ps_num=2, ps_range=5),
         Profile.HIGH: dict(block_step=3, bm_range=16, ps_num=2, ps_range=7),
     }
     CUDA_VFINAL_PROFILES: ClassVar[Dict[str, Dict[str, Any]]] = {
         Profile.FAST: dict(block_step=7, bm_range=7, ps_num=2, ps_range=5),
-        Profile.LC: dict(block_step=5, bm_range=9, ps_num=2, ps_range=5),
-        Profile.NP: dict(block_step=3, bm_range=12, ps_num=2, ps_range=6),
+        Profile.LOW_COMPLEXITY: dict(block_step=5, bm_range=9, ps_num=2, ps_range=5),
+        Profile.NORMAL: dict(block_step=3, bm_range=12, ps_num=2, ps_range=6),
         Profile.HIGH: dict(block_step=2, bm_range=16, ps_num=2, ps_range=8),
     }
 
