@@ -27,19 +27,19 @@ class Profile(str, Enum):
     https://github.com/HomeOfVapourSynthEvolution/VapourSynth-BM3D#profile-default
     """
     FAST = 'fast'
-    """@@PLACEHOLDER@@"""
+    """Profile aimed at speed"""
 
     LOW_COMPLEXITY = 'lc'
-    """@@PLACEHOLDER@@"""
+    """Profile for content with low complexity noise"""
 
     NORMAL = 'np'
-    """@@PLACEHOLDER@@"""
+    """Normal, neutral profile"""
 
     HIGH = 'high'
-    """@@PLACEHOLDER@@"""
+    """Profile aimed at high precision denoising"""
 
     VERY_NOISY = 'vn'
-    """@@PLACEHOLDER@@"""
+    """Profile for very noisy content"""
 
     F = FAST
     LC = LOW_COMPLEXITY
@@ -62,10 +62,10 @@ class AbstractBM3D(ABC):
     is_gray: bool
 
     basic_args: Dict[str, Any]
-    """@@PLACEHOLDER@@"""
+    """Custom kwargs passed to bm3d for the :py:arg:`basic` clip"""
 
     final_args: Dict[str, Any]
-    """@@PLACEHOLDER@@"""
+    """Custom kwargs passed to bm3d for the :py:arg:`final` clip"""
 
     _refv: vs.VideoNode
     _clip: vs.VideoNode
@@ -142,34 +142,69 @@ class AbstractBM3D(ABC):
             self.is_gray = True
 
     def yuv2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
+        """
+        Convert a YUV clip to OPP colorspace.
+
+        :param clip:    YUV clip to be processed.
+
+        :return:        OPP clip.
+        """
         return self.rgb2opp(self.yuv2rgb.resample(clip, vs.RGBS))
 
     def rgb2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
+        """
+        Convert an RGB clip to OPP colorspace.
+
+        :param clip:    RGB clip to be processed.
+
+        :return:        OPP clip.
+        """
         return clip.bm3d.RGB2OPP(sample=1)
 
     def opp2rgb(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
+        """
+        Convert an OPP clip to RGB colorspace.
+
+        :param clip:    OPP clip to be processed.
+
+        :return:        RGB clip.
+        """
         return clip.bm3d.OPP2RGB(sample=1)
 
     def to_fullgray(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
+        """
+        Extract Y plane from GRAY/YUV clip and if not float32, upsample to it.
+
+        :param clip:    GRAY or YUV clip to be processed.
+
+        :return:        GRAYS clip.
+        """
         return get_y(clip).resize.Point(format=vs.GRAYS)
 
     @abstractmethod
     def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
+        """
+        Get the "basic" clip, used normally as `ref` for :py:attr:`final`
+
+        :param clip:    OPP or GRAY colorspace clip to be processed.
+
+        :return:        Denoised clip to be used as `ref`.
+        """
 
     @abstractmethod
     def final(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
+        """
+        Get the "basic" clip, used normally as `ref` for :py:attr:`final`
+
+        :param clip:    OPP or GRAY colorspace clip to be processed.
+
+        :return:        Denoised clip to be used as `ref`.
+        """
 
     @property
     def clip(self) -> vs.VideoNode:
         """
-        :return:                    Denoised clip. ``denoised_clip = BM3D(...).clip``
-                                    is the intended use in encoding scripts.
+        :return:    Denoised clip. ``denoised_clip = BM3D(...).clip`` is the intended use in encoding scripts.
         """
         self._preprocessing()
 
@@ -229,7 +264,10 @@ class AbstractBM3D(ABC):
 class BM3D(AbstractBM3D):
     """BM3D implementation by mawen1250"""
     pre: Optional[vs.VideoNode]
+    """Reference clip for :py:attr:`basic`"""
+
     fp32: bool = True
+    """Whether to process in int16 or float32"""
 
     def __init__(
         self, clip: vs.VideoNode, /,
