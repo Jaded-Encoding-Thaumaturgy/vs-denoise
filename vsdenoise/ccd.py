@@ -22,38 +22,70 @@ __all__ = [
 
 
 class CCDMode(CustomIntEnum):
-    """@@PLACEHOLDER@@"""
+    """Processing mode for ccd"""
 
     CHROMA_ONLY = 0
-    """@@PLACEHOLDER@@"""
+    """Only process chroma"""
 
     BICUBIC_CHROMA = 1
-    """@@PLACEHOLDER@@"""
+    """Process in 4:4:4 downscaling the luma to chroma size"""
 
     BICUBIC_LUMA = 2
-    """@@PLACEHOLDER@@"""
+    """Process in 4:4:4 upscaling the chroma to luma size with bicubic"""
 
     NNEDI_BICUBIC = 3
-    """@@PLACEHOLDER@@"""
+    """
+    Process in 4:4:4 upscaling the chroma to luma size with nnedi3,
+    then downscaled to original size with bicuic.
+    """
 
     NNEDI_SSIM = 4
-    """@@PLACEHOLDER@@"""
+    """
+    Process in 4:4:4 upscaling the chroma to luma size with nnedi3,
+    then downscaled to original size with SSIM.
+    """
 
 
 class CCDPoints(CustomIntEnum):
-    """@@PLACEHOLDER@@"""
+    """
+    Sample point of reference taken in processing for ccd.
+
+    Graph of all the points.
+
+    x => center pixel
+    ^ => CCDPoints.LOW
+    ' => CCDPoints.MEDIUM
+    ° => CCDPoints.HIGH
+
+    °     °     °     °
+       '     '     '
+    °     ^     ^     °
+       '     x     '
+    °     ^     ^     °
+       '     '     '
+    °     °     °     °
+    """
 
     LOW = 11
-    """@@PLACEHOLDER@@"""
+    """
+    Vertices of the square with l = scale * 4.\n
+    ^ in the main docstrings.
+    """
 
     MEDIUM = 22
-    """@@PLACEHOLDER@@"""
+    """
+    Vertices and middle points of the sides of the square with l = scale * 8.\n
+    ' in the main docstrings.
+    """
 
     HIGH = 44
-    """@@PLACEHOLDER@@"""
+    """
+    Vertices, 2/3 and 3/4 points of the sides of the square with l = scale * 12.\n
+    ' in the main docstrings.
+    """
 
     ALL = 63
-    """@@PLACEHOLDER@@"""
+    """All points combined."""
 
 
 def ccd(
@@ -62,7 +94,14 @@ def ccd(
     ref_points: int | CCDPoints | None = CCDPoints.LOW | CCDPoints.MEDIUM,
     i444: bool = False, planes: PlanesT = None, **ssim_kwargs: Any
 ) -> vs.VideoNode:
-    """@@PLACEHOLDER@@"""
+    """
+    Camcorder Color Denoise is an original VirtualDub filter made by Sergey Stolyarevsky.
+    It's a chroma denoiser that works great on old sources such as VHSes and DVDs.
+
+    It works as a convolution of near pixels determined by ``ref_points``.
+    If the euclidian distance between the RGB values of the center pixel and a given pixel in the convolution
+    matrix is less than the threshold, then this pixel is considered in the average.
+    """
 
     assert src.format
 
