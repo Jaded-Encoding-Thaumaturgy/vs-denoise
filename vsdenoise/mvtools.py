@@ -134,7 +134,7 @@ class MVTools:
 
     subpel_clips: tuple[vs.VideoNode | None, vs.VideoNode | None] | None
 
-    vectors: dict[str, Any]
+    vectors: dict[str, vs.VideoNode]
 
     clip: vs.VideoNode
 
@@ -175,7 +175,7 @@ class MVTools:
         sad_mode: SADMode | tuple[SADMode, SADMode] = SADMode.SATD,
         range_conversion: float = 5.0,
         hpad: int | None = None, vpad: int | None = None,
-        rfilter: int = 3, vectors: dict[str, Any] | MVTools | None = None,
+        rfilter: int = 3, vectors: dict[str, vs.VideoNode] | MVTools | None = None,
         **analyze_kwargs: Any
     ) -> None:
         assert check_variable(clip, self.__class__)
@@ -220,7 +220,7 @@ class MVTools:
         if isinstance(vectors, MVTools):
             self.vectors = vectors.vectors
         elif vectors:
-            self.vectors = cast(dict[str, Any], vectors)
+            self.vectors = cast(dict[str, vs.VideoNode], vectors)
         else:
             self.vectors = {}
 
