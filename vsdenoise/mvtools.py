@@ -371,15 +371,9 @@ class MVTools:
         pelclip, pelclip2 = self.get_subpel_clips(pref, ref)
 
         common_args = dict[str, Any](
-            sharp=min(self.subpixel, 2), pel=self.pel,
-            vpad=self.vpad_half, hpad=self.hpad_uhd,
-            chroma=self.chroma
+            sharp=min(self.subpixel, 2), pel=self.pel, vpad=self.vpad_half, hpad=self.hpad_uhd, chroma=self.chroma
         ) | self.super_args
-        super_render_args = common_args | dict(
-            levels=1,
-            hpad=self.hpad, vpad=self.vpad,
-            chroma=not self.is_gray
-        )
+        super_render_args = common_args | dict(levels=1, hpad=self.hpad, vpad=self.vpad, chroma=not self.is_gray)
 
         if pelclip or pelclip2:
             common_args |= dict(pelclip=pelclip)
@@ -393,17 +387,13 @@ class MVTools:
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
         analyse_args = dict[str, Any](
-            plevel=0, pglobal=11, pelsearch=pelsearch,
-            blksize=blocksize, overlap=overlap, search=search,
-            truemotion=truemotion, searchparam=searchparam,
-            chroma=self.chroma, dct=self.sad_mode
+            plevel=0, pglobal=11, pelsearch=pelsearch, blksize=blocksize, overlap=overlap, search=search,
+            truemotion=truemotion, searchparam=searchparam, chroma=self.chroma, dct=self.sad_mode
         ) | self.analyze_args
 
         recalc_args = dict[str, Any](
-            search=0, dct=5, thsad=recalculate_SAD,
-            blksize=halfblocksize, overlap=halfoverlap,
-            truemotion=truemotion, searchparam=searchparamr,
-            chroma=self.chroma
+            search=0, dct=5, thsad=recalculate_SAD, blksize=halfblocksize, overlap=halfoverlap,
+            truemotion=truemotion, searchparam=searchparamr, chroma=self.chroma
         ) | self.recalculate_args
 
         if self.mvtools == MVToolsPlugin.FLOAT_NEW:
@@ -415,12 +405,8 @@ class MVTools:
             vectors.vmulti = vmulti
 
             for i in range(self.refine):
-                recalc_args.update(
-                    blksize=blocksize / 2 ** i, overlap=blocksize / 2 ** (i + 1)
-                )
-                vectors.vmulti = self.mvtools.Recalculate(
-                    super_recalculate, vectors.vmulti, **recalc_args
-                )
+                recalc_args.update(blksize=blocksize / 2 ** i, overlap=blocksize / 2 ** (i + 1))
+                vectors.vmulti = self.mvtools.Recalculate(super_recalculate, vectors.vmulti, **recalc_args)
         else:
             def _add_vector(delta: int, analyze: bool = True) -> None:
                 for way in MVWay:
@@ -447,9 +433,7 @@ class MVTools:
                         elif val < 4:
                             refblks = blocksize
 
-                        recalc_args.update(
-                            blksize=refblks / 2 ** j, overlap=refblks / 2 ** (j + 1)
-                        )
+                        recalc_args.update(blksize=refblks / 2 ** j, overlap=refblks / 2 ** (j + 1))
 
                         _add_vector(i, False)
 
@@ -529,22 +513,14 @@ class MVTools:
 
         vect_b, vect_f = self.get_vectors_bf()
 
-        # Finally, MDegrain
-
         degrain_args = dict[str, Any](
             thscd1=thrSCD_first, thscd2=thrSCD_second, plane=self.mv_plane
         ) | self.degrain_args
 
         if self.mvtools == MVToolsPlugin.INTEGER:
-            degrain_args.update(
-                thsad=thrSAD_luma, thsadc=thrSAD_chroma,
-                limit=limit, limitc=limitC
-            )
+            degrain_args.update(thsad=thrSAD_luma, thsadc=thrSAD_chroma, limit=limit, limitc=limitC)
         else:
-            degrain_args.update(
-                thsad=[thrSAD_luma, thrSAD_chroma, thrSAD_chroma],
-                limit=[limit, limitC]
-            )
+            degrain_args.update(thsad=[thrSAD_luma, thrSAD_chroma, thrSAD_chroma], limit=[limit, limitC])
 
             if self.mvtools == MVToolsPlugin.FLOAT_NEW:
                 degrain_args.update(thsad2=[thrSAD_luma / 2, thrSAD_chroma / 2])
@@ -552,9 +528,7 @@ class MVTools:
         to_degrain = ref or self.workclip
 
         if self.mvtools == MVToolsPlugin.FLOAT_NEW:
-            output = self.mvtools.Degrain()(
-                to_degrain, self.vectors.super_render, self.vectors.vmulti, **degrain_args
-            )
+            output = self.mvtools.Degrain()(to_degrain, self.vectors.super_render, self.vectors.vmulti, **degrain_args)
         else:
             output = self.mvtools.Degrain(self.tr)(
                 to_degrain, self.vectors.super_render, *chain.from_iterable(zip(vect_b, vect_f)), **degrain_args
@@ -571,9 +545,7 @@ class MVTools:
         return tuple(  # type: ignore[return-value]
             None if ptype == PelType.NONE else (
                 ((
-                    PelType.NNEDI3 if self.subpixel == 4 else (
-                        PelType.WIENER if is_ref else PelType.BICUBIC
-                    )
+                    PelType.NNEDI3 if self.subpixel == 4 else (PelType.WIENER if is_ref else PelType.BICUBIC)
                 ) if self.prefilter is Prefilter.NONE else ptype
                 )(clip, self.pel)
             )
