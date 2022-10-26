@@ -194,7 +194,7 @@ class MVTools:
         if self.source_type is FieldBased.PROGRESSIVE:
             self.workclip = self.clip
         else:
-            self.workclip = self.clip.std.SeparateFields(int(self.source_type))
+            self.workclip = self.clip.std.SeparateFields(self.source_type.is_tff)
 
         fmt = self.workclip.format
         assert fmt
