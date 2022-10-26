@@ -420,11 +420,9 @@ class MVTools:
 
         self.vectors['super_render'] = super_render
 
-    def get_vectors_bf(self, func_name: str = '') -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
+    def get_vectors_bf(self) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
         if not self.vectors:
-            raise RuntimeError(
-                f"MVTools{'.' if func_name else ''}{func_name}: you first need to analyze the clip!"
-            )
+            self.analyze()
 
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
@@ -454,7 +452,7 @@ class MVTools:
 
         check_ref_clip(self.workclip, ref)
 
-        vect_b, vect_f = self.get_vectors_bf('compensate')
+        vect_b, vect_f = self.get_vectors_bf()
 
         compensate_args = dict(
             super=self.vectors['super_render'], thsad=thSAD,
@@ -493,7 +491,7 @@ class MVTools:
         thrSCD_first = fallback(thSCD1, round(0.35 * thSAD + 260))
         thrSCD_second = fallback(thSCD2, 130)
 
-        vect_b, vect_f = self.get_vectors_bf('degrain')
+        vect_b, vect_f = self.get_vectors_bf()
 
         # Finally, MDegrain
 
