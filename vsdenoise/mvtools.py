@@ -26,13 +26,12 @@ __all__ = [
 
 class MVWay(CustomStrEnum):
     """@@PLACEHOLDER@@"""
-    
+
     BACK = 'backward'
     """@@PLACEHOLDER@@"""
-    
+
     FWRD = 'forward'
     """@@PLACEHOLDER@@"""
-    
 
     @property
     def isb(self) -> bool:
@@ -43,10 +42,9 @@ class MVWay(CustomStrEnum):
 class MotionVectors:
     vmulti: vs.VideoNode
     """@@PLACEHOLDER@@"""
-    
+
     super_render: vs.VideoNode
     """@@PLACEHOLDER@@"""
-    
 
     temporal_vectors: dict[MVWay, dict[int, vs.VideoNode]]
     """@@PLACEHOLDER@@"""
@@ -92,7 +90,6 @@ class MVToolsPlugin(CustomIntEnum):
 
     FLOAT_NEW = 2
     """@@PLACEHOLDER@@"""
-
 
     @property
     def namespace(self) -> Any:
@@ -193,7 +190,6 @@ class SADMode(CustomIntEnum):
     ADAPTIVE_SAT_DCT = 4
     """@@PLACEHOLDER@@"""
 
-
     SATD = 5
     """@@PLACEHOLDER@@"""
 
@@ -211,7 +207,6 @@ class SADMode(CustomIntEnum):
 
     ADAPTIVE_SATD_MAJLUMA = 10
     """@@PLACEHOLDER@@"""
-
 
     def is_satd(self) -> bool:
         return self >= SADMode.SATD
@@ -233,7 +228,6 @@ class MVTools:
 
     degrain_args: dict[str, Any]
     """@@PLACEHOLDER@@"""
-
 
     subpel_clips: tuple[vs.VideoNode | None, vs.VideoNode | None] | None
     """@@PLACEHOLDER@@"""
@@ -376,7 +370,7 @@ class MVTools:
         *, inplace: bool = False
     ) -> MotionVectors:
         """@@PLACEHOLDER@@"""
-        
+
         if self.analyze_func_kwargs:
             if blksize is None:
                 blksize = self.analyze_func_kwargs.get('blksize', None)
