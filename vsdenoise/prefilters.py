@@ -192,8 +192,7 @@ class PelType(IntEnum):
         if pel_type == PelType.NONE or pel <= 1:
             return clip
 
-        factor = 2 ** pel
-        width, height = clip.width * factor, clip.height * factor
+        width, height = clip.width * pel, clip.height * pel
 
         if pel_type == PelType.NNEDI3:
             nnedicl, nnedi, znedi = (hasattr(core, ns) for ns in ('nnedi3cl', 'nnedi3', 'znedi3'))
