@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from itertools import chain
 from math import ceil, exp
-from typing import Any, Callable, Literal, Sequence, cast, overload
+from typing import Any, Callable, Literal, Sequence, cast
 
 from vstools import (
     ColorRange, FieldBased, FieldBasedT, GenericVSFunction, check_ref_clip, depth, disallow_variable_format,
@@ -289,33 +289,13 @@ class MVTools:
 
         self.analyze_func_kwargs = analyze_kwargs
 
-    @overload
-    def analyze(
-        self, ref: vs.VideoNode | None = None,
-        blksize: int | None = None, overlap: int | None = None,
-        search: int | None = None, pelsearch: int | None = None,
-        searchparam: int | None = None, truemotion: bool | None = None,
-        *, inplace: Literal[False] = False
-    ) -> None:
-        ...
-
-    @overload
-    def analyze(
-        self, ref: vs.VideoNode | None = None,
-        blksize: int | None = None, overlap: int | None = None,
-        search: int | None = None, pelsearch: int | None = None,
-        searchparam: int | None = None, truemotion: bool | None = None,
-        *, inplace: Literal[True] = ...
-    ) -> MotionVectors:
-        ...
-
     def analyze(
         self, ref: vs.VideoNode | None = None,
         blksize: int | None = None, overlap: int | None = None,
         search: int | None = None, pelsearch: int | None = None,
         searchparam: int | None = None, truemotion: bool | None = None,
         *, inplace: bool = False
-    ) -> None | MotionVectors:
+    ) -> MotionVectors:
         if self.analyze_func_kwargs:
             if blksize is None:
                 blksize = self.analyze_func_kwargs.get('blksize', None)
@@ -470,8 +450,7 @@ class MVTools:
 
         vectors.super_render = super_render
 
-        if inplace:
-            return vectors
+        return vectors
 
     def get_vectors_bf(self, *, inplace: bool = False) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
         vectors = self.vectors if self.vectors else self.analyze(inplace=inplace)
