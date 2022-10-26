@@ -6,12 +6,12 @@ from __future__ import annotations
 
 from itertools import chain
 from math import ceil, exp
-from typing import Any, Callable, Literal, Sequence, cast
+from typing import Any, Callable, Sequence, cast
 
 from vstools import (
     ColorRange, FieldBased, FieldBasedT, GenericVSFunction, check_ref_clip, depth, disallow_variable_format,
     disallow_variable_resolution, fallback, vs, core, CustomIntEnum, CustomValueError, CustomNotImplementedError,
-    InvalidColorFamilyError, check_variable, CustomOverflowError
+    InvalidColorFamilyError, check_variable, CustomOverflowError, CustomStrEnum
 )
 
 from .prefilters import PelType, Prefilter, prefilter_to_full_range
@@ -99,7 +99,7 @@ class MVToolsPlugin(CustomIntEnum):
         if radius is None and self != MVToolsPlugin.FLOAT_NEW:
             raise CustomValueError('This implementation needs a radius!', f'{self.name}.Degrain')
 
-        if radius > 24 and self is not MVToolsPlugin.FLOAT_NEW:
+        if radius is not None and radius > 24 and self is not MVToolsPlugin.FLOAT_NEW:
             raise ImportError(
                 f"{self.name}.Degrain: With the current settings, temporal radius > 24, you're gonna need the latest "
                 "master of mvsf and you're using an older version."
@@ -257,8 +257,10 @@ class MVTools:
 
         if isinstance(vectors, MVTools):
             self.vectors = vectors.vectors
+        elif isinstance(vectors, MotionVectors):
+            self.vectors = vectors
         else:
-            self.vectors = vectors or MotionVectors()
+            self.vectors = MotionVectors()
 
         self.super_args = {}
         self.analyze_args = {}
@@ -283,10 +285,10 @@ class MVTools:
         else:
             self.sad_mode, self.recalc_sad_mode = sad_mode, SADMode.SATD
 
-        if self.source_type is FieldBased.PROGRESSIVE:
-            self.workclip = self.clip
-        else:
+        if self.source_type is not FieldBased.PROGRESSIVE:
             self.workclip = self.clip.std.SeparateFields(self.source_type.is_tff)
+        else:
+            self.workclip = self.clip
 
         if highprecision:
             self.workclip = depth(self.workclip, 32)
@@ -393,7 +395,7 @@ class MVTools:
             chroma=self.chroma, dct=self.sad_mode
         ) | self.analyze_args
 
-        recalculate_args = dict[str, Any](
+        recalc_args = dict[str, Any](
             search=0, dct=5, thsad=recalculate_SAD,
             blksize=halfblocksize, overlap=halfoverlap,
             truemotion=truemotion, searchparam=searchparamr,
@@ -409,30 +411,20 @@ class MVTools:
             vectors.vmulti = vmulti
 
             for i in range(self.refine):
-                recalculate_args.update(
+                recalc_args.update(
                     blksize=blocksize / 2 ** i, overlap=blocksize / 2 ** (i + 1)
                 )
                 vectors.vmulti = self.mvtools.Recalculate(
-                    super_recalculate, vectors.vmulti, **recalculate_args
+                    super_recalculate, vectors.vmulti, **recalc_args
                 )
         else:
-            def _add_vector(delta: int, recalculate: bool = False) -> None:
-                if recalculate:
-                    vects = {
-                        'b': self.mvtools.Recalculate(
-                            super_recalculate, vectors.get_mv('b', delta), **recalculate_args
-                        ),
-                        'f': self.mvtools.Recalculate(
-                            super_recalculate, vectors.get_mv('f', delta), **recalculate_args
-                        )
-                    }
-                else:
-                    vects = {
-                        'b': self.mvtools.Analyse(super_search, isb=True, delta=delta, **analyse_args),
-                        'f': self.mvtools.Analyse(super_search, isb=False, delta=delta, **analyse_args)
-                    }
+            def _add_vector(delta: int, analyze: bool = True) -> None:
+                for way in MVWay:
+                    if analyze:
+                        vect = self.mvtools.Analyse(super_search, isb=way.isb, delta=delta, **analyse_args)
+                    else:
+                        vect = self.mvtools.Recalculate(super_recalculate, vectors.get_mv(way, delta), **recalc_args)
 
-                for way, vect in vects.items():
                     vectors.set_mv(way, delta, vect)
 
             for i in range(1, self.tr + 1):
@@ -451,11 +443,11 @@ class MVTools:
                         elif val < 4:
                             refblks = blocksize
 
-                        recalculate_args.update(
+                        recalc_args.update(
                             blksize=refblks / 2 ** j, overlap=refblks / 2 ** (j + 1)
                         )
 
-                        _add_vector(i, True)
+                        _add_vector(i, False)
 
         vectors.super_render = super_render
 
@@ -572,7 +564,7 @@ class MVTools:
         if self.subpel_clips:
             return self.subpel_clips
 
-        return tuple(
+        return tuple(  # type: ignore[return-value]
             None if ptype == PelType.NONE else (
                 ((
                     PelType.NNEDI3 if self.subpixel == 4 else (

@@ -10,7 +10,7 @@ from typing import Any, Type
 
 from vsaa import Nnedi3, Znedi3
 from vsexprtools import ExprOp, norm_expr, aka_expr_available
-from vskernels import Bicubic, BicubicZopti, Bilinear
+from vskernels import Bicubic, BicubicZopti, Bilinear, Kernel
 from vsrgtools import gauss_blur, min_blur, replace_low_frequencies, blur
 from vstools import (
     ColorRange, CustomRuntimeError, DitherType, PlanesT, core, depth, disallow_variable_format,
@@ -155,7 +155,7 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
         if is_integer:
             t = f'x {scale_8bit(pref, 16)} - {scale_8bit(pref, 219)} / {ExprOp.clamp(0, 1)}'
         else:
-            t = ExprOp.clamp(0, 1, 'x')
+            t = ExprOp.clamp(0, 1, 'x').to_str()
 
         head = f'{k} {1 + c} {(1 + c) * c}'
 
@@ -177,7 +177,7 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
         )
 
     if chroma:
-        return join(pref_full, *chroma, pref.format.color_family)
+        return join(pref_full, *chroma, family=pref.format.color_family)
 
     return pref_full
 
@@ -217,6 +217,6 @@ class PelType(IntEnum):
 
             return upscaler.scale(clip, width, height)
 
-        kernel = BicubicZopti if pel_type == PelType.WIENER else Bicubic
+        kernel = Kernel.ensure_obj(BicubicZopti if pel_type == PelType.WIENER else Bicubic)
 
         return kernel.scale(clip, width, height, **kwargs)
