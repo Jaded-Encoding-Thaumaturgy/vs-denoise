@@ -61,18 +61,49 @@ class MVToolsPlugin(CustomIntEnum):
         if radius is None and self != MVToolsPlugin.FLOAT_NEW:
             raise CustomValueError('This implementation needs a radius!', f'{self.name}.Degrain')
 
+        if radius > 24 and self is not MVToolsPlugin.FLOAT_NEW:
+            raise ImportError(
+                f"{self.name}.Degrain: With the current settings, temporal radius > 24, you're gonna need the latest "
+                "master of mvsf and you're using an older version."
+                "\n\tPlease build it from: https://github.com/IFeelBloated/vapoursynth-mvtools-sf"
+            )
+
         try:
             return cast(Callable[..., vs.VideoNode], getattr(
                 self.namespace, f"Degrain{fallback(radius, '')}"
             ))
         except AttributeError:
-            raise CustomValueError(f'This radius isn\'t support! ({radius})', f'{self.name}.Degrain')
+            raise CustomValueError(f'This radius isn\'t supported! ({radius})', f'{self.name}.Degrain')
 
     def __eq__(self, o: Any) -> bool:
         if not isinstance(o, MVToolsPlugin):
             raise CustomNotImplementedError
 
         return self.value == o.value
+
+    @classmethod
+    def from_video(cls, clip: vs.VideoNode) -> MVToolsPlugin:
+        assert clip.format
+
+        if clip.format.sample_type == vs.FLOAT:
+            if not hasattr(core, 'mvsf'):
+                raise ImportError(
+                    "MVTools: With the current settings, the processing has to be done in float precision, "
+                    "but you're missing mvsf."
+                    "\n\tPlease download it from: https://github.com/IFeelBloated/vapoursynth-mvtools-sf"
+                )
+
+            if hasattr(core.mvsf, 'Degrain'):
+                return MVToolsPlugin.FLOAT_NEW
+
+            return MVToolsPlugin.FLOAT_OLD
+        elif not hasattr(core, 'mv'):
+            raise ImportError(
+                "MVTools: You're missing mvtools."
+                "\n\tPlease download it from: https://github.com/dubhater/vapoursynth-mvtools"
+            )
+
+        return MVToolsPlugin.INTEGER
 
 
 class SADMode(CustomIntEnum):
@@ -146,7 +177,7 @@ class MVTools:
         hpad: int | None = None, vpad: int | None = None,
         rfilter: int = 3, vectors: dict[str, Any] | MVTools | None = None
     ) -> None:
-        assert check_variable(clip)
+        assert check_variable(clip, self.__class__)
 
         InvalidColorFamilyError.check(clip, (vs.GRAY, vs.YUV), self.__class__)
 
@@ -220,36 +251,13 @@ class MVTools:
         else:
             self.workclip = self.clip.std.SeparateFields(self.source_type.is_tff)
 
-        fmt = self.workclip.format
-        assert fmt
-
-        if highprecision or fmt.bits_per_sample == 32 or fmt.sample_type == vs.FLOAT or refine == 6 or tr > 3:
+        if highprecision:
             self.workclip = depth(self.workclip, 32)
-            self.mvtools = MVToolsPlugin.FLOAT_NEW
-            if not hasattr(core, 'mvsf'):
-                raise ImportError(
-                    "MVTools: With the current settings, the processing has to be done in float precision, "
-                    "but you're missing mvsf."
-                    "\n\tPlease download it from: https://github.com/IFeelBloated/vapoursynth-mvtools-sf"
-                )
-            if not hasattr(core.mvsf, 'Degrain'):
-                if tr > 24:
-                    raise ImportError(
-                        "MVTools: With the current settings, temporal radius > 24, you're gonna need the latest "
-                        "master of mvsf and you're using an older version."
-                        "\n\tPlease build it from: https://github.com/IFeelBloated/vapoursynth-mvtools-sf"
-                    )
-                self.mvtools = MVToolsPlugin.FLOAT_OLD
-        else:
-            if not hasattr(core, 'mv'):
-                raise ImportError(
-                    "MVTools: You're missing mvtools."
-                    "\n\tPlease download it from: https://github.com/dubhater/vapoursynth-mvtools"
-                )
-            self.mvtools = MVToolsPlugin.INTEGER
 
         if not isinstance(prefilter, Prefilter):
             check_ref_clip(self.workclip, prefilter)
+
+        self.mvtools = MVToolsPlugin.from_video(self.workclip)
 
     def analyze(
         self, ref: vs.VideoNode | None = None,
