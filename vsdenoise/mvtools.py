@@ -175,7 +175,8 @@ class MVTools:
         sad_mode: SADMode | tuple[SADMode, SADMode] = SADMode.SATD,
         range_conversion: float = 5.0,
         hpad: int | None = None, vpad: int | None = None,
-        rfilter: int = 3, vectors: dict[str, Any] | MVTools | None = None
+        rfilter: int = 3, vectors: dict[str, Any] | MVTools | None = None,
+        **analyze_kwargs: Any
     ) -> None:
         assert check_variable(clip, self.__class__)
 
@@ -259,12 +260,33 @@ class MVTools:
 
         self.mvtools = MVToolsPlugin.from_video(self.workclip)
 
+        self.analyze_func_kwargs = analyze_kwargs
+
     def analyze(
         self, ref: vs.VideoNode | None = None,
         blksize: int | None = None, overlap: int | None = None,
         search: int | None = None, pelsearch: int | None = None,
         searchparam: int | None = None, truemotion: bool | None = None
     ) -> None:
+        if self.analyze_func_kwargs:
+            if blksize is None:
+                blksize = self.analyze_func_kwargs.get('blksize', None)
+
+            if overlap is None:
+                overlap = self.analyze_func_kwargs.get('overlap', None)
+
+            if search is None:
+                search = self.analyze_func_kwargs.get('search', None)
+
+            if pelsearch is None:
+                pelsearch = self.analyze_func_kwargs.get('pelsearch', None)
+
+            if searchparam is None:
+                searchparam = self.analyze_func_kwargs.get('searchparam', None)
+
+            if truemotion is None:
+                truemotion = self.analyze_func_kwargs.get('truemotion', None)
+
         ref = fallback(ref, self.workclip)
 
         check_ref_clip(self.workclip, ref)
