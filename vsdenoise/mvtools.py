@@ -18,18 +18,18 @@ from .prefilters import PelType, Prefilter, prefilter_to_full_range
 from .utils import planes_to_mvtools
 
 __all__ = [
-    'MVTools', 'MVToolPlugin', 'SADMode'
+    'MVTools', 'MVToolsPlugin', 'SADMode'
 ]
 
 
-class MVToolPlugin(CustomIntEnum):
+class MVToolsPlugin(CustomIntEnum):
     INTEGER = 0
     FLOAT_OLD = 1
     FLOAT_NEW = 2
 
     @property
     def namespace(self) -> Any:
-        if self == MVToolPlugin.INTEGER:
+        if self == MVToolsPlugin.INTEGER:
             return core.mv
         else:
             return core.mvsf
@@ -40,7 +40,7 @@ class MVToolPlugin(CustomIntEnum):
 
     @property
     def Analyse(self) -> Callable[..., vs.VideoNode]:
-        if self == MVToolPlugin.FLOAT_NEW:
+        if self == MVToolsPlugin.FLOAT_NEW:
             return cast(Callable[..., vs.VideoNode], self.namespace.Analyze)
         else:
             return cast(Callable[..., vs.VideoNode], self.namespace.Analyse)
@@ -58,7 +58,7 @@ class MVToolPlugin(CustomIntEnum):
         return cast(Callable[..., vs.VideoNode], self.namespace.Mask)
 
     def Degrain(self, radius: int | None = None) -> Callable[..., vs.VideoNode]:
-        if radius is None and self != MVToolPlugin.FLOAT_NEW:
+        if radius is None and self != MVToolsPlugin.FLOAT_NEW:
             raise CustomValueError('This implementation needs a radius!', f'{self.name}.Degrain')
 
         try:
@@ -69,7 +69,7 @@ class MVToolPlugin(CustomIntEnum):
             raise CustomValueError(f'This radius isn\'t support! ({radius})', f'{self.name}.Degrain')
 
     def __eq__(self, o: Any) -> bool:
-        if not isinstance(o, MVToolPlugin):
+        if not isinstance(o, MVToolsPlugin):
             raise CustomNotImplementedError
 
         return self.value == o.value
@@ -127,7 +127,7 @@ class MVTools:
     vpad: int
     vpad_half: int
     rfilter: int
-    mvtools: MVToolPlugin
+    mvtools: MVToolsPlugin
 
     @disallow_variable_format
     @disallow_variable_resolution
@@ -225,7 +225,7 @@ class MVTools:
 
         if highprecision or fmt.bits_per_sample == 32 or fmt.sample_type == vs.FLOAT or refine == 6 or tr > 3:
             self.workclip = depth(self.workclip, 32)
-            self.mvtools = MVToolPlugin.FLOAT_NEW
+            self.mvtools = MVToolsPlugin.FLOAT_NEW
             if not hasattr(core, 'mvsf'):
                 raise ImportError(
                     "MVTools: With the current settings, the processing has to be done in float precision, "
@@ -239,14 +239,14 @@ class MVTools:
                         "master of mvsf and you're using an older version."
                         "\n\tPlease build it from: https://github.com/IFeelBloated/vapoursynth-mvtools-sf"
                     )
-                self.mvtools = MVToolPlugin.FLOAT_OLD
+                self.mvtools = MVToolsPlugin.FLOAT_OLD
         else:
             if not hasattr(core, 'mv'):
                 raise ImportError(
                     "MVTools: You're missing mvtools."
                     "\n\tPlease download it from: https://github.com/dubhater/vapoursynth-mvtools"
                 )
-            self.mvtools = MVToolPlugin.INTEGER
+            self.mvtools = MVToolsPlugin.INTEGER
 
         if not isinstance(prefilter, Prefilter):
             check_ref_clip(self.workclip, prefilter)
@@ -331,7 +331,7 @@ class MVTools:
             chroma=self.chroma
         ) | self.recalculate_args
 
-        if self.mvtools == MVToolPlugin.FLOAT_NEW:
+        if self.mvtools == MVToolsPlugin.FLOAT_NEW:
             vmulti = self.mvtools.Analyse(super_search, radius=t2, **analyse_args)
 
             if self.source_type.is_inter:
@@ -401,7 +401,7 @@ class MVTools:
         vectors_backward = list[vs.VideoNode]()
         vectors_forward = list[vs.VideoNode]()
 
-        if self.mvtools == MVToolPlugin.FLOAT_NEW:
+        if self.mvtools == MVToolsPlugin.FLOAT_NEW:
             vmulti = self.vectors['vmulti']
 
             for i in range(0, t2 * 2, 2):
@@ -471,7 +471,7 @@ class MVTools:
             thscd1=thrSCD_first, thscd2=thrSCD_second, plane=self.mv_plane
         ) | self.degrain_args
 
-        if self.mvtools == MVToolPlugin.INTEGER:
+        if self.mvtools == MVToolsPlugin.INTEGER:
             degrain_args.update(
                 thsad=thrSAD_luma, thsadc=thrSAD_chroma,
                 limit=limit, limitc=limitC
@@ -482,12 +482,12 @@ class MVTools:
                 limit=[limit, limitC]
             )
 
-            if self.mvtools == MVToolPlugin.FLOAT_NEW:
+            if self.mvtools == MVToolsPlugin.FLOAT_NEW:
                 degrain_args.update(thsad2=[thrSAD_luma / 2, thrSAD_chroma / 2])
 
         to_degrain = ref or self.workclip
 
-        if self.mvtools == MVToolPlugin.FLOAT_NEW:
+        if self.mvtools == MVToolsPlugin.FLOAT_NEW:
             output = self.mvtools.Degrain()(
                 to_degrain, self.vectors['super_render'], self.vectors['vmulti'], **degrain_args
             )
