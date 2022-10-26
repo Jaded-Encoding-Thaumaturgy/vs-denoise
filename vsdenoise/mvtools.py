@@ -45,6 +45,10 @@ class MotionVectors:
     def _init_vects(self) -> None:
         self.temporal_vectors = {w: {} for w in MVWay}
 
+    @property
+    def got_vectors(self) -> bool:
+        return bool(self.temporal_vectors[MVWay.BACK] and self.temporal_vectors[MVWay.FWRD])
+
     def got_mv(self, way: MVWay, delta: int) -> bool:
         return delta in self.temporal_vectors[way]
 
@@ -454,7 +458,7 @@ class MVTools:
         return vectors
 
     def get_vectors_bf(self, *, inplace: bool = False) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
-        vectors = self.vectors if self.vectors else self.analyze(inplace=inplace)
+        vectors = self.vectors if self.vectors.got_vectors else self.analyze(inplace=inplace)
 
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
