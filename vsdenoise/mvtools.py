@@ -20,30 +20,39 @@ from .utils import planes_to_mvtools
 __all__ = [
     'MVTools', 'MVToolsPlugin',
     'SADMode',
-    'MotionVectors'
+    'MVWay', 'MotionVectors'
 ]
+
+
+class MVWay(CustomStrEnum):
+    BACK = 'backward'
+    FWRD = 'forward'
+
+    @property
+    def isb(self) -> bool:
+        return self is MVWay.BACK
 
 
 class MotionVectors:
     vmulti: vs.VideoNode
     super_render: vs.VideoNode
 
-    temporal_vectors: dict[Literal['b', 'f'], dict[int, vs.VideoNode]]
+    temporal_vectors: dict[MVWay, dict[int, vs.VideoNode]]
 
     def __init__(self) -> None:
         self._init_vects()
 
     def _init_vects(self) -> None:
-        self.temporal_vectors = {'b': {}, 'f': {}}
+        self.temporal_vectors = {w: {} for w in MVWay}
 
-    def got_mv(self, way: Literal['b', 'f'], delta: int) -> bool:
+    def got_mv(self, way: MVWay, delta: int) -> bool:
         return delta in self.temporal_vectors[way]
 
-    def get_mv(self, way: Literal['b', 'f'], delta: int) -> vs.VideoNode:
+    def get_mv(self, way: MVWay, delta: int) -> vs.VideoNode:
         return self.temporal_vectors[way][delta]
 
-    def set_mv(self, way: Literal['b', 'f'], delta: int, mv: vs.VideoNode) -> None:
-        self.temporal_vectors[way][delta] = mv
+    def set_mv(self, way: MVWay, delta: int, vect: vs.VideoNode) -> None:
+        self.temporal_vectors[way][delta] = vect
 
     def clear(self) -> None:
         del self.vmulti
@@ -432,7 +441,7 @@ class MVTools:
             if self.refine:
                 refblks = blocksize
                 for i in range(1, t2 + 1):
-                    if not vectors.got_mv('b', i) or not vectors.got_mv('f', i):
+                    if not vectors.got_mv(MVWay.BACK, i) or not vectors.got_mv(MVWay.FWRD, i):
                         continue
 
                     for j in range(1, self.refine):
@@ -469,8 +478,8 @@ class MVTools:
         else:
             it = 1 + int(self.source_type.is_inter)
             for i in range(it, t2 + 1, it):
-                vectors_backward.append(vectors.get_mv('b', i))
-                vectors_forward.append(vectors.get_mv('f', i))
+                vectors_backward.append(vectors.get_mv(MVWay.BACK, i))
+                vectors_forward.append(vectors.get_mv(MVWay.FWRD, i))
 
         return (vectors_backward, vectors_forward)
 
