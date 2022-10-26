@@ -5,14 +5,13 @@ This module implements prefilters for denoisers
 from __future__ import annotations
 
 from enum import IntEnum
-from math import ceil
+from math import ceil, sin
 from typing import Any, Type
 
 from vsaa import Nnedi3, Znedi3
-from vsexprtools import ExprOp, norm_expr
-from vskernels import Bicubic, BicubicZopti, Bilinear
-from vsrgtools import gauss_blur, min_blur, replace_low_frequencies
-from vsrgtools.util import wmean_matrix
+from vsexprtools import ExprOp, norm_expr, aka_expr_available
+from vskernels import Bicubic, BicubicZopti, Bilinear, Kernel
+from vsrgtools import gauss_blur, min_blur, replace_low_frequencies, blur
 from vstools import (
     ColorRange, CustomRuntimeError, DitherType, PlanesT, core, depth, disallow_variable_format,
     disallow_variable_resolution, get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes,
@@ -149,12 +148,12 @@ class Prefilter(IntEnum):
         if pref_type == Prefilter.HALFBLUR:
             half_clip = Bilinear.scale(clip, clip.width // 2, clip.height // 2)
 
-            boxblur = half_clip.std.Convolution(wmean_matrix, planes=planes, **kwargs)
+            boxblur = blur(half_clip, planes=planes)
 
             return Bilinear.scale(boxblur, clip.width, clip.height)
 
         if pref_type in {Prefilter.GAUSSBLUR1, Prefilter.GAUSSBLUR2}:
-            boxblur = clip.std.Convolution(wmean_matrix, planes=planes, **kwargs)
+            boxblur = blur(clip, planes=planes)
 
             gaussblur = gauss_blur(boxblur, 1.75, planes=planes, **kwargs)
 
@@ -174,7 +173,9 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
     """@@PLACEHOLDER@@"""
 
     planes = normalize_planes(pref, planes)
+
     work_clip, *chroma = split(pref) if planes == [0] else (pref, )
+
     assert (fmt := work_clip.format) and pref.format
 
     bits = get_depth(pref)
@@ -184,18 +185,27 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
     if range_conversion >= 1.0:
         neutral = get_neutral_value(work_clip, True)
         max_val = get_peak_value(work_clip)
-        min_tv_val = scale_8bit(pref, 16)
-        max_tv_val = scale_8bit(pref, 219)
 
-        c = 0.0625
-
+        c = sin(0.0625)
         k = (range_conversion - 1) * c
-        t = f'x {min_tv_val} - {max_tv_val} / {ExprOp.clamp(0, 1)}' if is_integer else ExprOp.clamp(0, 1, 'x')
 
-        pref_full = norm_expr(work_clip, (
-            f"{k} {1 + c} {(1 + c) * c} {t} {c} + / - * {t} 1 {k} - * + {f'{max_val} *' if is_integer else ''}",
-            f'x {neutral} - 128 * 112 / {neutral} +'
-        ), planes)
+        if is_integer:
+            t = f'x {scale_8bit(pref, 16)} - {scale_8bit(pref, 219)} / {ExprOp.clamp(0, 1)}'
+        else:
+            t = ExprOp.clamp(0, 1, 'x').to_str()
+
+        head = f'{k} {1 + c} {(1 + c) * c}'
+
+        if aka_expr_available:
+            head = f'{t} T! {head}'
+            t = 'T@'
+
+        luma_expr = f'{head} {t} {c} + / - * {t} 1 {k} - * +'
+
+        if is_integer:
+            luma_expr += f' {max_val} *'
+
+        pref_full = norm_expr(work_clip, (luma_expr, f'x {neutral} - 128 * 112 / {neutral} +'), planes)
     elif range_conversion > 0.0:
         pref_full = work_clip.retinex.MSRCP(None, range_conversion, None, False, True)
     else:
@@ -204,7 +214,7 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
         )
 
     if chroma:
-        return join([pref_full, *chroma], pref.format.color_family)
+        return join(pref_full, *chroma, family=pref.format.color_family)
 
     return pref_full
 
@@ -242,8 +252,7 @@ class PelType(IntEnum):
         if pel_type == PelType.NONE or pel <= 1:
             return clip
 
-        factor = 2 ** pel
-        width, height = clip.width * factor, clip.height * factor
+        width, height = clip.width * pel, clip.height * pel
 
         if pel_type == PelType.NNEDI3:
             nnedicl, nnedi, znedi = (hasattr(core, ns) for ns in ('nnedi3cl', 'nnedi3', 'znedi3'))
@@ -258,6 +267,6 @@ class PelType(IntEnum):
 
             return upscaler.scale(clip, width, height)
 
-        kernel: type[Bicubic] = BicubicZopti if pel_type == PelType.WIENER else Bicubic  # type: ignore[assignment]
+        kernel = Kernel.ensure_obj(BicubicZopti if pel_type == PelType.WIENER else Bicubic)
 
         return kernel.scale(clip, width, height, **kwargs)
