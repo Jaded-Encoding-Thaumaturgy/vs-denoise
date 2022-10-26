@@ -18,7 +18,7 @@ from .prefilters import PelType, Prefilter, prefilter_to_full_range
 from .utils import planes_to_mvtools
 
 __all__ = [
-    'MVTools', 'MVToolPlugin'
+    'MVTools', 'MVToolPlugin', 'SADMode'
 ]
 
 
@@ -75,6 +75,24 @@ class MVToolPlugin(CustomIntEnum):
         return self.value == o.value
 
 
+class SADMode(CustomIntEnum):
+    SAT = 0
+    BLOCK = 1
+    MIXED_SAT_DCT = 2
+    ADAPTIVE_SAT_MIXED = 3
+    ADAPTIVE_SAT_DCT = 4
+
+    SATD = 5
+    MIXED_SATD_DCT = 6
+    ADAPTIVE_SATD_MIXED = 7
+    ADAPTIVE_SATD_DCT = 8
+    MIXED_SATEQSATD_DCT = 9
+    ADAPTIVE_SATD_MAJLUMA = 10
+
+    def is_satd(self) -> bool:
+        return self >= SADMode.SATD
+
+
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
     super_args: dict[str, Any]
@@ -123,7 +141,8 @@ class MVTools:
         pel: int | None = None, subpixel: int = 3,
         planes: int | Sequence[int] | None = None,
         highprecision: bool = False,
-        fix_fades: bool = False, range_conversion: float = 5.0,
+        sad_mode: SADMode | tuple[SADMode, SADMode] = SADMode.SATD,
+        range_conversion: float = 5.0,
         hpad: int | None = None, vpad: int | None = None,
         rfilter: int = 3, vectors: dict[str, Any] | MVTools | None = None
     ) -> None:
@@ -189,7 +208,12 @@ class MVTools:
 
         self.rfilter = rfilter
 
-        self.DCT = 5 if fix_fades else 0
+        if isinstance(sad_mode, tuple):
+            if not sad_mode[1].is_satd:
+                raise CustomValueError('The SADMode for recalculation must use SATD!', self.__class__)
+            self.sad_mode, self.recalc_sad_mode = sad_mode
+        else:
+            self.sad_mode, self.recalc_sad_mode = sad_mode, SADMode.SATD
 
         if self.source_type is FieldBased.PROGRESSIVE:
             self.workclip = self.clip
@@ -297,7 +321,7 @@ class MVTools:
             plevel=0, pglobal=11, pelsearch=pelsearch,
             blksize=blocksize, overlap=overlap, search=search,
             truemotion=truemotion, searchparam=searchparam,
-            chroma=self.chroma, dct=self.DCT
+            chroma=self.chroma, dct=self.sad_mode
         ) | self.analyze_args
 
         recalculate_args = dict[str, Any](
