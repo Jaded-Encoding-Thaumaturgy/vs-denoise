@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from itertools import chain
 from math import ceil, exp
-from typing import Any, Callable, Sequence, cast
+from typing import Any, Callable, Literal, Sequence, cast, overload
 
 from vstools import (
     ColorRange, FieldBased, FieldBasedT, GenericVSFunction, check_ref_clip, depth, disallow_variable_format,
@@ -262,12 +262,33 @@ class MVTools:
 
         self.analyze_func_kwargs = analyze_kwargs
 
+    @overload
     def analyze(
         self, ref: vs.VideoNode | None = None,
         blksize: int | None = None, overlap: int | None = None,
         search: int | None = None, pelsearch: int | None = None,
-        searchparam: int | None = None, truemotion: bool | None = None
+        searchparam: int | None = None, truemotion: bool | None = None,
+        *, inplace: Literal[False] = False
     ) -> None:
+        ...
+
+    @overload
+    def analyze(
+        self, ref: vs.VideoNode | None = None,
+        blksize: int | None = None, overlap: int | None = None,
+        search: int | None = None, pelsearch: int | None = None,
+        searchparam: int | None = None, truemotion: bool | None = None,
+        *, inplace: Literal[True] = ...
+    ) -> dict[str, vs.VideoNode]:
+        ...
+
+    def analyze(
+        self, ref: vs.VideoNode | None = None,
+        blksize: int | None = None, overlap: int | None = None,
+        search: int | None = None, pelsearch: int | None = None,
+        searchparam: int | None = None, truemotion: bool | None = None,
+        *, inplace: bool = False
+    ) -> None | dict[str, vs.VideoNode]:
         if self.analyze_func_kwargs:
             if blksize is None:
                 blksize = self.analyze_func_kwargs.get('blksize', None)
@@ -286,6 +307,8 @@ class MVTools:
 
             if truemotion is None:
                 truemotion = self.analyze_func_kwargs.get('truemotion', None)
+
+        vectors = dict[str, vs.VideoNode]() if inplace else self.vectors
 
         ref = fallback(ref, self.workclip)
 
@@ -367,24 +390,24 @@ class MVTools:
             if self.source_type.is_inter:
                 vmulti = vmulti.std.SelectEvery(4, 2, 3)
 
-            self.vectors['vmulti'] = vmulti
+            vectors['vmulti'] = vmulti
 
             for i in range(self.refine):
                 recalculate_args.update(
                     blksize=blocksize / 2 ** i, overlap=blocksize / 2 ** (i + 1)
                 )
-                self.vectors['vmulti'] = self.mvtools.Recalculate(
-                    super_recalculate, self.vectors['vmulti'], **recalculate_args
+                vectors['vmulti'] = self.mvtools.Recalculate(
+                    super_recalculate, vectors['vmulti'], **recalculate_args
                 )
         else:
             def _add_vector(delta: int, recalculate: bool = False) -> None:
                 if recalculate:
                     vects = {
                         'b': self.mvtools.Recalculate(
-                            super_recalculate, self.vectors[f'bv{delta}'], **recalculate_args
+                            super_recalculate, vectors[f'bv{delta}'], **recalculate_args
                         ),
                         'f': self.mvtools.Recalculate(
-                            super_recalculate, self.vectors[f'fv{delta}'], **recalculate_args
+                            super_recalculate, vectors[f'fv{delta}'], **recalculate_args
                         )
                     }
                 else:
@@ -394,7 +417,7 @@ class MVTools:
                     }
 
                 for k, vect in vects.items():
-                    self.vectors[f'{k}v{delta}'] = vect
+                    vectors[f'{k}v{delta}'] = vect
 
             for i in range(1, self.tr + 1):
                 _add_vector(i)
@@ -402,7 +425,7 @@ class MVTools:
             if self.refine:
                 refblks = blocksize
                 for i in range(1, t2 + 1):
-                    if not self.vectors[f'bv{i}'] or not self.vectors[f'fv{i}']:
+                    if not vectors[f'bv{i}'] or not vectors[f'fv{i}']:
                         continue
 
                     for j in range(1, self.refine):
@@ -418,11 +441,13 @@ class MVTools:
 
                         _add_vector(i, True)
 
-        self.vectors['super_render'] = super_render
+        vectors['super_render'] = super_render
 
-    def get_vectors_bf(self) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
-        if not self.vectors:
-            self.analyze()
+        if inplace:
+            return vectors
+
+    def get_vectors_bf(self, *, inplace: bool = False) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
+        vectors = self.vectors if self.vectors else self.analyze(inplace=inplace)
 
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
@@ -430,7 +455,7 @@ class MVTools:
         vectors_forward = list[vs.VideoNode]()
 
         if self.mvtools == MVToolsPlugin.FLOAT_NEW:
-            vmulti = self.vectors['vmulti']
+            vmulti = vectors['vmulti']
 
             for i in range(0, t2 * 2, 2):
                 vectors_backward.append(vmulti.std.SelectEvery(t2 * 2, i))
@@ -438,8 +463,8 @@ class MVTools:
         else:
             it = 1 + int(self.source_type.is_inter)
             for i in range(it, t2 + 1, it):
-                vectors_backward.append(self.vectors[f'bv{i}'])
-                vectors_forward.append(self.vectors[f'fv{i}'])
+                vectors_backward.append(vectors[f'bv{i}'])
+                vectors_forward.append(vectors[f'fv{i}'])
 
         return (vectors_backward, vectors_forward)
 
