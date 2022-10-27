@@ -15,20 +15,26 @@ from vstools import core, disallow_variable_format, vs
 
 @final
 class ChannelMode(Enum):
-    """@@PLACEHOLDER@@"""
+    """Enum representing the KNLMeansCL channel operation mode."""
 
     ALL_PLANES = auto()
-    """@@PLACEHOLDER@@"""
+    """Process all planes."""
 
     LUMA = auto()
-    """@@PLACEHOLDER@@"""
+    """Only process luma in YUV/GRAY."""
 
     CHROMA = auto()
-    """@@PLACEHOLDER@@"""
+    """Only process chroma in YUV."""
 
     @classmethod
     def from_planes(cls, planes: Sequence[int]) -> ChannelMode:
-        """@@PLACEHOLDER@@"""
+        """
+        Get :py:attr:`ChannelMode` from a traditional ``planes`` param.
+
+        :param planes:  Sequence of planes to be processed.
+
+        :return:        :py:attr:`ChannelMode` value.
+        """
 
         planes = list(planes)
 
@@ -43,19 +49,19 @@ class ChannelMode(Enum):
 
 @final
 class DeviceType(str, Enum):
-    """@@PLACEHOLDER@@"""
+    """Enum representing available OpenCL device on which to run the plugin."""
 
     ACCELERATOR = 'accelerator'
-    """@@PLACEHOLDER@@"""
+    """Dedicated OpenCL accelerators."""
 
     CPU = 'cpu'
-    """@@PLACEHOLDER@@"""
+    """An OpenCL device that is the host processor."""
 
     GPU = 'gpu'
-    """@@PLACEHOLDER@@"""
+    """An OpenCL device that is a GPU."""
 
     AUTO = 'auto'
-    """@@PLACEHOLDER@@"""
+    """Automatically detect device. Priority is "accelerator" -> "gpu" -> "cpu"."""
 
 
 DEVICETYPE = Literal['accelerator', 'cpu', 'gpu', 'auto']
@@ -72,8 +78,8 @@ def knl_means_cl(
     Convenience wrapper for KNLMeansCL.\n
     Parameters that accept Sequences will only use the first two elements of it.
 
-    For more information, please refer to the original documentation.
-    https://github.com/Khanattila/KNLMeansCL/wiki/Filter-description
+    For more information, please refer to the
+    `original documentation <https://github.com/Khanattila/KNLMeansCL/wiki/Filter-description>`_.
 
     :param clip:            Source clip.
     :param strength:        Controls the strength of the filtering.
@@ -93,6 +99,7 @@ def knl_means_cl(
     :param channels:        Set the colour channels to be denoised
     :param device_type:     Set the OpenCL device.
     :param kwargs:          Additional settings
+
     :return:                Denoised clip.
     """
     assert clip.format
