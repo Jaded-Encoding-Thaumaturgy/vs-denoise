@@ -7,7 +7,7 @@ from __future__ import annotations
 from itertools import count, zip_longest
 from typing import Any, Callable, Iterable, cast
 
-from vskernels import Bilinear, Scaler, ScalerT
+from vskernels import Bilinear, Scaler, ScalerT, Catrom
 from vsrgtools import RemoveGrainMode, removegrain
 from vsrgtools.util import norm_rmode_planes
 from vstools import depth, vs, PlanesT, expect_bits, get_h, get_w, normalize_planes, KwargsT
@@ -18,7 +18,8 @@ from .prefilters import PelType
 
 def mlm_degrain(
     clip: vs.VideoNode, tr: int = 3, refine: int = 3, thSAD: int = 200,
-    factors: Iterable[float] | range = [1 / 3, 2 / 3], scaler: ScalerT = Bilinear,
+    factors: Iterable[float] | range = [1 / 3, 2 / 3],
+    scaler: ScalerT = Bilinear, downscaler: ScalerT = Catrom,
     mv_kwargs: KwargsT | list[KwargsT] | None = None,
     analysis_kwargs: KwargsT | list[KwargsT] | None = None,
     degrain_kwargs: KwargsT | list[KwargsT] | None = None,
@@ -29,6 +30,7 @@ def mlm_degrain(
     planes = normalize_planes(clip, planes)
 
     scaler = Scaler.ensure_obj(scaler, mlm_degrain)
+    downscaler = Scaler.ensure_obj(downscaler, mlm_degrain)
 
     do_soft = bool(soften)
 
@@ -111,7 +113,7 @@ def mlm_degrain(
 
     scaled_clips = [clip]
     for width, height in resolutions[::-1]:
-        scaled_clips.insert(0, scaler.scale(scaled_clips[0], width, height))
+        scaled_clips.insert(0, downscaler.scale(scaled_clips[0], width, height))
 
     diffed_clips = [
         scaler.scale(clip, nclip.width, nclip.height).std.MakeDiff(nclip)
