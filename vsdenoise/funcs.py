@@ -18,7 +18,7 @@ from .prefilters import PelType
 
 def mlm_degrain(
     clip: vs.VideoNode, tr: int = 3, refine: int = 3, thSAD: int = 200,
-    factors: Iterable[float] = [1 / 3, 2 / 3], scaler: ScalerT = Bilinear,
+    factors: Iterable[float] | range = [1 / 3, 2 / 3], scaler: ScalerT = Bilinear,
     mv_kwargs: KwargsT | list[KwargsT] | None = None,
     analysis_kwargs: KwargsT | list[KwargsT] | None = None,
     degrain_kwargs: KwargsT | list[KwargsT] | None = None,
@@ -47,7 +47,10 @@ def mlm_degrain(
         )
     ]
 
-    factors = list(factors)
+    if isinstance(factors, range):
+        factors = [1 / x for x in factors if x >= 1]
+    else:
+        factors = list(factors)
 
     mkwargs_fact, akwargs_fact, dkwargs_fact = [
         cast(
