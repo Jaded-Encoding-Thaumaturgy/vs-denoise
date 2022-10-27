@@ -7,18 +7,13 @@ from __future__ import annotations
 from itertools import count, zip_longest
 from typing import Any, Callable, Iterable, cast
 
-import vapoursynth as vs
-from vsexprtools import PlanesT, expect_bits, get_h, get_w, normalise_planes
-from vskernels import Bilinear
-from vskernels.kernels.abstract import Scaler
+from vskernels import Bilinear, Scaler
 from vsrgtools import RemoveGrainMode, removegrain
 from vsrgtools.util import norm_rmode_planes
-from vsutil import depth
+from vstools import depth, vs, PlanesT, expect_bits, get_h, get_w, normalize_planes
 
 from .mvtools import MVTools
 from .prefilters import PelType
-
-core = vs.core
 
 
 KwargsType = dict[str, Any]
@@ -34,7 +29,7 @@ def mlm_degrain(
     merge_func: Callable[[vs.VideoNode, vs.VideoNode], vs.VideoNode] | None = None,
     planes: PlanesT = None
 ) -> vs.VideoNode:
-    planes = normalise_planes(clip, planes)
+    planes = normalize_planes(clip, planes)
 
     mkwargs_def = dict[str, Any](pel_type=PelType.WIENER, tr=tr, refine=refine, planes=planes)
     akwargs_def = dict[str, Any](truemotion=False)
@@ -111,7 +106,7 @@ def mlm_degrain(
 
         return mv.degrain(**norm_dkwargs[idx])
 
-    bits, clip = expect_bits(clip, 16)
+    clip, bits = expect_bits(clip, 16)
     resolutions = [
         (get_w(clip.height * factor, clip), get_h(clip.width * factor, clip))
         for factor in factors
