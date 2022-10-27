@@ -72,7 +72,7 @@ class MVToolsPlugin(CustomIntEnum):
 
     @property
     def general_namespace(self) -> Any:
-        if self in (MVToolPlugin.INTEGER, MVToolPlugin.SVP_FLOW):
+        if self in {MVToolsPlugin.INTEGER, MVToolsPlugin.SVP_FLOW}:
             return core.mv
         else:
             return core.mvsf
@@ -81,7 +81,7 @@ class MVToolsPlugin(CustomIntEnum):
     def namespace(self) -> Any:
         if self == MVToolsPlugin.INTEGER:
             return core.mv
-        elif self == MVToolPlugin.SVP_FLOW:
+        elif self == MVToolsPlugin.SVP_FLOW:
             return core.svp1
         else:
             return core.mvsf
