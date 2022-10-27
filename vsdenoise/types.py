@@ -1,10 +1,9 @@
-from enum import IntEnum
-from typing import Optional, Protocol, Sequence, Union, Any
+from __future__ import annotations
+
+from typing import Optional, Protocol, Sequence, Union
 
 from vapoursynth import VideoNode
-
-Data = Union[str, bytes, bytearray]
-DataArray = Union[Data, Sequence[Data]]
+from vstools import SimpleByteDataArray
 
 
 class _PluginBm3dcudaCoreUnbound(Protocol):
@@ -33,9 +32,9 @@ class _PluginBm3dcuda_rtcCoreUnbound(Protocol):
         chroma: Optional[int] = None,
         device_id: Optional[int] = None,
         fast: Optional[int] = None, extractor_exp: Optional[int] = None,
-        bm_error_s: Optional[DataArray] = None,
-        transform_2d_s: Optional[DataArray] = None,
-        transform_1d_s: Optional[DataArray] = None
+        bm_error_s: Optional[SimpleByteDataArray] = None,
+        transform_2d_s: Optional[SimpleByteDataArray] = None,
+        transform_1d_s: Optional[SimpleByteDataArray] = None
     ) -> VideoNode:
         ...
 
@@ -51,33 +50,3 @@ class _PluginBm3dcpuCoreUnbound(Protocol):
         chroma: Optional[int] = None
     ) -> VideoNode:
         ...
-
-
-class ZResizer(Protocol):
-    def __call__(self, clip: VideoNode, *, format: Optional[int] = ..., matrix: Optional[int] = ...,
-                 dither_type: Optional[Data] = ...) -> VideoNode:
-        ...
-
-
-class LambdaVSFunction(Protocol):
-    def __call__(self, clip: VideoNode, *args: Any, **kwargs: Any) -> VideoNode:
-        ...
-
-
-class SourceType(IntEnum):
-    BFF = 0
-    TFF = 1
-    PROGRESSIVE = 2
-
-    @property
-    def is_inter(self) -> bool:
-        return self != SourceType.PROGRESSIVE
-
-    def __eq__(self, o: Any) -> bool:
-        if not isinstance(o, SourceType):
-            raise NotImplementedError
-
-        return self.value == o.value
-
-    def __ne__(self, o: Any) -> bool:
-        return not (self == o)

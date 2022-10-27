@@ -4,25 +4,24 @@ This module contains a CCD implementation
 
 from __future__ import annotations
 
-from enum import IntEnum
 from math import sin, sqrt
 from typing import Any
 
-import vapoursynth as vs
 from vsaa import Nnedi3
-from vsexprtools import PlanesT, norm_expr, normalise_planes
-from vskernels import Matrix, MatrixT
+from vsexprtools import EXPR_VARS, norm_expr
+from vskernels import Bicubic, Point
 from vsscale import SSIM
-from vsutil import EXPR_VARS, get_peak_value, join, plane, split
-
-core = vs.core
+from vstools import (
+    CustomIndexError, CustomIntEnum, InvalidColorFamilyError, Matrix, MatrixT, PlanesT, UnsupportedSubsamplingError,
+    check_ref_clip, get_peak_value, join, normalize_planes, plane, shift_clip, split, vs
+)
 
 __all__ = [
     'ccd', 'CCDMode', 'CCDPoints'
 ]
 
 
-class CCDMode(IntEnum):
+class CCDMode(CustomIntEnum):
     CHROMA_ONLY = 0
     BICUBIC_CHROMA = 1
     BICUBIC_LUMA = 2
@@ -30,7 +29,7 @@ class CCDMode(IntEnum):
     NNEDI_SSIM = 4
 
 
-class CCDPoints(IntEnum):
+class CCDPoints(CustomIntEnum):
     LOW = 11
     MEDIUM = 22
     HIGH = 44
@@ -45,30 +44,24 @@ def ccd(
 ) -> vs.VideoNode:
     assert src.format
 
-    if ref is not None:
-        assert ref.format
+    check_ref_clip(src, ref)
 
-        if src.format.id != ref.format.id or src.num_frames != ref.num_frames:
-            raise ValueError('ccd: src and ref must have the same format and length!')
-
-    if src.format.color_family == vs.GRAY:
-        raise ValueError('ccd: GRAY format is not supported!')
+    InvalidColorFamilyError.check(src, (vs.YUV, vs.RGB), ccd)
 
     if tr < 0 or tr > 3:
-        raise ValueError('ccd: Temporal radius must be between 0 and 3 (inclusive)!')
+        raise CustomIndexError('Temporal radius must be between 0 and 3 (inclusive)!', ccd)
     elif tr > src.num_frames // 2:
-        raise ValueError('ccd: Temporal radius must be less than half of the clip length!')
+        raise CustomIndexError('Temporal radius must be less than half of the clip length!', ccd)
 
-    is_yuv = src.format.color_family == vs.YUV
+    is_yuv = src.format.color_family is vs.YUV
     is_subsampled = src.format.subsampling_h or src.format.subsampling_w
 
-    if mode is not None:
-        if not is_subsampled:
-            raise ValueError('ccd: Mode is available only for subsampled video!')
-        elif mode not in list(CCDMode):
-            raise ValueError('ccd: Passed an invalid mode, use CCDMode (0~4).')
-    else:
-        mode = CCDMode.CHROMA_ONLY
+    if mode is not None and not is_subsampled:
+        raise UnsupportedSubsamplingError(f'{mode} is available only for subsampled video!', ccd)
+
+    mode = CCDMode.from_param(mode) or CCDMode.CHROMA_ONLY
+    if not isinstance(ref_points, int):
+        ref_points = (CCDPoints.from_param(ref_points) or CCDPoints.MEDIUM).value
 
     src_width, src_height = src.width, src.height
     src444_format = src.format.replace(subsampling_w=0, subsampling_h=0)
@@ -76,27 +69,24 @@ def ccd(
     if planes is None and mode in {CCDMode.CHROMA_ONLY, CCDMode.BICUBIC_CHROMA}:
         planes = [1, 2]
 
-    planes = normalise_planes(src, planes)
+    planes = normalize_planes(src, planes)
 
     def _ccd_expr(src: vs.VideoNode, rgb: vs.VideoNode) -> vs.VideoNode:
         nonlocal scale
 
         rgb_clips = [
-            core.std.ShufflePlanes([rgb, rgb, rgb], [i, i, i], vs.RGB) for i in range(3)
+            vs.core.std.ShufflePlanes([rgb, rgb, rgb], [i, i, i], vs.RGB) for i in range(3)
         ]
 
         peak = get_peak_value(src, False)
 
-        thrs = thr ** 2 / (255 * 3 * 255)
+        thrs = thr ** 2 / (255 ** 2 * 3)
 
         expr_clips = [src, *rgb_clips]
 
         for i in range(1, tr + 1):
             for clip in rgb_clips:
-                back_clip = clip[i:] + clip[-1] * i
-                forw_clip = clip[0] * i + clip[:-i]
-
-                expr_clips.extend([back_clip, forw_clip])
+                expr_clips.extend([shift_clip(clip, -i), shift_clip(clip, i)])
 
         if not scale or scale <= 0:
             scale = 1.0
@@ -208,14 +198,12 @@ def ccd(
             ]) if planes else None for planes in ref_clips
         ]
     else:
-        yuv = src.resize.Bicubic(yuvw, yuvh, src444_format.id)
-        yuvref = ref and ref.resize.Bicubic(yuvw, yuvh, src444_format.id)
+        yuv = Bicubic.scale(src, yuvw, yuvh, format=src444_format)
+        yuvref = ref and Bicubic.scale(ref, yuvw, yuvh, format=src444_format)
 
     assert yuv and yuv.format
 
-    rgb = yuv.resize.Point(
-        format=yuv.format.replace(color_family=vs.RGB).id, matrix_in=matrix
-    )
+    rgb = Point.resample(yuv, yuv.format.replace(color_family=vs.RGB), None, matrix)
 
     denoised = _ccd_expr(yuvref or yuv, rgb)
 
@@ -227,7 +215,7 @@ def ccd(
         elif mode == CCDMode.NNEDI_SSIM:
             down_format = down_format.replace(sample_type=vs.FLOAT, bits_per_sample=32)
 
-    denoised = denoised.resize.Bicubic(format=down_format.id, src_left=src_left)
+    denoised = Bicubic.resample(denoised, down_format, src_left=src_left)
 
     if not is_subsampled and 0 in planes:
         return denoised
@@ -236,8 +224,8 @@ def ccd(
         u = SSIM(**ssim_kwargs).scale(plane(denoised, 1), yuvw, yuvh)
         v = SSIM(**ssim_kwargs).scale(plane(denoised, 2), yuvw, yuvh)
 
-        denoised = core.std.ShufflePlanes([denoised, u, v], [0, 0, 0], vs.YUV)
+        denoised = join(denoised, u, v, vs.YUV)
     else:
-        denoised = core.std.ShufflePlanes([src, denoised], [0, 1, 2], vs.YUV)
+        denoised = join(src, denoised, vs.YUV)
 
-    return denoised if i444 else denoised.resize.Bicubic(format=src.format.id)
+    return denoised if i444 else Bicubic.resample(denoised, src.format)
