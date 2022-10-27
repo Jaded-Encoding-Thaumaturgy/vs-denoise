@@ -375,9 +375,9 @@ class MVTools:
             common_args |= dict(pelclip=pelclip)
             super_render_args |= dict(pelclip=pelclip2)
 
-        super_search = self.mvtools.Super(ref, **common_args, rfilter=self.rfilter)
+        super_search = self.mvtools.Super(ref, **(dict(rfilter=self.rfilter) | common_args))
         super_render = self.mvtools.Super(self.workclip, **super_render_args)
-        super_recalculate = self.mvtools.Super(pref, **common_args, levels=1) if self.refine else super_render
+        super_recalculate = self.mvtools.Super(pref, **(dict(levels=1) | common_args)) if self.refine else super_render
 
         recalculate_SAD = round(exp(-101. / (150 * 0.83)) * 360)
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
