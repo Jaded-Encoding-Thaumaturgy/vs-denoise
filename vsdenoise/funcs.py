@@ -10,21 +10,18 @@ from typing import Any, Callable, Iterable, cast
 from vskernels import Bilinear, Scaler, ScalerT
 from vsrgtools import RemoveGrainMode, removegrain
 from vsrgtools.util import norm_rmode_planes
-from vstools import depth, vs, PlanesT, expect_bits, get_h, get_w, normalize_planes
+from vstools import depth, vs, PlanesT, expect_bits, get_h, get_w, normalize_planes, KwargsT
 
 from .mvtools import MVTools
 from .prefilters import PelType
 
 
-KwargsType = dict[str, Any]
-
-
 def mlm_degrain(
     clip: vs.VideoNode, tr: int = 3, refine: int = 3, thSAD: int = 200,
     factors: Iterable[float] = [1 / 3, 2 / 3], scaler: ScalerT = Bilinear,
-    mv_kwargs: KwargsType | list[KwargsType] | None = None,
-    analysis_kwargs: KwargsType | list[KwargsType] | None = None,
-    degrain_kwargs: KwargsType | list[KwargsType] | None = None,
+    mv_kwargs: KwargsT | list[KwargsT] | None = None,
+    analysis_kwargs: KwargsT | list[KwargsT] | None = None,
+    degrain_kwargs: KwargsT | list[KwargsT] | None = None,
     soften: Callable[..., vs.VideoNode] | bool | None = False,
     merge_func: Callable[[vs.VideoNode, vs.VideoNode], vs.VideoNode] | None = None,
     planes: PlanesT = None
