@@ -25,13 +25,15 @@ def mlm_degrain(
     mv_kwargs: KwargsType | list[KwargsType] | None = None,
     analysis_kwargs: KwargsType | list[KwargsType] | None = None,
     degrain_kwargs: KwargsType | list[KwargsType] | None = None,
-    soft_func: Callable[..., vs.VideoNode] | None = None,
+    soften: Callable[..., vs.VideoNode] | bool | None = False,
     merge_func: Callable[[vs.VideoNode, vs.VideoNode], vs.VideoNode] | None = None,
     planes: PlanesT = None
 ) -> vs.VideoNode:
     planes = normalize_planes(clip, planes)
 
     scaler = Scaler.ensure_obj(scaler, mlm_degrain)
+
+    do_soft = bool(soften)
 
     mkwargs_def = dict[str, Any](pel_type=PelType.WIENER, tr=tr, refine=refine, planes=planes)
     akwargs_def = dict[str, Any](truemotion=False)
@@ -75,8 +77,8 @@ def mlm_degrain(
     def _degrain(clip: vs.VideoNode, ref: vs.VideoNode | None, soft: bool, idx: int, **kwargs: Any) -> vs.VideoNode:
         mvtools_arg = dict(**norm_mkwargs[idx])
 
-        if soft:
-            if soft_func is None:
+        if do_soft and soft:
+            if soften is True:
                 softened = removegrain(
                     clip, norm_rmode_planes(
                         clip,
@@ -84,24 +86,21 @@ def mlm_degrain(
                         planes
                     )
                 )
-            else:
+            elif callable(soften):
                 try:
-                    softened = soft_func(clip, planes=planes)
+                    softened = soften(clip, planes=planes)
                 except BaseException:
-                    softened = soft_func(clip)
+                    softened = soften(clip)
 
             mvtools_arg |= dict(prefilter=softened)
-
-            clip = softened
 
         block_size = 16 if clip.width > 960 else 8
         analise_args = dict[str, Any](blksize=block_size, overlap=block_size // 2) | norm_akwargs[idx]
 
-        mv = MVTools(clip, **mvtools_arg, **kwargs)
-        mv.super_args |= dict(sharp=1, levels=1)
+        mvtools_arg |= dict(subpixel=1) | kwargs
 
+        mv = MVTools(clip, **mvtools_arg)
         mv.analyze(ref, **analise_args)
-
         return mv.degrain(**norm_dkwargs[idx])
 
     clip, bits = expect_bits(clip, 16)
