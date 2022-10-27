@@ -174,8 +174,6 @@ class MVTools:
     compensate_args: dict[str, Any]
     degrain_args: dict[str, Any]
 
-    subpel_clips: tuple[vs.VideoNode | None, vs.VideoNode | None] | None
-
     vectors: MotionVectors
 
     clip: vs.VideoNode
@@ -271,8 +269,6 @@ class MVTools:
         self.recalculate_args = {}
         self.compensate_args = {}
         self.degrain_args = {}
-
-        self.subpel_clips = None
 
         self.hpad = fallback(hpad, 8 if self.is_hd else 16)
         self.hpad_uhd = self.hpad // 2 if self.is_uhd else self.hpad
@@ -539,15 +535,8 @@ class MVTools:
     def get_subpel_clips(
         self, pref: vs.VideoNode, ref: vs.VideoNode
     ) -> tuple[vs.VideoNode | None, vs.VideoNode | None]:
-        if self.subpel_clips:
-            return self.subpel_clips
-
         return tuple(  # type: ignore[return-value]
-            None if ptype == PelType.NONE else (
-                ((
-                    PelType.NNEDI3 if self.subpixel == 4 else (PelType.WIENER if is_ref else PelType.BICUBIC)
-                ) if self.prefilter is Prefilter.NONE else ptype
-                )(clip, self.pel)
-            )
-            for is_ref, ptype, clip in zip((False, True), self.pel_type, (pref, ref))
+            None if ptype == PelType.NONE else ptype(
+                clip, self.pel, self.subpixel, default=PelType.WIENER if is_ref else PelType.BICUBIC
+            ) for is_ref, ptype, clip in zip((False, True), self.pel_type, (pref, ref))
         )
