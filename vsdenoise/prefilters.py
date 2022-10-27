@@ -28,26 +28,61 @@ __all__ = [
 
 
 class Prefilter(CustomIntEnum):
+    """@@PLACEHOLDER@@"""
+
     AUTO = -2
+    """@@PLACEHOLDER@@"""
+
     NONE = -1
+    """@@PLACEHOLDER@@"""
+
     MINBLUR1 = 0
+    """@@PLACEHOLDER@@"""
+
     MINBLUR2 = 1
+    """@@PLACEHOLDER@@"""
+
     MINBLUR3 = 2
+    """@@PLACEHOLDER@@"""
+
     MINBLURFLUX = 3
+    """@@PLACEHOLDER@@"""
+
     DFTTEST = 4
+    """@@PLACEHOLDER@@"""
+
     KNLMEANSCL = 5
+    """@@PLACEHOLDER@@"""
+
     BM3D = 6
+    """@@PLACEHOLDER@@"""
+
     BM3D_CPU = 7
+    """@@PLACEHOLDER@@"""
+
     BM3D_CUDA = 8
+    """@@PLACEHOLDER@@"""
+
     BM3D_CUDA_RTC = 9
+    """@@PLACEHOLDER@@"""
+
     DGDENOISE = 10
+    """@@PLACEHOLDER@@"""
+
     HALFBLUR = 11
+    """@@PLACEHOLDER@@"""
+
     GAUSSBLUR1 = 12
+    """@@PLACEHOLDER@@"""
+
     GAUSSBLUR2 = 13
+    """@@PLACEHOLDER@@"""
 
     @disallow_variable_format
     @disallow_variable_resolution
     def __call__(self, clip: vs.VideoNode, planes: PlanesT = None, **kwargs: Any) -> vs.VideoNode:
+        """@@PLACEHOLDER@@"""
+
         pref_type = Prefilter.MINBLUR3 if self == Prefilter.AUTO else self
 
         bits = get_depth(clip)
@@ -137,6 +172,8 @@ class Prefilter(CustomIntEnum):
 
 
 def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
+    """@@PLACEHOLDER@@"""
+
     planes = normalize_planes(pref, planes)
 
     work_clip, *chroma = split(pref) if planes == [0] else (pref, )
@@ -218,15 +255,22 @@ else:
 
 class PelType(int, PelTypeBase):
     AUTO = -1
+    """@@PLACEHOLDER@@"""
+
     NONE = 0
+    """@@PLACEHOLDER@@"""
+
     NNEDI3 = 4
+    """@@PLACEHOLDER@@"""
 
     if TYPE_CHECKING:
         from .prefilters import PelType
 
         class CUSTOM(Scaler, PelType):  # type: ignore
+            """@@PLACEHOLDER@@"""
+
             def __init__(self, scaler: str | Type[Scaler] | Scaler, **kwargs: Any) -> None:
-                ...
+                """@@PLACEHOLDER@@"""
 
             def scale(  # type: ignore
                 self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
@@ -234,7 +278,10 @@ class PelType(int, PelTypeBase):
                 ...
 
         BICUBIC: CUSTOM
+        """@@PLACEHOLDER@@"""
+
         WIENER: CUSTOM
+        """@@PLACEHOLDER@@"""
 
         def __new__(cls, value: int) -> PelType:
             ...
@@ -248,6 +295,8 @@ class PelType(int, PelTypeBase):
         pel_type: Scaler | PelType, clip: vs.VideoNode, pel: int, subpixel: int = 3,
         default: ScalerT | PelType | None = None, **kwargs: Any
     ) -> vs.VideoNode:
+        """@@PLACEHOLDER@@"""
+
         assert clip.format
 
         if pel_type is PelType.NONE or pel <= 1:

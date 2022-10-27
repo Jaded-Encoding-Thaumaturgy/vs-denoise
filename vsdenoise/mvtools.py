@@ -25,19 +25,29 @@ __all__ = [
 
 
 class MVWay(CustomStrEnum):
+    """@@PLACEHOLDER@@"""
+
     BACK = 'backward'
+    """@@PLACEHOLDER@@"""
+
     FWRD = 'forward'
+    """@@PLACEHOLDER@@"""
 
     @property
     def isb(self) -> bool:
+        """@@PLACEHOLDER@@"""
         return self is MVWay.BACK
 
 
 class MotionVectors:
     vmulti: vs.VideoNode
+    """@@PLACEHOLDER@@"""
+
     super_render: vs.VideoNode
+    """@@PLACEHOLDER@@"""
 
     temporal_vectors: dict[MVWay, dict[int, vs.VideoNode]]
+    """@@PLACEHOLDER@@"""
 
     def __init__(self) -> None:
         self._init_vects()
@@ -47,27 +57,39 @@ class MotionVectors:
 
     @property
     def got_vectors(self) -> bool:
+        """@@PLACEHOLDER@@"""
         return bool(self.temporal_vectors[MVWay.BACK] and self.temporal_vectors[MVWay.FWRD])
 
     def got_mv(self, way: MVWay, delta: int) -> bool:
+        """@@PLACEHOLDER@@"""
         return delta in self.temporal_vectors[way]
 
     def get_mv(self, way: MVWay, delta: int) -> vs.VideoNode:
+        """@@PLACEHOLDER@@"""
         return self.temporal_vectors[way][delta]
 
     def set_mv(self, way: MVWay, delta: int, vect: vs.VideoNode) -> None:
+        """@@PLACEHOLDER@@"""
         self.temporal_vectors[way][delta] = vect
 
     def clear(self) -> None:
+        """@@PLACEHOLDER@@"""
         del self.vmulti
         del self.super_render
         self.temporal_vectors.clear()
 
 
 class MVToolsPlugin(CustomIntEnum):
+    """@@PLACEHOLDER@@"""
+
     INTEGER = 0
+    """@@PLACEHOLDER@@"""
+
     FLOAT_OLD = 1
+    """@@PLACEHOLDER@@"""
+
     FLOAT_NEW = 2
+    """@@PLACEHOLDER@@"""
 
     @property
     def namespace(self) -> Any:
@@ -125,6 +147,8 @@ class MVToolsPlugin(CustomIntEnum):
 
     @classmethod
     def from_video(cls, clip: vs.VideoNode) -> MVToolsPlugin:
+        """@@PLACEHOLDER@@"""
+
         assert clip.format
 
         if clip.format.sample_type == vs.FLOAT:
@@ -149,18 +173,40 @@ class MVToolsPlugin(CustomIntEnum):
 
 
 class SADMode(CustomIntEnum):
+    """@@PLACEHOLDER@@"""
+
     SAT = 0
+    """@@PLACEHOLDER@@"""
+
     BLOCK = 1
+    """@@PLACEHOLDER@@"""
+
     MIXED_SAT_DCT = 2
+    """@@PLACEHOLDER@@"""
+
     ADAPTIVE_SAT_MIXED = 3
+    """@@PLACEHOLDER@@"""
+
     ADAPTIVE_SAT_DCT = 4
+    """@@PLACEHOLDER@@"""
 
     SATD = 5
+    """@@PLACEHOLDER@@"""
+
     MIXED_SATD_DCT = 6
+    """@@PLACEHOLDER@@"""
+
     ADAPTIVE_SATD_MIXED = 7
+    """@@PLACEHOLDER@@"""
+
     ADAPTIVE_SATD_DCT = 8
+    """@@PLACEHOLDER@@"""
+
     MIXED_SATEQSATD_DCT = 9
+    """@@PLACEHOLDER@@"""
+
     ADAPTIVE_SATD_MAJLUMA = 10
+    """@@PLACEHOLDER@@"""
 
     def is_satd(self) -> bool:
         return self >= SADMode.SATD
@@ -169,14 +215,25 @@ class SADMode(CustomIntEnum):
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
     super_args: dict[str, Any]
+    """@@PLACEHOLDER@@"""
+
     analyze_args: dict[str, Any]
+    """@@PLACEHOLDER@@"""
+
     recalculate_args: dict[str, Any]
+    """@@PLACEHOLDER@@"""
+
     compensate_args: dict[str, Any]
+    """@@PLACEHOLDER@@"""
+
     degrain_args: dict[str, Any]
+    """@@PLACEHOLDER@@"""
 
     vectors: MotionVectors
+    """@@PLACEHOLDER@@"""
 
     clip: vs.VideoNode
+    """@@PLACEHOLDER@@"""
 
     is_hd: bool
     is_uhd: bool
@@ -218,6 +275,8 @@ class MVTools:
         rfilter: int = 3, vectors: MotionVectors | MVTools | None = None,
         **analyze_kwargs: Any
     ) -> None:
+        """@@PLACEHOLDER@@"""
+
         assert check_variable(clip, self.__class__)
 
         InvalidColorFamilyError.check(clip, (vs.GRAY, vs.YUV), self.__class__)
@@ -307,6 +366,8 @@ class MVTools:
         searchparam: int | None = None, truemotion: bool | None = None,
         *, inplace: bool = False
     ) -> MotionVectors:
+        """@@PLACEHOLDER@@"""
+
         if self.analyze_func_kwargs:
             if blksize is None:
                 blksize = self.analyze_func_kwargs.get('blksize', None)
@@ -438,6 +499,8 @@ class MVTools:
         return vectors
 
     def get_vectors_bf(self, *, inplace: bool = False) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
+        """@@PLACEHOLDER@@"""
+
         vectors = self.vectors if self.vectors.got_vectors else self.analyze(inplace=inplace)
 
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
@@ -464,6 +527,8 @@ class MVTools:
         ref: vs.VideoNode | None = None,
         thSAD: int = 150, **kwargs: Any
     ) -> vs.VideoNode:
+        """@@PLACEHOLDER@@"""
+
         ref = fallback(ref, self.workclip)
 
         check_ref_clip(self.workclip, ref)
@@ -496,6 +561,8 @@ class MVTools:
         thSCD1: int | None = None, thSCD2: int = 130,
         limit: int | None = None, limitC: float | None = None
     ) -> vs.VideoNode:
+        """@@PLACEHOLDER@@"""
+
         check_ref_clip(self.workclip, ref)
 
         limit = fallback(limit, 2 if self.is_uhd else 255)
@@ -535,6 +602,8 @@ class MVTools:
     def get_subpel_clips(
         self, pref: vs.VideoNode, ref: vs.VideoNode
     ) -> tuple[vs.VideoNode | None, vs.VideoNode | None]:
+        """@@PLACEHOLDER@@"""
+
         return tuple(  # type: ignore[return-value]
             None if ptype == PelType.NONE else ptype(
                 clip, self.pel, self.subpixel, default=PelType.WIENER if is_ref else PelType.BICUBIC
