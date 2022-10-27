@@ -68,36 +68,46 @@ class MVToolsPlugin(CustomIntEnum):
     INTEGER = 0
     FLOAT_OLD = 1
     FLOAT_NEW = 2
+    SVP_FLOW = 3
 
     @property
-    def namespace(self) -> Any:
-        if self == MVToolsPlugin.INTEGER:
+    def general_namespace(self) -> Any:
+        if self in (MVToolPlugin.INTEGER, MVToolPlugin.SVP_FLOW):
             return core.mv
         else:
             return core.mvsf
 
     @property
+    def namespace(self) -> Any:
+        if self == MVToolsPlugin.INTEGER:
+            return core.mv
+        elif self == MVToolPlugin.SVP_FLOW:
+            return core.svp1
+        else:
+            return core.mvsf
+
+    @property
     def Super(self) -> Callable[..., vs.VideoNode]:
-        return cast(Callable[..., vs.VideoNode], self.namespace.Super)
+        return cast(Callable[..., vs.VideoNode], self.general_namespace.Super)
 
     @property
     def Analyse(self) -> Callable[..., vs.VideoNode]:
         if self == MVToolsPlugin.FLOAT_NEW:
-            return cast(Callable[..., vs.VideoNode], self.namespace.Analyze)
+            return cast(Callable[..., vs.VideoNode], self.general_namespace.Analyze)
         else:
-            return cast(Callable[..., vs.VideoNode], self.namespace.Analyse)
+            return cast(Callable[..., vs.VideoNode], self.general_namespace.Analyse)
 
     @property
     def Recalculate(self) -> Callable[..., vs.VideoNode]:
-        return cast(Callable[..., vs.VideoNode], self.namespace.Recalculate)
+        return cast(Callable[..., vs.VideoNode], self.general_namespace.Recalculate)
 
     @property
     def Compensate(self) -> Callable[..., vs.VideoNode]:
-        return cast(Callable[..., vs.VideoNode], self.namespace.Compensate)
+        return cast(Callable[..., vs.VideoNode], self.general_namespace.Compensate)
 
     @property
     def Mask(self) -> Callable[..., vs.VideoNode]:
-        return cast(Callable[..., vs.VideoNode], self.namespace.Mask)
+        return cast(Callable[..., vs.VideoNode], self.general_namespace.Mask)
 
     def Degrain(self, radius: int | None = None) -> Callable[..., vs.VideoNode]:
         if radius is None and self != MVToolsPlugin.FLOAT_NEW:
@@ -112,7 +122,7 @@ class MVToolsPlugin(CustomIntEnum):
 
         try:
             return cast(Callable[..., vs.VideoNode], getattr(
-                self.namespace, f"Degrain{fallback(radius, '')}"
+                self.general_namespace, f"Degrain{fallback(radius, '')}"
             ))
         except AttributeError:
             raise CustomValueError(f'This radius isn\'t supported! ({radius})', f'{self.name}.Degrain')
