@@ -57,9 +57,9 @@ def mlm_degrain(
     mkwargs_fact, akwargs_fact, dkwargs_fact = [
         cast(
             list[tuple[float, dict[str, Any]]],
-            zip_longest(
+            list(zip_longest(
                 factors, kwargs[:len(factors)], fillvalue=kwargs[-1]
-            )
+            ))
         ) for kwargs in (mkwargs, akwargs, dkwargs)
     ]
 
