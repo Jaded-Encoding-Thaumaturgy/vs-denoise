@@ -7,7 +7,7 @@ from __future__ import annotations
 from itertools import count, zip_longest
 from typing import Any, Callable, Iterable, cast
 
-from vskernels import Bilinear, Scaler
+from vskernels import Bilinear, Scaler, ScalerT
 from vsrgtools import RemoveGrainMode, removegrain
 from vsrgtools.util import norm_rmode_planes
 from vstools import depth, vs, PlanesT, expect_bits, get_h, get_w, normalize_planes
@@ -21,7 +21,7 @@ KwargsType = dict[str, Any]
 
 def mlm_degrain(
     clip: vs.VideoNode, tr: int = 3, refine: int = 3, thSAD: int = 200,
-    factors: Iterable[float] = [1 / 3, 2 / 3], scaler: Scaler = Bilinear(),
+    factors: Iterable[float] = [1 / 3, 2 / 3], scaler: ScalerT = Bilinear,
     mv_kwargs: KwargsType | list[KwargsType] | None = None,
     analysis_kwargs: KwargsType | list[KwargsType] | None = None,
     degrain_kwargs: KwargsType | list[KwargsType] | None = None,
@@ -30,6 +30,8 @@ def mlm_degrain(
     planes: PlanesT = None
 ) -> vs.VideoNode:
     planes = normalize_planes(clip, planes)
+
+    scaler = Scaler.ensure_obj(scaler, mlm_degrain)
 
     mkwargs_def = dict[str, Any](pel_type=PelType.WIENER, tr=tr, refine=refine, planes=planes)
     akwargs_def = dict[str, Any](truemotion=False)
@@ -67,9 +69,7 @@ def mlm_degrain(
     ]
 
     norm_mkwargs, norm_akwargs, norm_dkwargs = [
-        norm_mkwargs + norm_mkwargs[-1:],
-        norm_akwargs + norm_akwargs[-1:],
-        norm_dkwargs + norm_dkwargs[-1:]
+        norm_mkwargs + norm_mkwargs[-1:], norm_akwargs + norm_akwargs[-1:], norm_dkwargs + norm_dkwargs[-1:]
     ]
 
     def _degrain(clip: vs.VideoNode, ref: vs.VideoNode | None, soft: bool, idx: int, **kwargs: Any) -> vs.VideoNode:
@@ -95,9 +95,7 @@ def mlm_degrain(
             clip = softened
 
         block_size = 16 if clip.width > 960 else 8
-        analise_args = dict[str, Any](
-            blksize=block_size, overlap=block_size // 2
-        ) | norm_akwargs[idx]
+        analise_args = dict[str, Any](blksize=block_size, overlap=block_size // 2) | norm_akwargs[idx]
 
         mv = MVTools(clip, **mvtools_arg, **kwargs)
         mv.super_args |= dict(sharp=1, levels=1)
@@ -135,7 +133,7 @@ def mlm_degrain(
     for i, diff, ref_den, ref_den_next in zip(
         count(1), diffed_clips, ref_den_clips[1:], ref_den_clips[2:] + ref_den_clips[-1:]
     ):
-        is_first, is_last = i == 0, i == last_idx
+        is_first, is_last = i == 1, i == last_idx
 
         pel = 2 if is_first else 1 if is_last else None
 
