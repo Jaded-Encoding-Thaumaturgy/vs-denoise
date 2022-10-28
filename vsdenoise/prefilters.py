@@ -378,7 +378,19 @@ class Prefilter(PrefilterBase):
 
 
 def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
-    """@@PLACEHOLDER@@"""
+    """
+    Convert a limited range clip to full range.
+    Useful for expanding prefiltered clips' ranges for more values for motion estimation.
+
+    :param pref:                Clip to be processed.
+    :param range_conversion:    Value for deciding what range conversion method to use.
+                                * >= 1.0 - Expansion with expr based on this coefficient.
+                                * >  0.0 - Expansion with retinex.
+                                * <= 0.0 - Simple conversion with resize plugin.
+    :param planes:              Planes to be processed.
+
+    :return:                    Full range clip.
+    """
 
     planes = normalize_planes(pref, planes)
 
