@@ -28,34 +28,38 @@ __all__ = [
 
 
 class Prefilter(CustomIntEnum):
-    """@@PLACEHOLDER@@"""
+    """
+    Enum representing available filters.
+    These are mainly thought as prefilters for :py:attr:`MVTools`,
+    but can be used standalone as-is.
+    """
 
     AUTO = -2
-    """@@PLACEHOLDER@@"""
+    """Automatically decide what filter to use."""
 
     NONE = -1
-    """@@PLACEHOLDER@@"""
+    """Don't use any filters. Will return the clip as-is."""
 
     MINBLUR1 = 0
-    """@@PLACEHOLDER@@"""
+    """A gaussian/temporal median merge of radius 1."""
 
     MINBLUR2 = 1
-    """@@PLACEHOLDER@@"""
+    """A gaussian/temporal median merge of radius 2."""
 
     MINBLUR3 = 2
-    """@@PLACEHOLDER@@"""
+    """A gaussian/temporal median merge of radius 3."""
 
     MINBLURFLUX = 3
-    """@@PLACEHOLDER@@"""
+    """:py:attr:`MINBLUR2` with temporal/spatial average."""
 
     DFTTEST = 4
-    """@@PLACEHOLDER@@"""
+    """Denoising in frequency domain with dfttest with adaptive mask for retaining lineart."""
 
     KNLMEANSCL = 5
-    """@@PLACEHOLDER@@"""
+    """Denoising with KNLMeansCL, then postprocessed to remove low frequencies."""
 
     BM3D = 6
-    """@@PLACEHOLDER@@"""
+    """Normal spatio-temporal denoising with the BM3D denoiser."""
 
     BM3D_CPU = 7
     """@@PLACEHOLDER@@"""
