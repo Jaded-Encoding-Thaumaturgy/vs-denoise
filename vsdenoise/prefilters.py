@@ -473,22 +473,26 @@ else:
 
 class PelType(int, PelTypeBase):
     AUTO = -1
-    """@@PLACEHOLDER@@"""
+    """Automatically decide what :py:class:`PelType` to use."""
 
     NONE = 0
-    """@@PLACEHOLDER@@"""
+    """Don't perform any scaling."""
 
     NNEDI3 = 4
-    """@@PLACEHOLDER@@"""
+    """Performs scaling with NNedi3, ZNedi3."""
 
     if TYPE_CHECKING:
         from .prefilters import PelType
 
         class CUSTOM(Scaler, PelType):  # type: ignore
-            """@@PLACEHOLDER@@"""
+            """Class for constructing your own :py:class:`PelType`"""
 
             def __init__(self, scaler: str | type[Scaler] | Scaler, **kwargs: Any) -> None:
-                """@@PLACEHOLDER@@"""
+                """
+                Create custom :py:class`PelType` from a scaler.
+
+                :param scaler:  Scaler to be used for scaling and create a pel clip.
+                """
 
             def scale(  # type: ignore
                 self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
@@ -496,10 +500,10 @@ class PelType(int, PelTypeBase):
                 ...
 
         BICUBIC: CUSTOM
-        """@@PLACEHOLDER@@"""
+        """Performs scaling with default bicubic values (:py:class:`vskernels.Catrom`)."""
 
         WIENER: CUSTOM
-        """@@PLACEHOLDER@@"""
+        """Performs scaling with the wiener filter (:py:class:`BicubicZopti`)."""
 
         def __new__(cls, value: int) -> PelType:
             ...
@@ -513,7 +517,19 @@ class PelType(int, PelTypeBase):
         pel_type: Scaler | PelType, clip: vs.VideoNode, pel: int, subpixel: int = 3,
         default: ScalerT | PelType | None = None, **kwargs: Any
     ) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
+        """
+        Scale a clip. Useful for motion interpolation.
+
+        :param clip:        Clip to be scaled.
+        :param pel:         Rate of scaling.
+        :param subpixel:    Precision used in mvtools calls.
+                            Will be used with :py:attr:`PelType.AUTO`.
+        :param default:     Default :py:class:`PelType`/:py:class:`Scaler` top be used.
+                            Will be used with :py:attr:`PelType.AUTO`.
+        :param **kwargs:    Keyword arguments passed to the scaler.
+
+        :return:            Upscaled clip.
+        """
 
         assert clip.format
 
