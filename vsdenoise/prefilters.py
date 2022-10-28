@@ -32,15 +32,6 @@ class PrefilterBase(CustomIntEnum):
     def __call__(  # type: ignore
         self: Prefilter, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any
     ) -> vs.VideoNode:
-        """
-        Run the selected filter.
-
-        :param clip:        Clip to be processed.
-        :param planes:      Planes to be processed.
-        :param **kwargs:    Arguments for the specified filter.
-
-        :return:            Filtered clip.
-        """
         assert check_variable(clip, self)
 
         pref_type = Prefilter.MINBLUR3 if self == Prefilter.AUTO else self
@@ -251,7 +242,7 @@ class Prefilter(PrefilterBase):
                                     The impact on performance is low, therefore it depends on the nature of the noise.
                                     Similarity neighbourhood size = (2 * simr + 1)^2.
             :param device_type:     Set the OpenCL device.
-            :param kwargs:          Additional settings
+            :param **kwargs:        Additional settings
 
             :return:                Filtered clip.
             """
@@ -291,14 +282,38 @@ class Prefilter(PrefilterBase):
             scale: int = 2, radius: int = 1, mode: ConvMode = ConvMode.SQUARE,
             downscaler: ScalerT = Bilinear, upscaler: ScalerT | None = None
         ) -> vs.VideoNode:
-            ...
+            """
+            Perform blurring at a scaled down resolution, then rescale up.
+
+            :param clip:        Clip to be processed.
+            :param planes:      Planes to be processed.
+            :param scale:       Rate of downscaling.
+            :param radius:      :py:attr:`vsrgtools.blur` radius param.
+            :param mode:        Convolution mode for blurring.
+            :param downscaler:  Scaler to be used for downscaling.
+            :param upscaler:    Scaler to be used to reupscale the clip.
+                                If None, :py:attr:`downscaler` will be used.
+
+            :return:            Filtered clip.
+            """
 
         @overload
         def __call__(  # type: ignore
             self: Literal[Prefilter.GAUSSBLUR], clip: vs.VideoNode, /, planes: PlanesT = None,
             *, sigma: float | None = 1.0, sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
         ) -> vs.VideoNode:
-            ...
+            """
+            Gaussian blurred, then postprocessed to remove low frequencies.
+
+            :param clip:        Clip to be processed.
+            :param planes:      Planes to be processed.
+            :param sigma:       Sigma param for :py:attr:`vsrgtools.gauss_blur`.
+            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.
+                                Either :py:attr:`sigma` or this should be specified.
+            :param mode:        Convolution mode for blurring.
+
+            :return:            Filtered clip.
+            """
 
         @overload
         def __call__(  # type: ignore
@@ -306,7 +321,21 @@ class Prefilter(PrefilterBase):
             *, radius: int = 1, strength: int = 90, sigma: float | None = 1.75,
             sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
         ) -> vs.VideoNode:
-            ...
+            """
+            Clamped gaussian/box blurring with edge preservation.
+
+            :param clip:        Clip to be processed.
+            :param planes:      Planes to be processed.
+            :param radius:      Radius param for the blurring.
+            :param strength:    Clamping strength between the two blurred clips.
+                                Must be between 1 and 99 (inclusive).
+            :param sigma:       Sigma param for :py:attr:`vsrgtools.gauss_blur`.
+            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.
+                                Either :py:attr:`sigma` or this should be specified.
+            :param mode:        Convolution mode for blurring.
+
+            :return:            Filtered clip.
+            """
 
         @overload
         def __call__(  # type: ignore
@@ -314,11 +343,33 @@ class Prefilter(PrefilterBase):
             *, radius: int = 1, strength: int = 50, sigma: float | None = 1.75,
             sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
         ) -> vs.VideoNode:
-            ...
+            """
+            Clamped gaussian/box blurring.
+
+            :param clip:        Clip to be processed.
+            :param planes:      Planes to be processed.
+            :param radius:      Radius param for the blurring.
+            :param strength:    Edge detection strength.
+                                Must be between 1 and 99 (inclusive).
+            :param sigma:       Sigma param for :py:attr:`vsrgtools.gauss_blur`.
+            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.
+                                Either :py:attr:`sigma` or this should be specified.
+            :param mode:        Convolution mode for blurring.
+
+            :return:            Filtered clip.
+            """
 
         @overload
         def __call__(self, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any) -> vs.VideoNode:
-            ...
+            """
+            Run the selected filter.
+
+            :param clip:        Clip to be processed.
+            :param planes:      Planes to be processed.
+            :param **kwargs:    Arguments for the specified filter.
+
+            :return:            Filtered clip.
+            """
 
         def __call__(  # type: ignore
             self, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any
