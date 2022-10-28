@@ -32,7 +32,15 @@ class PrefilterBase(CustomIntEnum):
     def __call__(  # type: ignore
         self: Prefilter, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any
     ) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
+        """
+        Run the selected filter.
+
+        :param clip:        Clip to be processed.
+        :param planes:      Planes to be processed.
+        :param **kwargs:    Arguments for the specified filter.
+
+        :return:            Filtered clip.
+        """
         assert check_variable(clip, self)
 
         pref_type = Prefilter.MINBLUR3 if self == Prefilter.AUTO else self
@@ -171,16 +179,16 @@ class Prefilter(PrefilterBase):
     """Normal spatio-temporal denoising with the BM3D denoiser."""
 
     SCALEDBLUR = 7
-    """@@PLACEHOLDER@@"""
+    """Perform blurring at a scaled down resolution, then rescale up."""
 
     GAUSSBLUR = 8
-    """@@PLACEHOLDER@@"""
+    """Gaussian blurred, then postprocessed to remove low frequencies."""
 
     GAUSSBLUR1 = 9
-    """@@PLACEHOLDER@@"""
+    """Clamped gaussian/box blurring."""
 
     GAUSSBLUR2 = 10
-    """@@PLACEHOLDER@@"""
+    """Clamped gaussian/box blurring with edge preservation."""
 
     if TYPE_CHECKING:
         from .prefilters import Prefilter
@@ -190,7 +198,16 @@ class Prefilter(PrefilterBase):
             self: Literal[Prefilter.MINBLURFLUX], clip: vs.VideoNode, /, planes: PlanesT = None,
             *, temp_thr: int = 2, spat_thr: int = 2
         ) -> vs.VideoNode:
-            ...
+            """
+            :py:attr:`MINBLUR2` with temporal/spatial average.
+
+            :param clip:        Clip to be processed.
+            :param planes:      Planes to be processed.
+            :param temp_thr:    Temporal threshold for the temporal median function.
+            :param spat_thr:    Spatial threshold for the temporal median function.
+
+            :return:            Filtered clip.
+            """
 
         @overload
         def __call__(  # type: ignore
@@ -214,7 +231,30 @@ class Prefilter(PrefilterBase):
             *, strength: SingleOrArr[float] = 7.0, tr: SingleOrArr[int] = 1, sr: SingleOrArr[int] = 2,
             simr: SingleOrArr[int] = 2, device_type: DEVICETYPE | DeviceType = DeviceType.AUTO, **kwargs: Any
         ) -> vs.VideoNode:
-            ...
+            """
+            Denoising with KNLMeansCL, then postprocessed to remove low frequencies.
+
+            :param clip:            Clip to be processed.
+            :param planes:          Planes to be processed.
+            :param strength:        Controls the strength of the filtering.
+                                    Larger values will remove more noise.
+            :param tr:              Temporal Radius. Set the number of past and future frame that the filter uses
+                                    for denoising the current frame.
+                                    tr=0 uses 1 frame, while tr=1 uses 3 frames and so on.
+                                    Usually, larger it the better the result of the denoising.
+                                    Temporal size = (2 * tr + 1).
+            :param sr:              Search Radius. Set the radius of the search window.
+                                    sr=1 uses 9 pixel, while sr=2 uses 25 pixels and so on.
+                                    Usually, larger it the better the result of the denoising.
+                                    Spatial size = (2 * sr + 1)^2.
+            :param simr:            Similarity Radius. Set the radius of the similarity neighbourhood window.
+                                    The impact on performance is low, therefore it depends on the nature of the noise.
+                                    Similarity neighbourhood size = (2 * simr + 1)^2.
+            :param device_type:     Set the OpenCL device.
+            :param kwargs:          Additional settings
+
+            :return:                Filtered clip.
+            """
 
         @overload
         def __call__(  # type: ignore
@@ -224,7 +264,26 @@ class Prefilter(PrefilterBase):
             profile: Profile = ..., ref: vs.VideoNode | None = None, refine: int = 1,
             yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
         ) -> vs.VideoNode:
-            ...
+            """
+            Normal spatio-temporal denoising with the BM3D denoiser.
+
+            :param clip:        Clip to be processed.
+            :param planes:      Planes to be processed.
+            :param arch:        BM3D Architecture to use (class).
+            :param sigma:       Strength of denoising, valid range is [0, +inf)
+            :param radius:      Temporal radius, valid range is [1, 16]
+            :param profile:     Preset profiles
+            :param ref:         Reference clip used in block-matching, it replaces basic estimate
+                                If not specified, the input clip is used instead
+            :param refine:      Refinement times:
+                                * 0 means basic estimate only
+                                * 1 means basic estimate with one final estimate
+                                * n means basic estimate refined with final estimate for n times
+            :param yuv2rgb:     Kernel used for converting the clip from YUV to RGB
+            :param rgb2yuv:     Kernel used for converting back the clip from RGB to YUV
+
+            :return:                Filtered clip.
+            """
 
         @overload
         def __call__(  # type: ignore
