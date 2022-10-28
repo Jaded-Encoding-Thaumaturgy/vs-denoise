@@ -137,7 +137,7 @@ class PrefilterBase(CustomIntEnum):
 
 
 class Prefilter(PrefilterBase):
-        """
+    """
     Enum representing available filters.
     These are mainly thought as prefilters for :py:attr:`MVTools`,
     but can be used standalone as-is.
@@ -181,7 +181,6 @@ class Prefilter(PrefilterBase):
 
     GAUSSBLUR2 = 10
     """@@PLACEHOLDER@@"""
-
 
     if TYPE_CHECKING:
         from .prefilters import Prefilter
@@ -366,7 +365,7 @@ class PelType(int, PelTypeBase):
         class CUSTOM(Scaler, PelType):  # type: ignore
             """@@PLACEHOLDER@@"""
 
-            def __init__(self, scaler: str | Type[Scaler] | Scaler, **kwargs: Any) -> None:
+            def __init__(self, scaler: str | type[Scaler] | Scaler, **kwargs: Any) -> None:
                 """@@PLACEHOLDER@@"""
 
             def scale(  # type: ignore
