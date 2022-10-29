@@ -514,7 +514,7 @@ class PelType(int, PelTypeBase):
     @disallow_variable_format
     @disallow_variable_resolution
     def __call__(
-        pel_type: Scaler | PelType, clip: vs.VideoNode, pel: int, subpixel: int = 3,
+        pel_type: Scaler | PelType, clip: vs.VideoNode, pel: int,
         default: ScalerT | PelType | None = None, **kwargs: Any
     ) -> vs.VideoNode:
         """
@@ -537,12 +537,17 @@ class PelType(int, PelTypeBase):
             return clip
 
         if pel_type is PelType.AUTO:
-            if subpixel == 4:
-                pel_type = PelType.NNEDI3
-            elif default:
+            if default:
                 pel_type = default if isinstance(default, PelType) else Scaler.ensure_obj(default)
             else:
-                pel_type = PelType(1 << 3 - ceil(clip.height / 1000))
+                val = 1 << 3 - ceil(clip.height / 1000)
+
+                if val <= 1:
+                    pel_type = PelType.BICUBIC
+                elif val == 2:
+                    pel_type = PelType.WIENER
+                else:
+                    pel_type = PelType.NNEDI3
 
         if pel_type == PelType.NNEDI3:
             nnedicl, nnedi, znedi = (hasattr(core, ns) for ns in ('nnedi3cl', 'nnedi3', 'znedi3'))
