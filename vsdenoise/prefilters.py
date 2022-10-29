@@ -4,49 +4,36 @@ This module implements prefilters for denoisers
 
 from __future__ import annotations
 
-from enum import IntEnum
-from math import ceil
-from typing import Any, Type
+from math import ceil, sin
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 from vsaa import Nnedi3, Znedi3
-from vsexprtools import ExprOp, norm_expr
-from vskernels import Bicubic, BicubicZopti, Bilinear
-from vsrgtools import gauss_blur, min_blur, replace_low_frequencies
-from vsrgtools.util import wmean_matrix
+from vsexprtools import ExprOp, norm_expr, aka_expr_available
+from vskernels import Bicubic, BicubicZopti, Bilinear, Scaler, ScalerT, KernelT
+from vsrgtools import gauss_blur, min_blur, replace_low_frequencies, blur
 from vstools import (
     ColorRange, CustomRuntimeError, DitherType, PlanesT, core, depth, disallow_variable_format,
     disallow_variable_resolution, get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes,
-    scale_8bit, scale_value, split, vs
+    scale_8bit, scale_value, split, vs, CustomEnum, CustomIntEnum, clamp, check_variable, SingleOrArrOpt, SingleOrArr,
+    ConvMode
 )
 
 from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
-from .knlm import ChannelMode, knl_means_cl
+from .knlm import DEVICETYPE, ChannelMode, DeviceType, knl_means_cl
 
-__all__ = ['Prefilter', 'prefilter_to_full_range', 'PelType']
+__all__ = [
+    'Prefilter', 'prefilter_to_full_range',
+    'PelType'
+]
 
 
-class Prefilter(IntEnum):
-    AUTO = -2
-    NONE = -1
-    MINBLUR1 = 0
-    MINBLUR2 = 1
-    MINBLUR3 = 2
-    MINBLURFLUX = 3
-    DFTTEST = 4
-    KNLMEANSCL = 5
-    BM3D = 6
-    BM3D_CPU = 7
-    BM3D_CUDA = 8
-    BM3D_CUDA_RTC = 9
-    DGDENOISE = 10
-    HALFBLUR = 11
-    GAUSSBLUR1 = 12
-    GAUSSBLUR2 = 13
+class PrefilterBase(CustomIntEnum):
+    def __call__(  # type: ignore
+        self: Prefilter, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any
+    ) -> vs.VideoNode:
+        assert check_variable(clip, self)
 
-    @disallow_variable_format
-    @disallow_variable_resolution
-    def __call__(self, clip: vs.VideoNode, planes: PlanesT = None, **kwargs: Any) -> vs.VideoNode:
         pref_type = Prefilter.MINBLUR3 if self == Prefilter.AUTO else self
 
         bits = get_depth(clip)
@@ -60,7 +47,8 @@ class Prefilter(IntEnum):
             return min_blur(clip, pref_type.value, planes)
 
         if pref_type == Prefilter.MINBLURFLUX:
-            return min_blur(clip, 2, planes).flux.SmoothST(2, 2, planes)
+            temp_thr, spat_thr = kwargs.get('temp_thr', 2), kwargs.get('spat_thr', 2)
+            return min_blur(clip, 2, planes).flux.SmoothST(temp_thr, spat_thr, planes)
 
         if pref_type == Prefilter.DFTTEST:
             dftt_args = dict[str, Any](
@@ -81,23 +69,24 @@ class Prefilter(IntEnum):
             return dfft.std.MaskedMerge(clip, pref_mask, planes)
 
         if pref_type == Prefilter.KNLMEANSCL:
-            knl = knl_means_cl(clip, 7.0, 1, 2, 2, ChannelMode.from_planes(planes), **kwargs)
+            kwargs |= dict(strength=7.0, tr=1, sr=2, simr=2) | kwargs | dict(channels=ChannelMode.from_planes(planes))
+            knl = knl_means_cl(clip, **kwargs)
 
             return replace_low_frequencies(knl, clip, 600 * (clip.width / 1920), False, planes)
 
-        if pref_type in {Prefilter.BM3D, Prefilter.BM3D_CPU, Prefilter.BM3D_CUDA, Prefilter.BM3D_CUDA_RTC}:
-            bm3d_arch: Type[AbstractBM3D]
+        if pref_type == Prefilter.BM3D:
+            bm3d_arch: type[AbstractBM3D] = kwargs.pop('arch', BM3DCuda if kwargs.pop('gpu', False) else BM3DM)
 
-            if pref_type == Prefilter.BM3D:
-                bm3d_arch, sigma, profile = BM3DM, 10, Profile.FAST
-            elif pref_type == Prefilter.BM3D_CPU:
-                bm3d_arch, sigma, profile = BM3DCPU, 10, Profile.LOW_COMPLEXITY
-            elif pref_type == Prefilter.BM3D_CUDA:
-                bm3d_arch, sigma, profile = BM3DCuda, 8, Profile.NORMAL
-            elif pref_type == Prefilter.BM3D_CUDA_RTC:
-                bm3d_arch, sigma, profile = BM3DCudaRTC, 8, Profile.NORMAL
+            if bm3d_arch is BM3DM:
+                sigma, profile = 10, Profile.FAST
+            elif bm3d_arch is BM3DCPU:
+                sigma, profile = 10, Profile.LOW_COMPLEXITY
+            elif bm3d_arch in (BM3DCuda, BM3DCudaRTC):
+                sigma, profile = 8, Profile.NORMAL
             else:
                 raise ValueError
+
+            sigma = kwargs.pop('sigma', sigma)
 
             sigmas = [sigma if 0 in planes else 0, sigma if (1 in planes or 2 in planes) else 0]
 
@@ -105,39 +94,152 @@ class Prefilter(IntEnum):
 
             return bm3d_arch(clip, **bm3d_args).clip
 
-        if pref_type == Prefilter.DGDENOISE:
-            # dgd = core.dgdecodenv.DGDenoise(pref, 0.10)
+        if pref_type == Prefilter.SCALEDBLUR:
+            scale = kwargs.pop('scale', 2)
+            downscaler = Scaler.ensure_obj(kwargs.pop('downscaler', Bilinear))
+            upscaler = downscaler.ensure_obj(kwargs.pop('upscaler', downscaler))
 
-            # pref = replace_low_frequencies(dgd, pref, w / 2)
-            return gauss_blur(clip, 1, planes=planes, **kwargs)
+            downscale = downscaler.scale(clip, clip.width // scale, clip.height // scale)
 
-        if pref_type == Prefilter.HALFBLUR:
-            half_clip = Bilinear.scale(clip, clip.width // 2, clip.height // 2)
+            boxblur = blur(downscale, kwargs.pop('radius', 1), kwargs.pop('mode', ConvMode.SQUARE), planes)
 
-            boxblur = half_clip.std.Convolution(wmean_matrix, planes=planes, **kwargs)
+            return upscaler.scale(boxblur, clip.width, clip.height)
 
-            return Bilinear.scale(boxblur, clip.width, clip.height)
+        if pref_type == Prefilter.GAUSSBLUR:
+            if 'sharp' not in kwargs and 'sigma' not in kwargs:
+                kwargs |= dict(sigma=1.0)
+
+            dgd = gauss_blur(clip, **(kwargs | dict[str, Any](planes=planes)))
+
+            return replace_low_frequencies(dgd, clip, clip.width / 2)
 
         if pref_type in {Prefilter.GAUSSBLUR1, Prefilter.GAUSSBLUR2}:
-            boxblur = clip.std.Convolution(wmean_matrix, planes=planes, **kwargs)
+            boxblur = blur(clip, kwargs.pop('radius', 1), kwargs.get('mode', ConvMode.SQUARE), planes=planes)
 
-            gaussblur = gauss_blur(boxblur, 1.75, planes=planes, **kwargs)
+            if 'sharp' not in kwargs and 'sigma' not in kwargs:
+                kwargs |= dict(sigma=1.75)
+
+            strg = clamp(kwargs.pop('strenght', 50 if pref_type == Prefilter.GAUSSBLUR2 else 90), 0, 98) + 1
+
+            gaussblur = gauss_blur(boxblur, **(kwargs | dict[str, Any](planes=planes)))
 
             if pref_type == Prefilter.GAUSSBLUR2:
                 i2, i7 = (scale_8bit(clip, x) for x in (2, 7))
 
-                merge_expr = f'x {i7} + y < x {i2} + x {i7} - y > x {i2} - x 51 * y 49 * + 100 / ? ?'
+                merge_expr = f'x {i7} + y < x {i2} + x {i7} - y > x {i2} - x {strg} * y {100 - strg} * + 100 / ? ?'
             else:
-                merge_expr = 'x 0.9 * y 0.1 * +'
+                merge_expr = f'x {strg / 100} * y {(100 - strg) / 100} * +'
 
             return norm_expr([gaussblur, clip], merge_expr, planes)
 
         return clip
 
 
+class Prefilter(PrefilterBase):
+    AUTO = -2
+    NONE = -1
+    MINBLUR1 = 0
+    MINBLUR2 = 1
+    MINBLUR3 = 2
+    MINBLURFLUX = 3
+    DFTTEST = 4
+    KNLMEANSCL = 5
+    BM3D = 6
+    SCALEDBLUR = 7
+    GAUSSBLUR = 8
+    GAUSSBLUR1 = 9
+    GAUSSBLUR2 = 10
+
+    if TYPE_CHECKING:
+        from .prefilters import Prefilter
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.MINBLURFLUX], clip: vs.VideoNode, /, planes: PlanesT = None,
+            *, temp_thr: int = 2, spat_thr: int = 2
+        ) -> vs.VideoNode:
+            ...
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.DFTTEST], clip: vs.VideoNode, /, planes: PlanesT = None,
+            *,
+            tbsize: int = 1, sbsize: int = 12, sosize: int = 6, swin: int = 2,
+            slocation: SingleOrArr[float] = [0.0, 4.0, 0.2, 9.0, 1.0, 15.0],
+            ftype: int | None = None, sigma: float | None = None, sigma2: float | None = None,
+            pmin: float | None = None, pmax: float | None = None, smode: int | None = None,
+            tmode: int | None = None, tosize: int | None = None, twin: int | None = None,
+            sbeta: float | None = None, tbeta: float | None = None, zmean: int | None = None,
+            f0beta: float | None = None, nlocation: SingleOrArrOpt[int] = None, alpha: float | None = None,
+            ssx: SingleOrArrOpt[float] = None, ssy: SingleOrArrOpt[float] = None, sst: SingleOrArrOpt[float] = None,
+            ssystem: int | None = None, opt: int | None = None
+        ) -> vs.VideoNode:
+            ...
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.KNLMEANSCL], clip: vs.VideoNode, /, planes: PlanesT = None,
+            *, strength: SingleOrArr[float] = 7.0, tr: SingleOrArr[int] = 1, sr: SingleOrArr[int] = 2,
+            simr: SingleOrArr[int] = 2, device_type: DEVICETYPE | DeviceType = DeviceType.AUTO, **kwargs: Any
+        ) -> vs.VideoNode:
+            ...
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.BM3D], clip: vs.VideoNode, /, planes: PlanesT = None,
+            *, arch: type[AbstractBM3D] = ..., gpu: bool = False,
+            sigma: SingleOrArr[float] = ..., radius: SingleOrArr[int] = 1,
+            profile: Profile = ..., ref: vs.VideoNode | None = None, refine: int = 1,
+            yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
+        ) -> vs.VideoNode:
+            ...
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.SCALEDBLUR], clip: vs.VideoNode, /, planes: PlanesT = None,
+            scale: int = 2, radius: int = 1, mode: ConvMode = ConvMode.SQUARE,
+            downscaler: ScalerT = Bilinear, upscaler: ScalerT | None = None
+        ) -> vs.VideoNode:
+            ...
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.GAUSSBLUR], clip: vs.VideoNode, /, planes: PlanesT = None,
+            *, sigma: float | None = 1.0, sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
+        ) -> vs.VideoNode:
+            ...
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.GAUSSBLUR1], clip: vs.VideoNode, /, planes: PlanesT = None,
+            *, radius: int = 1, strength: int = 90, sigma: float | None = 1.75,
+            sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
+        ) -> vs.VideoNode:
+            ...
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.GAUSSBLUR2], clip: vs.VideoNode, /, planes: PlanesT = None,
+            *, radius: int = 1, strength: int = 50, sigma: float | None = 1.75,
+            sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
+        ) -> vs.VideoNode:
+            ...
+
+        @overload
+        def __call__(self, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any) -> vs.VideoNode:
+            ...
+
+        def __call__(  # type: ignore
+            self, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any
+        ) -> vs.VideoNode:
+            ...
+
+
 def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
     planes = normalize_planes(pref, planes)
+
     work_clip, *chroma = split(pref) if planes == [0] else (pref, )
+
     assert (fmt := work_clip.format) and pref.format
 
     bits = get_depth(pref)
@@ -147,18 +249,27 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
     if range_conversion >= 1.0:
         neutral = get_neutral_value(work_clip, True)
         max_val = get_peak_value(work_clip)
-        min_tv_val = scale_8bit(pref, 16)
-        max_tv_val = scale_8bit(pref, 219)
 
-        c = 0.0625
-
+        c = sin(0.0625)
         k = (range_conversion - 1) * c
-        t = f'x {min_tv_val} - {max_tv_val} / {ExprOp.clamp(0, 1)}' if is_integer else ExprOp.clamp(0, 1, 'x')
 
-        pref_full = norm_expr(work_clip, (
-            f"{k} {1 + c} {(1 + c) * c} {t} {c} + / - * {t} 1 {k} - * + {f'{max_val} *' if is_integer else ''}",
-            f'x {neutral} - 128 * 112 / {neutral} +'
-        ), planes)
+        if is_integer:
+            t = f'x {scale_8bit(pref, 16)} - {scale_8bit(pref, 219)} / {ExprOp.clamp(0, 1)}'
+        else:
+            t = ExprOp.clamp(0, 1, 'x').to_str()
+
+        head = f'{k} {1 + c} {(1 + c) * c}'
+
+        if aka_expr_available:
+            head = f'{t} T! {head}'
+            t = 'T@'
+
+        luma_expr = f'{head} {t} {c} + / - * {t} 1 {k} - * +'
+
+        if is_integer:
+            luma_expr += f' {max_val} *'
+
+        pref_full = norm_expr(work_clip, (luma_expr, f'x {neutral} - 128 * 112 / {neutral} +'), planes)
     elif range_conversion > 0.0:
         pref_full = work_clip.retinex.MSRCP(None, range_conversion, None, False, True)
     else:
@@ -167,33 +278,87 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
         )
 
     if chroma:
-        return join([pref_full, *chroma], pref.format.color_family)
+        return join(pref_full, *chroma, family=pref.format.color_family)
 
     return pref_full
 
 
-class PelType(IntEnum):
+if TYPE_CHECKING:
+    PelTypeBase = CustomEnum
+else:
+    class PelTypeBase(CustomEnum):
+        ...
+
+    class CUSTOM(Scaler):
+        def __init__(self, scaler: str | type[Scaler] | Scaler, **kwargs: Any) -> None:
+            self.scaler = Scaler.ensure_obj(scaler)
+            self.kwargs = kwargs
+
+        @disallow_variable_format
+        @disallow_variable_resolution
+        def __call__(
+            self, clip: vs.VideoNode, pel: int, subpixel: int = 3,
+            default: ScalerT | None = None, **kwargs: Any
+        ) -> vs.VideoNode:
+            return PelType.__call__(self.scaler, clip, pel, subpixel, default, **(self.kwargs | kwargs))
+
+        def scale(
+            self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
+        ) -> vs.VideoNode:
+            self.scaler.scale(clip, width, height, shift, **kwargs)
+
+    BICUBIC = CUSTOM(Bicubic)
+    WIENER = CUSTOM(BicubicZopti)
+
+    PelTypeBase.CUSTOM = CUSTOM
+    PelTypeBase.BICUBIC = BICUBIC
+    PelTypeBase.WIENER = WIENER
+
+
+class PelType(int, PelTypeBase):
     AUTO = -1
     NONE = 0
-    BICUBIC = 1
-    WIENER = 2
     NNEDI3 = 4
+
+    if TYPE_CHECKING:
+        from .prefilters import PelType
+
+        class CUSTOM(Scaler, PelType):  # type: ignore
+            def __init__(self, scaler: str | type[Scaler] | Scaler, **kwargs: Any) -> None:
+                ...
+
+            def scale(  # type: ignore
+                self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
+            ) -> vs.VideoNode:
+                ...
+
+        BICUBIC: CUSTOM
+        WIENER: CUSTOM
+
+        def __new__(cls, value: int) -> PelType:
+            ...
+
+        def __init__(self, value: int) -> None:
+            ...
 
     @disallow_variable_format
     @disallow_variable_resolution
-    def __call__(self, clip: vs.VideoNode, pel: int, **kwargs: Any) -> vs.VideoNode:
+    def __call__(
+        pel_type: Scaler | PelType, clip: vs.VideoNode, pel: int, subpixel: int = 3,
+        default: ScalerT | PelType | None = None, **kwargs: Any
+    ) -> vs.VideoNode:
         assert clip.format
 
-        pel_type = self
-
-        if pel_type == PelType.AUTO:
-            pel_type = PelType(1 << 3 - ceil(clip.height / 1000))
-
-        if pel_type == PelType.NONE or pel <= 1:
+        if pel_type is PelType.NONE or pel <= 1:
             return clip
 
-        factor = 2 ** pel
-        width, height = clip.width * factor, clip.height * factor
+        if pel_type is PelType.AUTO:
+            if subpixel == 4:
+                pel_type = PelType.NNEDI3
+            elif default:
+                pel_type = default if isinstance(default, PelType) else Scaler.ensure_obj(default)
+            else:
+                pel_type = PelType(1 << 3 - ceil(clip.height / 1000))
 
         if pel_type == PelType.NNEDI3:
             nnedicl, nnedi, znedi = (hasattr(core, ns) for ns in ('nnedi3cl', 'nnedi3', 'znedi3'))
@@ -202,12 +367,10 @@ class PelType(IntEnum):
             if not any((nnedi, znedi, nnedicl)):
                 raise CustomRuntimeError('Missing any nnedi3 implementation!', PelType.NNEDI3)
 
-            kwargs |= {'nsize': 0, 'nns': 1, 'qual': 1} | kwargs
+            kwargs |= {'nsize': 0, 'nns': clamp(((pel - 1) // 2) + 1, 0, 4), 'qual': clamp(pel - 1, 1, 3)} | kwargs
 
-            upscaler = Nnedi3(**kwargs, opencl=nnedicl) if do_nnedi else Znedi3(**kwargs)
+            pel_type = Nnedi3(**kwargs, opencl=nnedicl) if do_nnedi else Znedi3(**kwargs)
 
-            return upscaler.scale(clip, width, height)
+        assert isinstance(pel_type, Scaler)
 
-        kernel: type[Bicubic] = BicubicZopti if pel_type == PelType.WIENER else Bicubic  # type: ignore[assignment]
-
-        return kernel.scale(clip, width, height, **kwargs)
+        return pel_type.scale(clip, clip.width * pel, clip.height * pel, **kwargs)
