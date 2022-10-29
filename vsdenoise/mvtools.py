@@ -187,7 +187,7 @@ class MVTools:
     pel_type: tuple[PelType, PelType]
     range_in: ColorRange
     pel: int
-    subpixel: int
+    sharp: int
     chroma: bool
     is_gray: bool
     planes: list[int]
@@ -209,7 +209,7 @@ class MVTools:
         prefilter: Prefilter | vs.VideoNode = Prefilter.AUTO,
         pel_type: PelType | tuple[PelType, PelType] = PelType.AUTO,
         range_in: ColorRange = ColorRange.LIMITED,
-        pel: int | None = None, subpixel: int = 3,
+        pel: int | None = None, sharp: int = 3,
         planes: int | Sequence[int] | None = None,
         highprecision: bool = False,
         sad_mode: SADMode | tuple[SADMode, SADMode] = SADMode.SATD,
@@ -239,7 +239,7 @@ class MVTools:
         self.pel_type = pel_type if isinstance(pel_type, tuple) else (pel_type, pel_type)
         self.range_in = range_in
         self.pel = fallback(pel, 1 + int(not self.is_hd))
-        self.subpixel = subpixel
+        self.sharp = sharp
 
         if planes is not None and isinstance(planes, int):
             planes = [planes]
@@ -367,7 +367,7 @@ class MVTools:
         pelclip, pelclip2 = self.get_subpel_clips(pref, ref)
 
         common_args = dict[str, Any](
-            sharp=min(self.subpixel, 2), pel=self.pel, vpad=self.vpad_half, hpad=self.hpad_uhd, chroma=self.chroma
+            sharp=self.sharp, pel=self.pel, vpad=self.vpad_half, hpad=self.hpad_uhd, chroma=self.chroma
         ) | self.super_args
         super_render_args = common_args | dict(levels=1, hpad=self.hpad, vpad=self.vpad, chroma=not self.is_gray)
 
@@ -537,6 +537,6 @@ class MVTools:
     ) -> tuple[vs.VideoNode | None, vs.VideoNode | None]:
         return tuple(  # type: ignore[return-value]
             None if ptype == PelType.NONE else ptype(
-                clip, self.pel, self.subpixel, default=PelType.WIENER if is_ref else PelType.BICUBIC
+                clip, self.pel, default=PelType.WIENER if is_ref else PelType.BICUBIC
             ) for is_ref, ptype, clip in zip((False, True), self.pel_type, (pref, ref))
         )
