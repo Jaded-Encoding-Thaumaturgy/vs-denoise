@@ -239,26 +239,27 @@ class SADMode(CustomIntEnum):
 
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
+
     super_args: dict[str, Any]
-    """@@PLACEHOLDER@@"""
+    """Arguments passed to all the :py:attr:`MVToolsPlugin.Super` calls."""
 
     analyze_args: dict[str, Any]
-    """@@PLACEHOLDER@@"""
+    """Arguments passed to all the :py:attr:`MVToolsPlugin.Analyze` calls."""
 
     recalculate_args: dict[str, Any]
-    """@@PLACEHOLDER@@"""
+    """Arguments passed to all the :py:attr:`MVToolsPlugin.Recalculate` calls."""
 
     compensate_args: dict[str, Any]
-    """@@PLACEHOLDER@@"""
+    """Arguments passed to all the :py:attr:`MVToolsPlugin.Compensate` calls."""
 
     degrain_args: dict[str, Any]
-    """@@PLACEHOLDER@@"""
+    """Arguments passed to all the :py:attr:`MVToolsPlugin.Degrain` calls."""
 
     vectors: MotionVectors
-    """@@PLACEHOLDER@@"""
+    """Motion vectors analyzed and used for all operations."""
 
     clip: vs.VideoNode
-    """@@PLACEHOLDER@@"""
+    """Clip to be processed."""
 
     is_hd: bool
     is_uhd: bool
