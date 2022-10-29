@@ -25,29 +25,29 @@ __all__ = [
 
 
 class MVWay(CustomStrEnum):
-    """@@PLACEHOLDER@@"""
+    """Motion vector analyze way."""
 
     BACK = 'backward'
-    """@@PLACEHOLDER@@"""
+    """Backwards motion detection."""
 
     FWRD = 'forward'
-    """@@PLACEHOLDER@@"""
+    """Forwards motion detection."""
 
     @property
     def isb(self) -> bool:
-        """@@PLACEHOLDER@@"""
+        """Wheter the way is back."""
         return self is MVWay.BACK
 
 
 class MotionVectors:
     vmulti: vs.VideoNode
-    """@@PLACEHOLDER@@"""
+    """Super analyzed clip."""
 
     super_render: vs.VideoNode
-    """@@PLACEHOLDER@@"""
+    """Super clip used for analyzing."""
 
     temporal_vectors: dict[MVWay, dict[int, vs.VideoNode]]
-    """@@PLACEHOLDER@@"""
+    """Dict containing backwards and forwards motion vectors."""
 
     def __init__(self) -> None:
         self._init_vects()
@@ -57,39 +57,58 @@ class MotionVectors:
 
     @property
     def got_vectors(self) -> bool:
-        """@@PLACEHOLDER@@"""
+        """Whether the instance has both ways motion vectors set."""
         return bool(self.temporal_vectors[MVWay.BACK] and self.temporal_vectors[MVWay.FWRD])
 
     def got_mv(self, way: MVWay, delta: int) -> bool:
-        """@@PLACEHOLDER@@"""
+        """
+        Returns whether the motion vector exists.
+
+        :param way:     Which way the motion vector was analyzed.
+        :param delta:   Delta with which the motion vector was analyzed.
+
+        :return:        Whether the motion vector exists.
+        """
         return delta in self.temporal_vectors[way]
 
     def get_mv(self, way: MVWay, delta: int) -> vs.VideoNode:
-        """@@PLACEHOLDER@@"""
+        """
+        Get the motion vector.
+
+        :param way:     Which way the motion vector was analyzed.
+        :param delta:   Delta with which the motion vector was analyzed.
+
+        :return:        Motion vector.
+        """
         return self.temporal_vectors[way][delta]
 
     def set_mv(self, way: MVWay, delta: int, vect: vs.VideoNode) -> None:
-        """@@PLACEHOLDER@@"""
+        """
+        Sets the motion vector.
+
+        :param way:     Which way the motion vector was analyzed.
+        :param delta:   Delta with which the motion vector was analyzed.
+        """
         self.temporal_vectors[way][delta] = vect
 
     def clear(self) -> None:
-        """@@PLACEHOLDER@@"""
+        """Deletes all values."""
         del self.vmulti
         del self.super_render
         self.temporal_vectors.clear()
 
 
 class MVToolsPlugin(CustomIntEnum):
-    """@@PLACEHOLDER@@"""
+    """Abstraction around the three versions of mvtools plugin there exist."""
 
     INTEGER = 0
-    """@@PLACEHOLDER@@"""
+    """Original plugin. Only works with integer 8-16bits clips."""
 
     FLOAT_OLD = 1
-    """@@PLACEHOLDER@@"""
+    """New plugin by IFeelBloated. Latest release. Only works with float single precision clips."""
 
     FLOAT_NEW = 2
-    """@@PLACEHOLDER@@"""
+    """Latest git master of :py:attr:`FLOAT_OLD`. You have to compile it yourself."""
 
     @property
     def namespace(self) -> Any:
@@ -147,7 +166,13 @@ class MVToolsPlugin(CustomIntEnum):
 
     @classmethod
     def from_video(cls, clip: vs.VideoNode) -> MVToolsPlugin:
-        """@@PLACEHOLDER@@"""
+        """
+        Automatically select the appropriate plugin for the specified clip.
+
+        :param clip:    Clip you will use the plugin on.
+
+        :return:        Correct MVToolsPlugin for the specified clip.
+        """
 
         assert clip.format
 
@@ -173,7 +198,7 @@ class MVToolsPlugin(CustomIntEnum):
 
 
 class SADMode(CustomIntEnum):
-    """@@PLACEHOLDER@@"""
+    """SAD Calculation mode for MVTools."""
 
     SAT = 0
     """@@PLACEHOLDER@@"""
