@@ -209,7 +209,7 @@ class MVTools:
         prefilter: Prefilter | vs.VideoNode = Prefilter.AUTO,
         pel_type: PelType | tuple[PelType, PelType] = PelType.AUTO,
         range_in: ColorRange = ColorRange.LIMITED,
-        pel: int | None = None, sharp: int = 3,
+        pel: int | None = None, sharp: int = 2,
         planes: int | Sequence[int] | None = None,
         highprecision: bool = False,
         sad_mode: SADMode | tuple[SADMode, SADMode] = SADMode.SATD,
