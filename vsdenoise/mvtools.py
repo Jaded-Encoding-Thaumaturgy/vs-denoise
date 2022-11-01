@@ -6,12 +6,13 @@ from __future__ import annotations
 
 from itertools import chain
 from math import ceil, exp
-from typing import Any, Callable, Sequence, cast
+from dataclasses import dataclass
+from typing import Any, Callable, Literal, Sequence, cast, overload
 
 from vstools import (
     ColorRange, FieldBased, FieldBasedT, GenericVSFunction, check_ref_clip, depth, disallow_variable_format,
     disallow_variable_resolution, fallback, vs, core, CustomIntEnum, CustomValueError, CustomNotImplementedError,
-    InvalidColorFamilyError, check_variable, CustomOverflowError, CustomStrEnum
+    InvalidColorFamilyError, check_variable, CustomOverflowError, CustomStrEnum, MISSING, MissingT
 )
 
 from .prefilters import PelType, Prefilter, prefilter_to_full_range
@@ -19,7 +20,7 @@ from .utils import planes_to_mvtools
 
 __all__ = [
     'MVTools', 'MVToolsPlugin',
-    'SADMode',
+    'SADMode', 'SearchMode',
     'MVWay', 'MotionVectors'
 ]
 
@@ -166,6 +167,78 @@ class SADMode(CustomIntEnum):
         return self >= SADMode.SATD
 
 
+class SearchmodeBase:
+    @dataclass
+    class Config:
+        mode: SearchMode
+        param: int
+        param_recalc: int
+        pel: int
+
+
+class SearchMode(SearchmodeBase, CustomIntEnum):
+    AUTO = -1
+    ONETIME = 0
+    # 'OneTimeSearch'. searchparam is the step between each vectors tried
+    # (if searchparam is superior to 1, step will be progressively refined).
+    NSTEP = 1
+    # 'NStepSearch'. N is set by searchparam. It's the most well known of the MV search algorithm.
+    DIAMOND = 2
+    # Logarithmic search, also named Diamond Search. searchparam is the initial step search,
+    # there again, it is refined progressively.
+    HEXAGON = 4
+    # Hexagon search, searchparam is the range. (similar to x264).
+    UMH = 5
+    # Uneven Multi Hexagon (UMH) search, searchparam is the range. (similar to x264).
+    EXHAUSTIVE = 3
+    #  Exhaustive search, searchparam is the radius (square side is 2*radius+1).
+    # It is slow, but it gives the best results, SAD-wise.
+    EXHAUSTIVE_H = 6
+    # pure Horizontal exhaustive search, searchparam is the radius (width is 2*radius+1).
+    EXHAUSTIVE_V = 7
+    # pure Vertical exhaustive search, searchparam is the radius (height is 2*radius+1).
+
+    @overload
+    def __call__(  # type: ignore
+        self: Literal[ONETIME], step: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
+    ) -> SearchMode.Config:
+        ...
+
+    @overload
+    def __call__(self, param: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any) -> SearchMode.Config:
+        ...
+
+    def __call__(
+        self, param: int | tuple[int, int] | MissingT = MISSING, pel: int | MissingT = MISSING, /, **kwargs: Any
+    ) -> SearchMode.Config:
+        is_uhd = kwargs.get('is_uhd', False)
+        refine = kwargs.get('refine', 3)
+        truemotion = kwargs.get('truemotion', False)
+
+        if self is SearchMode.AUTO:
+            self = SearchMode.DIAMOND
+
+        param_recalc: int | MissingT
+
+        if isinstance(param, int):
+            param, param_recalc = param, MISSING
+        elif isinstance(param, tuple):
+            param, param_recalc = param
+        else:
+            param = param_recalc = MISSING
+
+        if param is MISSING:
+            param = (2 if is_uhd else 5) if (refine and truemotion) else (1 if is_uhd else 2)
+
+        if param_recalc is MISSING:
+            param_recalc = max(0, round(exp(0.69 * param - 1.79) - 0.67))
+
+        if pel is MISSING:
+            pel = min(8, max(0, param * 2 - 2))
+
+        return SearchMode.Config(self, param, param_recalc, pel)  # type: ignore
+
+
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
     super_args: dict[str, Any]
@@ -303,28 +376,21 @@ class MVTools:
     def analyze(
         self, ref: vs.VideoNode | None = None,
         blksize: int | None = None, overlap: int | None = None,
-        search: int | None = None, pelsearch: int | None = None,
-        searchparam: int | None = None, truemotion: bool | None = None,
-        *, inplace: bool = False
+        search: SearchMode | SearchMode.Config | None = None,
+        truemotion: bool | None = None, *, inplace: bool = False
     ) -> MotionVectors:
         if self.analyze_func_kwargs:
             if blksize is None:
-                blksize = self.analyze_func_kwargs.get('blksize', None)
+                blksize = self.analyze_func_kwargs.get('blksize', blksize)
 
             if overlap is None:
-                overlap = self.analyze_func_kwargs.get('overlap', None)
+                overlap = self.analyze_func_kwargs.get('overlap', overlap)
 
             if search is None:
-                search = self.analyze_func_kwargs.get('search', None)
-
-            if pelsearch is None:
-                pelsearch = self.analyze_func_kwargs.get('pelsearch', None)
-
-            if searchparam is None:
-                searchparam = self.analyze_func_kwargs.get('searchparam', None)
+                search = self.analyze_func_kwargs.get('search', search)
 
             if truemotion is None:
-                truemotion = self.analyze_func_kwargs.get('truemotion', None)
+                truemotion = self.analyze_func_kwargs.get('truemotion', truemotion)
 
         vectors = MotionVectors() if inplace else self.vectors
 
@@ -333,16 +399,6 @@ class MVTools:
         check_ref_clip(self.workclip, ref)
 
         truemotion = fallback(truemotion, not self.is_hd)
-
-        searchparam = fallback(
-            searchparam, (2 if self.is_uhd else 5) if (
-                self.refine and truemotion
-            ) else (1 if self.is_uhd else 2)
-        )
-
-        searchparamr = max(0, round(exp(0.69 * searchparam - 1.79) - 0.67))
-
-        pelsearch = fallback(pelsearch, max(0, searchparam * 2 - 2))
 
         blocksize = max(
             self.refine and 2 ** (self.refine + 2),
@@ -354,7 +410,11 @@ class MVTools:
 
         overlap = fallback(overlap, halfblocksize)
 
-        search = fallback(search, 4 if self.refine else 2)
+        if search is None:
+            search = SearchMode.HEXAGON if self.refine else SearchMode.DIAMOND
+
+        if isinstance(search, SearchMode):
+            search = search(is_uhd=self.is_uhd, refine=self.refine, truemotion=truemotion)
 
         if isinstance(self.prefilter, vs.VideoNode):
             pref = self.prefilter
@@ -383,13 +443,13 @@ class MVTools:
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
         analyse_args = dict[str, Any](
-            plevel=0, pglobal=11, pelsearch=pelsearch, blksize=blocksize, overlap=overlap, search=search,
-            truemotion=truemotion, searchparam=searchparam, chroma=self.chroma, dct=self.sad_mode
+            plevel=0, pglobal=11, pelsearch=search.pel, blksize=blocksize, overlap=overlap, search=search.mode,
+            truemotion=truemotion, searchparam=search.param, chroma=self.chroma, dct=self.sad_mode
         ) | self.analyze_args
 
         recalc_args = dict[str, Any](
             search=0, dct=5, thsad=recalculate_SAD, blksize=halfblocksize, overlap=halfoverlap,
-            truemotion=truemotion, searchparam=searchparamr, chroma=self.chroma
+            truemotion=truemotion, searchparam=search.param_recalc, chroma=self.chroma
         ) | self.recalculate_args
 
         if self.mvtools == MVToolsPlugin.FLOAT_NEW:
