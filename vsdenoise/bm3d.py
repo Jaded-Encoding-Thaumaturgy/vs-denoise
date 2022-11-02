@@ -10,12 +10,12 @@ __all__ = [
 ]
 
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, NamedTuple, Sequence, final
+from typing import Any, ClassVar, NamedTuple, final
 
 from vskernels import Bicubic, Kernel, KernelT, Point
 from vstools import (
     DitherType, core, get_y, iterate, vs, check_variable, Matrix, normalize_seq, join, CustomValueError, ColorRange,
-    CustomStrEnum
+    CustomStrEnum, SingleOrArr
 )
 
 from .types import _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
@@ -72,7 +72,7 @@ class AbstractBM3D(ABC):
 
     def __init__(
         self, clip: vs.VideoNode, /,
-        sigma: float | Sequence[float], radius: int | Sequence[int] | None = None,
+        sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
         profile: Profile = Profile.FAST,
         ref: vs.VideoNode | None = None,
         refine: int = 1,
@@ -207,7 +207,7 @@ class BM3D(AbstractBM3D):
 
     def __init__(
         self, clip: vs.VideoNode, /,
-        sigma: float | Sequence[float], radius: int | Sequence[int] | None = None,
+        sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
         profile: Profile = Profile.FAST,
         pre: vs.VideoNode | None = None, ref: vs.VideoNode | None = None,
         refine: int = 1,
@@ -291,7 +291,7 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
 
     def __init__(
         self, clip: vs.VideoNode, /,
-        sigma: float | Sequence[float], radius: int | Sequence[int] | None = None,
+        sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
         profile: Profile = Profile.FAST,
         ref: vs.VideoNode | None = None,
         refine: int = 1,
