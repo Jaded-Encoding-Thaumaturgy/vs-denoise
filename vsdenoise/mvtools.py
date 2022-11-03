@@ -20,7 +20,7 @@ from .utils import planes_to_mvtools
 
 __all__ = [
     'MVTools', 'MVToolsPlugin',
-    'SADMode', 'SearchMode',
+    'SADMode', 'SearchMode', 'MotionMode',
     'MVWay', 'MotionVectors'
 ]
 
@@ -165,6 +165,51 @@ class SADMode(CustomIntEnum):
 
     def is_satd(self) -> bool:
         return self >= SADMode.SATD
+
+
+class MotionMode:
+    @dataclass
+    class Config:
+        truemotion: bool
+        coherence: int
+        sad_limit: int
+        pnew: int
+        plevel: int
+        global_motion: bool
+
+    HIGH_SAD = Config(False, 0, 400, 0, 0, False)
+    VECT_COHERENCE = Config(True, 1000, 1200, 50, 1, True)
+
+    class _CustomConfig:
+        def __call__(
+            self, coherence: int | None = None, sad_limit: int | None = None,
+            pnew: int | None = None, plevel: int | None = None, global_motion: bool | None = None,
+            truemotion: bool = True
+        ) -> MotionMode.Config:
+            ref = MotionMode.from_param(truemotion)
+
+            if coherence is None:
+                coherence = ref.coherence
+
+            if sad_limit is None:
+                sad_limit = ref.sad_limit
+
+            if pnew is None:
+                pnew = ref.pnew
+
+            if plevel is None:
+                plevel = ref.plevel
+
+            if global_motion is None:
+                global_motion = ref.global_motion
+
+            return MotionMode.Config(truemotion, coherence, sad_limit, pnew, plevel, global_motion)
+
+    MANUAL = _CustomConfig()
+
+    @classmethod
+    def from_param(cls, truemotion: bool) -> Config:
+        return MotionMode.VECT_COHERENCE if truemotion else MotionMode.HIGH_SAD
 
 
 class SearchmodeBase:
@@ -377,7 +422,7 @@ class MVTools:
         self, ref: vs.VideoNode | None = None,
         blksize: int | None = None, overlap: int | None = None,
         search: SearchMode | SearchMode.Config | None = None,
-        truemotion: bool | None = None, *, inplace: bool = False
+        truemotion: MotionMode.Config | None = None, *, inplace: bool = False
     ) -> MotionVectors:
         if self.analyze_func_kwargs:
             if blksize is None:
@@ -398,7 +443,7 @@ class MVTools:
 
         check_ref_clip(self.workclip, ref)
 
-        truemotion = fallback(truemotion, not self.is_hd)
+        truemotion = fallback(truemotion, MotionMode.from_param(not self.is_hd))
 
         blocksize = max(
             self.refine and 2 ** (self.refine + 2),
@@ -414,7 +459,7 @@ class MVTools:
             search = SearchMode.HEXAGON if self.refine else SearchMode.DIAMOND
 
         if isinstance(search, SearchMode):
-            search = search(is_uhd=self.is_uhd, refine=self.refine, truemotion=truemotion)
+            search = search(is_uhd=self.is_uhd, refine=self.refine, truemotion=truemotion.truemotion)
 
         if isinstance(self.prefilter, vs.VideoNode):
             pref = self.prefilter
@@ -448,7 +493,7 @@ class MVTools:
         ) | self.analyze_args
 
         recalc_args = dict[str, Any](
-            search=0, dct=5, thsad=recalculate_SAD, blksize=halfblocksize, overlap=halfoverlap,
+            search=0, dct=self.recalc_sad_mode, thsad=recalculate_SAD, blksize=halfblocksize, overlap=halfoverlap,
             truemotion=truemotion, searchparam=search.param_recalc, chroma=self.chroma
         ) | self.recalculate_args
 
