@@ -14,8 +14,8 @@ from typing import Any, ClassVar, NamedTuple, final
 
 from vskernels import Bicubic, Kernel, KernelT, Point
 from vstools import (
-    DitherType, core, get_y, iterate, vs, check_variable, Matrix, normalize_seq, join, CustomValueError, ColorRange,
-    CustomStrEnum, SingleOrArr
+    ColorRange, CustomStrEnum, CustomValueError, DitherType, Matrix, SingleOrArr, check_variable, core, get_y, iterate,
+    join, normalize_seq, vs
 )
 
 from .types import _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
