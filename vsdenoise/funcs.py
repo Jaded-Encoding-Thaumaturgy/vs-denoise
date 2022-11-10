@@ -102,7 +102,7 @@ def mlm_degrain(
         mvtools_arg |= dict(subpixel=1) | kwargs
 
         mv = MVTools(clip, **mvtools_arg)
-        mv.analyze(ref, **analise_args)
+        mv.analyze(ref=ref, **analise_args)
         return mv.degrain(**norm_dkwargs[idx])
 
     clip, bits = expect_bits(clip, 16)
