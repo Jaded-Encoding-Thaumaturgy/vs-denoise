@@ -138,11 +138,11 @@ class MVToolsPlugin(CustomIntEnum):
 
 
 class SADMode(CustomIntEnum):
-    SAT = 0
-    BLOCK = 1
-    MIXED_SAT_DCT = 2
-    ADAPTIVE_SAT_MIXED = 3
-    ADAPTIVE_SAT_DCT = 4
+    SPATIAL = 0
+    DCT = 1
+    MIXED_SPATIAL_DCT = 2
+    ADAPTIVE_SPATIAL_MIXED = 3
+    ADAPTIVE_SPATIAL_DCT = 4
 
     SATD = 5
     MIXED_SATD_DCT = 6
