@@ -21,7 +21,7 @@ def mlm_degrain(
     factors: Iterable[float] | range = [1 / 3, 2 / 3],
     scaler: ScalerT = Bilinear, downscaler: ScalerT = Catrom,
     mv_kwargs: KwargsT | list[KwargsT] | None = None,
-    analysis_kwargs: KwargsT | list[KwargsT] | None = None,
+    analyze_kwargs: KwargsT | list[KwargsT] | None = None,
     degrain_kwargs: KwargsT | list[KwargsT] | None = None,
     soften: Callable[..., vs.VideoNode] | bool | None = False,
     merge_func: Callable[[vs.VideoNode, vs.VideoNode], vs.VideoNode] | None = None,
@@ -44,7 +44,7 @@ def mlm_degrain(
             (kwargs if isinstance(kwargs, list) else [kwargs])
         ] for default, kwargs in (
             (mkwargs_def, mv_kwargs),
-            (akwargs_def, analysis_kwargs),
+            (akwargs_def, analyze_kwargs),
             (dkwargs_def, degrain_kwargs)
         )
     ]
