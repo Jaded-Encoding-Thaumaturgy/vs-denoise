@@ -193,22 +193,21 @@ class MVToolsPlugin(CustomIntEnum):
 
 
 class SADMode(CustomIntEnum):
-    """SAD Calculation mode for MVTools."""
-
-    SAT = 0
+    SPATIAL = 0
     """@@PLACEHOLDER@@"""
 
-    BLOCK = 1
+    DCT = 1
     """@@PLACEHOLDER@@"""
 
-    MIXED_SAT_DCT = 2
+    MIXED_SPATIAL_DCT = 2
     """@@PLACEHOLDER@@"""
 
-    ADAPTIVE_SAT_MIXED = 3
+    ADAPTIVE_SPATIAL_MIXED = 3
     """@@PLACEHOLDER@@"""
 
-    ADAPTIVE_SAT_DCT = 4
+    ADAPTIVE_SPATIAL_DCT = 4
     """@@PLACEHOLDER@@"""
+
 
     SATD = 5
     """@@PLACEHOLDER@@"""
