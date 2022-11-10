@@ -38,6 +38,7 @@ class MVWay(CustomStrEnum):
     @property
     def isb(self) -> bool:
         """Wheter the way is back."""
+
         return self is MVWay.BACK
 
 
@@ -60,6 +61,7 @@ class MotionVectors:
     @property
     def got_vectors(self) -> bool:
         """Whether the instance has both ways motion vectors set."""
+
         return bool(self.temporal_vectors[MVWay.BACK] and self.temporal_vectors[MVWay.FWRD])
 
     def got_mv(self, way: MVWay, delta: int) -> bool:
@@ -71,6 +73,7 @@ class MotionVectors:
 
         :return:        Whether the motion vector exists.
         """
+
         return delta in self.temporal_vectors[way]
 
     def get_mv(self, way: MVWay, delta: int) -> vs.VideoNode:
@@ -82,6 +85,7 @@ class MotionVectors:
 
         :return:        Motion vector.
         """
+
         return self.temporal_vectors[way][delta]
 
     def set_mv(self, way: MVWay, delta: int, vect: vs.VideoNode) -> None:
@@ -91,10 +95,12 @@ class MotionVectors:
         :param way:     Which way the motion vector was analyzed.
         :param delta:   Delta with which the motion vector was analyzed.
         """
+
         self.temporal_vectors[way][delta] = vect
 
     def clear(self) -> None:
         """Deletes all values."""
+
         del self.vmulti
         del self.super_render
         self.temporal_vectors.clear()
@@ -223,22 +229,44 @@ class SADMode(CustomIntEnum):
     """@@PLACEHOLDER@@"""
 
     def is_satd(self) -> bool:
+        """@@PLACEHOLDER@@"""
+
         return self >= SADMode.SATD
 
 
 class MotionMode:
+    """@@PLACEHOLDER@@"""
+
     @dataclass
     class Config:
+        """@@PLACEHOLDER@@"""
+
         truemotion: bool
+        """@@PLACEHOLDER@@"""
+
         coherence: int
+        """@@PLACEHOLDER@@"""
+
         sad_limit: int
+        """@@PLACEHOLDER@@"""
+
         pnew: int
+        """@@PLACEHOLDER@@"""
+
         plevel: int
+        """@@PLACEHOLDER@@"""
+
         global_motion: bool
+        """@@PLACEHOLDER@@"""
 
     HIGH_SAD = Config(False, 0, 400, 0, 0, False)
+    """@@PLACEHOLDER@@"""
+
     VECT_COHERENCE = Config(True, 1000, 1200, 50, 1, True)
+    """@@PLACEHOLDER@@"""
+
     VECT_NOSCALING = Config(True, 1000, 1200, 50, 0, True)
+    """@@PLACEHOLDER@@"""
 
     class _CustomConfig:
         def __call__(
@@ -246,6 +274,8 @@ class MotionMode:
             pnew: int | None = None, plevel: int | None = None, global_motion: bool | None = None,
             truemotion: bool = True
         ) -> MotionMode.Config:
+            """@@PLACEHOLDER@@"""
+
             ref = MotionMode.from_param(truemotion)
 
             return MotionMode.Config(
@@ -258,76 +288,109 @@ class MotionMode:
             )
 
     MANUAL = _CustomConfig()
+    """@@PLACEHOLDER@@"""
 
     @classmethod
     def from_param(cls, truemotion: bool) -> Config:
+        """@@PLACEHOLDER@@"""
+
         return MotionMode.VECT_COHERENCE if truemotion else MotionMode.HIGH_SAD
 
 
 class SearchModeBase:
+    """@@PLACEHOLDER@@"""
+
     @dataclass
     class Config:
+        """@@PLACEHOLDER@@"""
+
         mode: SearchMode
+        """@@PLACEHOLDER@@"""
+
         param: int
+        """@@PLACEHOLDER@@"""
+
         param_recalc: int
+        """@@PLACEHOLDER@@"""
+
         pel: int
+        """@@PLACEHOLDER@@"""
 
 
 class SearchMode(SearchModeBase, CustomIntEnum):
     AUTO = -1
+    """@@PLACEHOLDER@@"""
+
     ONETIME = 0
+    """@@PLACEHOLDER@@"""
+
     NSTEP = 1
+    """@@PLACEHOLDER@@"""
+
     DIAMOND = 2
+    """@@PLACEHOLDER@@"""
+
     HEXAGON = 4
+    """@@PLACEHOLDER@@"""
+
     UMH = 5
+    """@@PLACEHOLDER@@"""
+
     EXHAUSTIVE = 3
+    """@@PLACEHOLDER@@"""
+
     EXHAUSTIVE_H = 6
+    """@@PLACEHOLDER@@"""
+
     EXHAUSTIVE_V = 7
+    """@@PLACEHOLDER@@"""
 
     @overload
     def __call__(  # type: ignore
         self: Literal[ONETIME], step: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        ...
+        """@@PLACEHOLDER@@"""
 
     @overload
     def __call__(  # type: ignore
         self: Literal[NSTEP], times: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        ...
+        """@@PLACEHOLDER@@"""
 
     @overload
     def __call__(  # type: ignore
         self: Literal[DIAMOND], init_step: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        ...
+        """@@PLACEHOLDER@@"""
 
     @overload
     def __call__(  # type: ignore
         self: Literal[HEXAGON], range: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        ...
+        """@@PLACEHOLDER@@"""
 
     @overload
     def __call__(  # type: ignore
         self: Literal[UMH], range: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        ...
+        """@@PLACEHOLDER@@"""
 
     @overload
     def __call__(  # type: ignore
         self: Literal[EXHAUSTIVE] | Literal[EXHAUSTIVE_H] | Literal[EXHAUSTIVE_V],
         radius: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        ...
+        """@@PLACEHOLDER@@"""
 
     @overload
     def __call__(self, param: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any) -> SearchMode.Config:
-        ...
+        """@@PLACEHOLDER@@"""
 
     def __call__(
         self, param: int | tuple[int, int] | MissingT = MISSING, pel: int | MissingT = MISSING, /, **kwargs: Any
     ) -> SearchMode.Config:
+        """@@PLACEHOLDER@@"""
+
         is_uhd = kwargs.get('is_uhd', False)
         refine = kwargs.get('refine', 3)
         truemotion = kwargs.get('truemotion', False)
@@ -726,6 +789,8 @@ class MVTools:
         return output.std.DoubleWeave(self.source_type.value) if self.source_type.is_inter else output
 
     def get_ref_clip(self, ref: vs.VideoNode | None, func: FuncExceptT) -> ConstantFormatVideoNode:
+        """@@PLACEHOLDER@@"""
+
         ref = fallback(ref, self.workclip)
 
         check_ref_clip(self.workclip, ref)

@@ -27,6 +27,8 @@ def mlm_degrain(
     merge_func: Callable[[vs.VideoNode, vs.VideoNode], vs.VideoNode] | None = None,
     planes: PlanesT = None
 ) -> vs.VideoNode:
+    """@@PLACEHOLDER@@"""
+
     planes = normalize_planes(clip, planes)
 
     scaler = Scaler.ensure_obj(scaler, mlm_degrain)

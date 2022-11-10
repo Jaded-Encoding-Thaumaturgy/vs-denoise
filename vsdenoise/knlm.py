@@ -102,6 +102,7 @@ def knl_means_cl(
 
     :return:                Denoised clip.
     """
+
     assert clip.format
 
     if isinstance(strength, (float, int)):
