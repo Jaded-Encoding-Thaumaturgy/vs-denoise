@@ -190,7 +190,7 @@ class AbstractBM3D(ABC):
         Get the "basic" clip, used normally as `ref` for :py:attr:`final`
 
         :param clip:    OPP or GRAY colorspace clip to be processed.
-        :param ref:     @@PLACEHOLDER@@
+        :param ref:     Reference clip used for weight calculations.
 
         :return:        Denoised clip to be used as `ref`.
         """
