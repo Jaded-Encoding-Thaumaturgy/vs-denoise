@@ -4,15 +4,16 @@ This module implements wrappers for mvtool
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from itertools import chain
 from math import ceil, exp
-from dataclasses import dataclass
-from typing import Any, Callable, Literal, Sequence, cast, overload
+from typing import Any, Literal, Sequence, cast, overload
 
 from vstools import (
-    ColorRange, FieldBased, FieldBasedT, GenericVSFunction, check_ref_clip, depth, disallow_variable_format,
-    disallow_variable_resolution, fallback, vs, core, CustomIntEnum, CustomValueError, CustomNotImplementedError,
-    InvalidColorFamilyError, check_variable, CustomOverflowError, CustomStrEnum, MISSING, MissingT
+    MISSING, ColorRange, ConstantFormatVideoNode, CustomIntEnum, CustomOverflowError, CustomStrEnum, CustomValueError,
+    FieldBased, FieldBasedT, FuncExceptT, GenericVSFunction, InvalidColorFamilyError, MissingT, VSFunction,
+    check_ref_clip, check_variable, core, depth, disallow_variable_format, disallow_variable_resolution, fallback,
+    kwargs_fallback, normalize_planes, normalize_seq, vs
 )
 
 from .prefilters import PelType, Prefilter, prefilter_to_full_range
@@ -63,6 +64,7 @@ class MotionVectors:
         del self.vmulti
         del self.super_render
         self.temporal_vectors.clear()
+        self._init_vects()
 
 
 class MVToolsPlugin(CustomIntEnum):
@@ -72,36 +74,30 @@ class MVToolsPlugin(CustomIntEnum):
 
     @property
     def namespace(self) -> Any:
-        if self == MVToolsPlugin.INTEGER:
-            return core.mv
-        else:
-            return core.mvsf
+        return core.mv if self is MVToolsPlugin.INTEGER else core.mvsf
 
     @property
-    def Super(self) -> Callable[..., vs.VideoNode]:
-        return cast(Callable[..., vs.VideoNode], self.namespace.Super)
+    def Super(self) -> VSFunction:
+        return cast(VSFunction, self.namespace.Super)
 
     @property
-    def Analyse(self) -> Callable[..., vs.VideoNode]:
-        if self == MVToolsPlugin.FLOAT_NEW:
-            return cast(Callable[..., vs.VideoNode], self.namespace.Analyze)
-        else:
-            return cast(Callable[..., vs.VideoNode], self.namespace.Analyse)
+    def Analyse(self) -> VSFunction:
+        return cast(VSFunction, self.namespace.Analyze if self is MVToolsPlugin.FLOAT_NEW else self.namespace.Analyse)
 
     @property
-    def Recalculate(self) -> Callable[..., vs.VideoNode]:
-        return cast(Callable[..., vs.VideoNode], self.namespace.Recalculate)
+    def Recalculate(self) -> VSFunction:
+        return cast(VSFunction, self.namespace.Recalculate)
 
     @property
-    def Compensate(self) -> Callable[..., vs.VideoNode]:
-        return cast(Callable[..., vs.VideoNode], self.namespace.Compensate)
+    def Compensate(self) -> VSFunction:
+        return cast(VSFunction, self.namespace.Compensate)
 
     @property
-    def Mask(self) -> Callable[..., vs.VideoNode]:
-        return cast(Callable[..., vs.VideoNode], self.namespace.Mask)
+    def Mask(self) -> VSFunction:
+        return cast(VSFunction, self.namespace.Mask)
 
-    def Degrain(self, radius: int | None = None) -> Callable[..., vs.VideoNode]:
-        if radius is None and self != MVToolsPlugin.FLOAT_NEW:
+    def Degrain(self, radius: int | None = None) -> VSFunction:
+        if radius is None and self is not MVToolsPlugin.FLOAT_NEW:
             raise CustomValueError('This implementation needs a radius!', f'{self.name}.Degrain')
 
         if radius is not None and radius > 24 and self is not MVToolsPlugin.FLOAT_NEW:
@@ -112,23 +108,15 @@ class MVToolsPlugin(CustomIntEnum):
             )
 
         try:
-            return cast(Callable[..., vs.VideoNode], getattr(
-                self.namespace, f"Degrain{fallback(radius, '')}"
-            ))
+            return cast(VSFunction, getattr(self.namespace, f"Degrain{fallback(radius, '')}"))
         except AttributeError:
             raise CustomValueError(f'This radius isn\'t supported! ({radius})', f'{self.name}.Degrain')
-
-    def __eq__(self, o: Any) -> bool:
-        if not isinstance(o, MVToolsPlugin):
-            raise CustomNotImplementedError
-
-        return self.value == o.value
 
     @classmethod
     def from_video(cls, clip: vs.VideoNode) -> MVToolsPlugin:
         assert clip.format
 
-        if clip.format.sample_type == vs.FLOAT:
+        if clip.format.sample_type is vs.FLOAT:
             if not hasattr(core, 'mvsf'):
                 raise ImportError(
                     "MVTools: With the current settings, the processing has to be done in float precision, "
@@ -179,6 +167,7 @@ class MotionMode:
 
     HIGH_SAD = Config(False, 0, 400, 0, 0, False)
     VECT_COHERENCE = Config(True, 1000, 1200, 50, 1, True)
+    VECT_NOSCALING = Config(True, 1000, 1200, 50, 0, True)
 
     class _CustomConfig:
         def __call__(
@@ -188,22 +177,14 @@ class MotionMode:
         ) -> MotionMode.Config:
             ref = MotionMode.from_param(truemotion)
 
-            if coherence is None:
-                coherence = ref.coherence
-
-            if sad_limit is None:
-                sad_limit = ref.sad_limit
-
-            if pnew is None:
-                pnew = ref.pnew
-
-            if plevel is None:
-                plevel = ref.plevel
-
-            if global_motion is None:
-                global_motion = ref.global_motion
-
-            return MotionMode.Config(truemotion, coherence, sad_limit, pnew, plevel, global_motion)
+            return MotionMode.Config(
+                truemotion,
+                fallback(coherence, ref.coherence),
+                fallback(sad_limit, ref.sad_limit),
+                fallback(pnew, ref.pnew),
+                fallback(plevel, ref.plevel),
+                fallback(global_motion, ref.global_motion)
+            )
 
     MANUAL = _CustomConfig()
 
@@ -212,7 +193,7 @@ class MotionMode:
         return MotionMode.VECT_COHERENCE if truemotion else MotionMode.HIGH_SAD
 
 
-class SearchmodeBase:
+class SearchModeBase:
     @dataclass
     class Config:
         mode: SearchMode
@@ -221,31 +202,51 @@ class SearchmodeBase:
         pel: int
 
 
-class SearchMode(SearchmodeBase, CustomIntEnum):
+class SearchMode(SearchModeBase, CustomIntEnum):
     AUTO = -1
     ONETIME = 0
-    # 'OneTimeSearch'. searchparam is the step between each vectors tried
-    # (if searchparam is superior to 1, step will be progressively refined).
     NSTEP = 1
-    # 'NStepSearch'. N is set by searchparam. It's the most well known of the MV search algorithm.
     DIAMOND = 2
-    # Logarithmic search, also named Diamond Search. searchparam is the initial step search,
-    # there again, it is refined progressively.
     HEXAGON = 4
-    # Hexagon search, searchparam is the range. (similar to x264).
     UMH = 5
-    # Uneven Multi Hexagon (UMH) search, searchparam is the range. (similar to x264).
     EXHAUSTIVE = 3
-    #  Exhaustive search, searchparam is the radius (square side is 2*radius+1).
-    # It is slow, but it gives the best results, SAD-wise.
     EXHAUSTIVE_H = 6
-    # pure Horizontal exhaustive search, searchparam is the radius (width is 2*radius+1).
     EXHAUSTIVE_V = 7
-    # pure Vertical exhaustive search, searchparam is the radius (height is 2*radius+1).
 
     @overload
     def __call__(  # type: ignore
         self: Literal[ONETIME], step: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
+    ) -> SearchMode.Config:
+        ...
+
+    @overload
+    def __call__(  # type: ignore
+        self: Literal[NSTEP], times: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
+    ) -> SearchMode.Config:
+        ...
+
+    @overload
+    def __call__(  # type: ignore
+        self: Literal[DIAMOND], init_step: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
+    ) -> SearchMode.Config:
+        ...
+
+    @overload
+    def __call__(  # type: ignore
+        self: Literal[HEXAGON], range: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
+    ) -> SearchMode.Config:
+        ...
+
+    @overload
+    def __call__(  # type: ignore
+        self: Literal[UMH], range: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
+    ) -> SearchMode.Config:
+        ...
+
+    @overload
+    def __call__(  # type: ignore
+        self: Literal[EXHAUSTIVE] | Literal[EXHAUSTIVE_H] | Literal[EXHAUSTIVE_V],
+        radius: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
         ...
 
@@ -286,55 +287,43 @@ class SearchMode(SearchmodeBase, CustomIntEnum):
 
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
+
     super_args: dict[str, Any]
     analyze_args: dict[str, Any]
     recalculate_args: dict[str, Any]
     compensate_args: dict[str, Any]
-    degrain_args: dict[str, Any]
 
     vectors: MotionVectors
 
     clip: vs.VideoNode
 
-    is_hd: bool
-    is_uhd: bool
-    tr: int
-    refine: int
-    source_type: FieldBased
-    prefilter: Prefilter | vs.VideoNode
-    pel_type: tuple[PelType, PelType]
-    range_in: ColorRange
-    pel: int
-    sharp: int
-    chroma: bool
-    is_gray: bool
-    planes: list[int]
-    mv_plane: int
-    range_conversion: float
-    hpad: int
-    hpad_uhd: int
-    vpad: int
-    vpad_half: int
-    rfilter: int
-    mvtools: MVToolsPlugin
-
     @disallow_variable_format
     @disallow_variable_resolution
     def __init__(
         self, clip: vs.VideoNode,
-        tr: int = 2, refine: int = 3,
-        source_type: FieldBasedT | None = None,
-        prefilter: Prefilter | vs.VideoNode = Prefilter.AUTO,
-        pel_type: PelType | tuple[PelType, PelType] = PelType.AUTO,
-        range_in: ColorRange = ColorRange.LIMITED,
-        pel: int | None = None, sharp: int = 2,
+        tr: int = 2, refine: int = 3, pel: int | None = None,
         planes: int | Sequence[int] | None = None,
-        highprecision: bool = False,
-        sad_mode: SADMode | tuple[SADMode, SADMode] = SADMode.SATD,
-        range_conversion: float = 5.0,
+        range_in: ColorRange = ColorRange.LIMITED,
+        source_type: FieldBasedT | None = None,
+        high_precision: bool = False,
         hpad: int | None = None, vpad: int | None = None,
-        rfilter: int = 3, vectors: MotionVectors | MVTools | None = None,
-        **analyze_kwargs: Any
+        vectors: MotionVectors | MVTools | None = None,
+        *,
+        # kwargs for mvtools calls
+        super_args: dict[str, Any] | None = None,
+        analyze_args: dict[str, Any] | None = None,
+        recalculate_args: dict[str, Any] | None = None,
+        compensate_args: dict[str, Any] | None = None,
+        # Analyze kwargs
+        block_size: int | None = None,
+        overlap: int | None = None,
+        range_conversion: float | None = None,
+        search: SearchMode | SearchMode.Config | None = None,
+        sharp: int | None = None, rfilter: int | None = None,
+        sad_mode: SADMode | tuple[SADMode, SADMode] | None = None,
+        motion: MotionMode.Config | None = None,
+        prefilter: Prefilter | vs.VideoNode | None = None,
+        pel_type: PelType | tuple[PelType, PelType] | None = None
     ) -> None:
         assert check_variable(clip, self.__class__)
 
@@ -347,33 +336,22 @@ class MVTools:
 
         self.tr = tr
 
-        if refine > 6:
-            raise CustomOverflowError(f'Refine > 6 is not supported! ({refine})', self.__class__)
-
         self.refine = refine
 
+        if self.refine > 6:
+            raise CustomOverflowError(f'Refine > 6 is not supported! ({refine})', self.__class__)
+
         self.source_type = FieldBased.from_param(source_type, MVTools) or FieldBased.from_video(self.clip)
-        self.prefilter = prefilter
-        self.pel_type = pel_type if isinstance(pel_type, tuple) else (pel_type, pel_type)
         self.range_in = range_in
         self.pel = fallback(pel, 1 + int(not self.is_hd))
-        self.sharp = sharp
 
-        if planes is not None and isinstance(planes, int):
-            planes = [planes]
-
-        if clip.format.color_family == vs.GRAY:
-            planes = [0]
-        elif planes is None:
-            planes = [0, 1, 2]
+        planes = normalize_planes(self.clip, planes)
 
         self.is_gray = planes == [0]
 
         self.planes, self.mv_plane = planes_to_mvtools(planes)
 
         self.chroma = 1 in self.planes or 2 in self.planes
-
-        self.range_conversion = range_conversion
 
         if isinstance(vectors, MVTools):
             self.vectors = vectors.vectors
@@ -382,11 +360,10 @@ class MVTools:
         else:
             self.vectors = MotionVectors()
 
-        self.super_args = {}
-        self.analyze_args = {}
-        self.recalculate_args = {}
-        self.compensate_args = {}
-        self.degrain_args = {}
+        self.super_args = fallback(super_args, dict[str, Any]())
+        self.analyze_args = fallback(analyze_args, dict[str, Any]())
+        self.recalculate_args = fallback(recalculate_args, dict[str, Any]())
+        self.compensate_args = fallback(compensate_args, dict[str, Any]())
 
         self.hpad = fallback(hpad, 8 if self.is_hd else 16)
         self.hpad_uhd = self.hpad // 2 if self.is_uhd else self.hpad
@@ -394,85 +371,110 @@ class MVTools:
         self.vpad = fallback(vpad, 8 if self.is_hd else 16)
         self.vpad_half = self.vpad // 2 if self.is_uhd else self.vpad
 
-        self.rfilter = rfilter
-
-        if isinstance(sad_mode, tuple):
-            if not sad_mode[1].is_satd:
-                raise CustomValueError('The SADMode for recalculation must use SATD!', self.__class__)
-            self.sad_mode, self.recalc_sad_mode = sad_mode
-        else:
-            self.sad_mode, self.recalc_sad_mode = sad_mode, SADMode.SATD
-
         if self.source_type is not FieldBased.PROGRESSIVE:
             self.workclip = self.clip.std.SeparateFields(self.source_type.is_tff)
         else:
             self.workclip = self.clip
 
-        if highprecision:
-            self.workclip = depth(self.workclip, 32)
+        self.high_precision = high_precision
 
-        if not isinstance(prefilter, Prefilter):
-            check_ref_clip(self.workclip, prefilter)
+        if self.high_precision:
+            self.workclip = depth(self.workclip, 32)
 
         self.mvtools = MVToolsPlugin.from_video(self.workclip)
 
-        self.analyze_func_kwargs = analyze_kwargs
+        self.analyze_func_kwargs = dict(
+            rfilter=rfilter, overlap=overlap, range_conversion=range_conversion, search=search, sharp=sharp,
+            block_size=block_size, sad_mode=sad_mode, motion=motion, prefilter=prefilter, pel_type=pel_type
+        )
 
     def analyze(
-        self, ref: vs.VideoNode | None = None,
-        blksize: int | None = None, overlap: int | None = None,
+        self,
+        block_size: int | None = None,
+        overlap: int | None = None,
+        range_conversion: float | None = None,
         search: SearchMode | SearchMode.Config | None = None,
-        truemotion: MotionMode.Config | None = None, *, inplace: bool = False
+        sharp: int | None = None, rfilter: int | None = None,
+        sad_mode: SADMode | tuple[SADMode, SADMode] | None = None,
+        motion: MotionMode.Config | None = None,
+        prefilter: Prefilter | vs.VideoNode | None = None,
+        pel_type: PelType | tuple[PelType, PelType] | None = None,
+        *, ref: vs.VideoNode | None = None, inplace: bool = False
     ) -> MotionVectors:
-        if self.analyze_func_kwargs:
-            if blksize is None:
-                blksize = self.analyze_func_kwargs.get('blksize', blksize)
+        ref = self.get_ref_clip(ref, self.__class__.analyze)
 
-            if overlap is None:
-                overlap = self.analyze_func_kwargs.get('overlap', overlap)
-
-            if search is None:
-                search = self.analyze_func_kwargs.get('search', search)
-
-            if truemotion is None:
-                truemotion = self.analyze_func_kwargs.get('truemotion', truemotion)
-
-        vectors = MotionVectors() if inplace else self.vectors
-
-        ref = fallback(ref, self.workclip)
-
-        check_ref_clip(self.workclip, ref)
-
-        truemotion = fallback(truemotion, MotionMode.from_param(not self.is_hd))
-
-        blocksize = max(
-            self.refine and 2 ** (self.refine + 2),
-            fallback(blksize, 16 if self.is_hd else 8)
-        )
+        block_size = kwargs_fallback(block_size, (self.analyze_func_kwargs, 'block_size'), 16 if self.is_hd else 8)
+        blocksize = max(self.refine and 2 ** (self.refine + 2), block_size)
 
         halfblocksize = max(8, blocksize // 2)
         halfoverlap = max(2, halfblocksize // 2)
 
-        overlap = fallback(overlap, halfblocksize)
+        overlap = kwargs_fallback(overlap, (self.analyze_func_kwargs, 'overlap'), halfblocksize)
 
-        if search is None:
-            search = SearchMode.HEXAGON if self.refine else SearchMode.DIAMOND
+        rfilter = kwargs_fallback(rfilter, (self.analyze_func_kwargs, 'rfilter'), 3)
+
+        range_conversion = kwargs_fallback(range_conversion, (self.analyze_func_kwargs, 'range_conversion'), 5.0)
+
+        sharp = kwargs_fallback(sharp, (self.analyze_func_kwargs, 'sharp'), 2)
+
+        search = kwargs_fallback(  # type: ignore[assignment]
+            search, (self.analyze_func_kwargs, 'search'),
+            SearchMode.HEXAGON if self.refine else SearchMode.DIAMOND
+        )
+
+        motion = kwargs_fallback(
+            motion, (self.analyze_func_kwargs, 'motion'),
+            MotionMode.VECT_NOSCALING if (
+                ref.format.bits_per_sample == 32
+            ) else MotionMode.from_param(not self.is_hd)
+        )
 
         if isinstance(search, SearchMode):
-            search = search(is_uhd=self.is_uhd, refine=self.refine, truemotion=truemotion.truemotion)
+            search = search(is_uhd=self.is_uhd, refine=self.refine, truemotion=motion.truemotion)
 
-        if isinstance(self.prefilter, vs.VideoNode):
-            pref = self.prefilter
+        assert search
+
+        sad_mode = kwargs_fallback(  # type: ignore[assignment]
+            sad_mode, (self.analyze_func_kwargs, 'sad_mode'), SADMode.SATD
+        )
+
+        prefilter = kwargs_fallback(  # type: ignore[assignment]
+            prefilter, (self.analyze_func_kwargs, 'prefilter'), Prefilter.AUTO
+        )
+
+        pel_type = kwargs_fallback(  # type: ignore[assignment]
+            pel_type, (self.analyze_func_kwargs, 'pel_type'), PelType.AUTO
+        )
+
+        if not isinstance(pel_type, tuple):
+            pel_type = (pel_type, pel_type)  # type: ignore[assignment]
+
+        vectors = MotionVectors() if inplace else self.vectors
+
+        if isinstance(sad_mode, tuple):
+            if not sad_mode[1].is_satd:
+                raise CustomValueError('The SADMode for recalculation must use SATD!', self.__class__)
+            sad_mode, recalc_sad_mode = sad_mode
         else:
-            pref = self.prefilter(ref, self.planes)
+            sad_mode, recalc_sad_mode = sad_mode, SADMode.SATD
 
-            if self.range_in == ColorRange.LIMITED:
-                pref = prefilter_to_full_range(pref, self.range_conversion, self.planes)
+        if isinstance(prefilter, Prefilter):
+            prefilter = prefilter(ref, self.planes)
 
-        pelclip, pelclip2 = self.get_subpel_clips(pref, ref)
+            if self.range_in.is_limited:
+                prefilter = prefilter_to_full_range(prefilter, range_conversion, self.planes)
+
+        assert prefilter is not None
+
+        if self.high_precision:
+            prefilter = depth(prefilter, 32)
+
+        check_ref_clip(ref, prefilter)
+
+        pelclip, pelclip2 = self.get_subpel_clips(prefilter, ref, pel_type)  # type: ignore[arg-type]
 
         common_args = dict[str, Any](
-            sharp=self.sharp, pel=self.pel, vpad=self.vpad_half, hpad=self.hpad_uhd, chroma=self.chroma
+            sharp=sharp, pel=self.pel, vpad=self.vpad_half, hpad=self.hpad_uhd, chroma=self.chroma
         ) | self.super_args
         super_render_args = common_args | dict(levels=1, hpad=self.hpad, vpad=self.vpad, chroma=not self.is_gray)
 
@@ -480,24 +482,27 @@ class MVTools:
             common_args |= dict(pelclip=pelclip)
             super_render_args |= dict(pelclip=pelclip2)
 
-        super_search = self.mvtools.Super(ref, **(dict(rfilter=self.rfilter) | common_args))
+        super_search = self.mvtools.Super(ref, **(dict(rfilter=rfilter) | common_args))
         super_render = self.mvtools.Super(self.workclip, **super_render_args)
-        super_recalculate = self.mvtools.Super(pref, **(dict(levels=1) | common_args)) if self.refine else super_render
+        super_recalculate = self.mvtools.Super(
+            prefilter, **(dict(levels=1) | common_args)
+        ) if self.refine else super_render
 
         recalculate_SAD = round(exp(-101. / (150 * 0.83)) * 360)
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
         analyse_args = dict[str, Any](
-            plevel=0, pglobal=11, pelsearch=search.pel, blksize=blocksize, overlap=overlap, search=search.mode,
-            truemotion=truemotion, searchparam=search.param, chroma=self.chroma, dct=self.sad_mode
+            dct=sad_mode, pelsearch=search.pel, blksize=blocksize, overlap=overlap, search=search.mode,
+            truemotion=motion.truemotion, searchparam=search.param, chroma=self.chroma,
+            plevel=0, pglobal=11
         ) | self.analyze_args
 
         recalc_args = dict[str, Any](
-            search=0, dct=self.recalc_sad_mode, thsad=recalculate_SAD, blksize=halfblocksize, overlap=halfoverlap,
-            truemotion=truemotion, searchparam=search.param_recalc, chroma=self.chroma
+            search=0, dct=recalc_sad_mode, thsad=recalculate_SAD, blksize=halfblocksize, overlap=halfoverlap,
+            truemotion=motion.truemotion, searchparam=search.param_recalc, chroma=self.chroma
         ) | self.recalculate_args
 
-        if self.mvtools == MVToolsPlugin.FLOAT_NEW:
+        if self.mvtools is MVToolsPlugin.FLOAT_NEW:
             vmulti = self.mvtools.Analyse(super_search, radius=t2, **analyse_args)
 
             if self.source_type.is_inter:
@@ -523,12 +528,14 @@ class MVTools:
 
             if self.refine:
                 refblks = blocksize
+
                 for i in range(1, t2 + 1):
                     if not vectors.got_mv(MVWay.BACK, i) or not vectors.got_mv(MVWay.FWRD, i):
                         continue
 
                     for j in range(1, self.refine):
                         val = (refblks / 2 ** j)
+
                         if val > 128:
                             refblks = 128
                         elif val < 4:
@@ -550,7 +557,7 @@ class MVTools:
         vectors_backward = list[vs.VideoNode]()
         vectors_forward = list[vs.VideoNode]()
 
-        if self.mvtools == MVToolsPlugin.FLOAT_NEW:
+        if self.mvtools is MVToolsPlugin.FLOAT_NEW:
             vmulti = vectors.vmulti
 
             for i in range(0, t2 * 2, 2):
@@ -565,13 +572,9 @@ class MVTools:
         return (vectors_backward, vectors_forward)
 
     def compensate(
-        self, func: GenericVSFunction,
-        ref: vs.VideoNode | None = None,
-        thSAD: int = 150, **kwargs: Any
+        self, func: GenericVSFunction, thSAD: int = 150, *, ref: vs.VideoNode | None = None, **kwargs: Any
     ) -> vs.VideoNode:
-        ref = fallback(ref, self.workclip)
-
-        check_ref_clip(self.workclip, ref)
+        ref = self.get_ref_clip(ref, self.__class__.compensate)
 
         vect_b, vect_f = self.get_vectors_bf()
 
@@ -580,11 +583,10 @@ class MVTools:
             tff=self.source_type.is_inter and self.source_type.value or None
         ) | self.compensate_args
 
-        comp_back, comp_forw = tuple(
-            map(
-                lambda vect: self.mvtools.Compensate(ref, vectors=vect, **compensate_args), vectors
-            ) for vectors in (reversed(vect_b), vect_f)
-        )
+        comp_back, comp_forw = [
+            [self.mvtools.Compensate(ref, vectors=vect, **compensate_args) for vect in vectors]
+            for vectors in (reversed(vect_b), vect_f)
+        ]
 
         comp_clips = [*comp_forw, ref, *comp_back]
         n_clips = len(comp_clips)
@@ -596,52 +598,60 @@ class MVTools:
         return processed.std.SelectEvery(cycle=n_clips, offsets=ceil(n_clips / 2))
 
     def degrain(
-        self, ref: vs.VideoNode | None = None,
-        thSAD: int = 300, thSADC: int | None = None,
-        thSCD1: int | None = None, thSCD2: int = 130,
-        limit: int | None = None, limitC: float | None = None
+        self, thSAD: int | tuple[int, int] = 300, limit: int | tuple[int, int] = 255,
+        thSCD: tuple[int | None, int | None] = (None, 130),
+        *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
-        check_ref_clip(self.workclip, ref)
+        ref = self.get_ref_clip(ref, self.__class__.degrain)
 
-        limit = fallback(limit, 2 if self.is_uhd else 255)
-        limitC = fallback(limitC, limit)
+        thSAD, thSADC = normalize_seq(thSAD, 2)
+        limit, limitC = normalize_seq(limit, 2)
+        thSCD1, thSCD2 = thSCD
 
-        thrSAD_luma = round(exp(-101. / (thSAD * 0.83)) * 360)
-        thrSAD_chroma = fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)))
+        thSAD = round(exp(-101. / (thSAD * 0.83)) * 360)
+        thSADC = fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)))
 
-        thrSCD_first = fallback(thSCD1, round(0.35 * thSAD + 260))
-        thrSCD_second = fallback(thSCD2, 130)
+        thSCD1 = fallback(thSCD1, round(0.35 * thSAD + 260))
+        thSCD2 = fallback(thSCD2, 130)
 
         vect_b, vect_f = self.get_vectors_bf()
 
-        degrain_args = dict[str, Any](
-            thscd1=thrSCD_first, thscd2=thrSCD_second, plane=self.mv_plane
-        ) | self.degrain_args
+        degrain_args = dict[str, Any](thscd1=thSCD1, thscd2=thSCD2, plane=self.mv_plane)
 
-        if self.mvtools == MVToolsPlugin.INTEGER:
-            degrain_args.update(thsad=thrSAD_luma, thsadc=thrSAD_chroma, limit=limit, limitc=limitC)
+        if self.mvtools is MVToolsPlugin.INTEGER:
+            degrain_args.update(thsad=thSAD, thsadc=thSADC, limit=limit, limitc=limitC)
         else:
-            degrain_args.update(thsad=[thrSAD_luma, thrSAD_chroma, thrSAD_chroma], limit=[limit, limitC])
+            degrain_args.update(thsad=[thSAD, thSADC, thSADC], limit=[limit, limitC])
 
-            if self.mvtools == MVToolsPlugin.FLOAT_NEW:
-                degrain_args.update(thsad2=[thrSAD_luma / 2, thrSAD_chroma / 2])
+            if self.mvtools is MVToolsPlugin.FLOAT_NEW:
+                degrain_args.update(thsad2=[thSAD / 2, thSADC / 2])
 
-        to_degrain = ref or self.workclip
-
-        if self.mvtools == MVToolsPlugin.FLOAT_NEW:
-            output = self.mvtools.Degrain()(to_degrain, self.vectors.super_render, self.vectors.vmulti, **degrain_args)
+        if self.mvtools is MVToolsPlugin.FLOAT_NEW:
+            output = self.mvtools.Degrain()(ref, self.vectors.super_render, self.vectors.vmulti, **degrain_args)
         else:
             output = self.mvtools.Degrain(self.tr)(
-                to_degrain, self.vectors.super_render, *chain.from_iterable(zip(vect_b, vect_f)), **degrain_args
+                ref, self.vectors.super_render, *chain.from_iterable(zip(vect_b, vect_f)), **degrain_args
             )
 
         return output.std.DoubleWeave(self.source_type.value) if self.source_type.is_inter else output
 
+    def get_ref_clip(self, ref: vs.VideoNode | None, func: FuncExceptT) -> ConstantFormatVideoNode:
+        ref = fallback(ref, self.workclip)
+
+        check_ref_clip(self.workclip, ref)
+
+        if self.high_precision:
+            ref = depth(ref, 32)
+
+        assert check_variable(ref, func)
+
+        return ref
+
     def get_subpel_clips(
-        self, pref: vs.VideoNode, ref: vs.VideoNode
+        self, pref: vs.VideoNode, ref: vs.VideoNode, pel_type: tuple[PelType, PelType]
     ) -> tuple[vs.VideoNode | None, vs.VideoNode | None]:
         return tuple(  # type: ignore[return-value]
-            None if ptype == PelType.NONE else ptype(
+            None if ptype is PelType.NONE else ptype(  # type: ignore[misc]
                 clip, self.pel, default=PelType.WIENER if is_ref else PelType.BICUBIC
-            ) for is_ref, ptype, clip in zip((False, True), self.pel_type, (pref, ref))
+            ) for is_ref, ptype, clip in zip((False, True), pel_type, (pref, ref))
         )
