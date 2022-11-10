@@ -193,79 +193,139 @@ class MVToolsPlugin(CustomIntEnum):
 
 
 class SADMode(CustomIntEnum):
+    """
+    SAD Calculation mode for MVTools.
+
+    Decides the using of block DCT, SAD, SAT or SATD for SAD calculation.
+
+    SAD => Sum of Absolute Difference (The main parameter mvtools uses)
+    This is calculated over 2 macroblocks that are being compared.
+
+    DCT => Discrete Cosine Transform (Frequency Spectrum)
+    Transform both the current blocks and the reference block to frequency domain,
+    then calculate the sum of the absolute difference between each pair of transformed samples in that domain.
+
+    SATD => Sum of HAdamard Transformed Differences.
+    Get the difference block between the current blocks and the reference block,
+    and transform that difference block to frequency domain and calculate the sum of the absolute value
+    of each sample in that transformed difference block.
+
+    You can read more about the algorithm SATD uses `here <https://en.wikipedia.org/wiki/Hadamard_transform>`_.
+    The actual implementation is a recursive Hadamard Ordered Walsh-Hadamard Transform
+
+    The usage of DCT in particular, can improve motion vector estimation at luma flicker and fades.
+    """
+
     SPATIAL = 0
-    """@@PLACEHOLDER@@"""
+    """Usual usage of spatial block data only, does not use DCT."""
 
     DCT = 1
-    """@@PLACEHOLDER@@"""
+    """Use block DCT instead of spatial data. (Slow for block size 8x8 and very slow for other sizes)"""
 
     MIXED_SPATIAL_DCT = 2
-    """@@PLACEHOLDER@@"""
+    """Mixed spatial and DCT data; weight is dependent on mean frame luma difference."""
 
     ADAPTIVE_SPATIAL_MIXED = 3
-    """@@PLACEHOLDER@@"""
+    """Adaptive per-block switching from spatial to equal-weighted mixed mode."""
 
     ADAPTIVE_SPATIAL_DCT = 4
-    """@@PLACEHOLDER@@"""
-
+    """Adaptive per-block switching from spatial to mixed mode with more weight to DCT."""
 
     SATD = 5
-    """@@PLACEHOLDER@@"""
+    """SATD instead of SAD for luma."""
 
     MIXED_SATD_DCT = 6
-    """@@PLACEHOLDER@@"""
+    """Same as 2 only use SATD."""
 
     ADAPTIVE_SATD_MIXED = 7
-    """@@PLACEHOLDER@@"""
+    """Same as 3 only use SATD."""
 
     ADAPTIVE_SATD_DCT = 8
-    """@@PLACEHOLDER@@"""
+    """Same as 4 only use SATD."""
 
     MIXED_SATEQSATD_DCT = 9
-    """@@PLACEHOLDER@@"""
+    """Similar to 2, use SATD and weight ranges from SAD only to equal SAD & SATD."""
 
     ADAPTIVE_SATD_MAJLUMA = 10
-    """@@PLACEHOLDER@@"""
+    """Similar to 3 and 4, use SATD weight is on SAD, only on strong luma changes."""
 
     def is_satd(self) -> bool:
-        """@@PLACEHOLDER@@"""
+        """Returns wether this SADMode uses SATD instead of SAD."""
 
         return self >= SADMode.SATD
 
 
 class MotionMode:
-    """@@PLACEHOLDER@@"""
+    """
+    A preset or custom parameters values for truemotion/motion analysis modes of mvtools.
+
+    Presets allows easy to switch default values of all "true motion" parameters at once.
+    """
 
     @dataclass
     class Config:
-        """@@PLACEHOLDER@@"""
+        """Dataclass to represent all the "true motion" parameters."""
 
         truemotion: bool
-        """@@PLACEHOLDER@@"""
+        """Straight MVTools preset parameter."""
 
         coherence: int
-        """@@PLACEHOLDER@@"""
+        """
+        Coherence of the field of vectors. The higher, the more coherent.
+
+        However, if set too high, some best motion vectors can be missed.
+
+        Values around 400 - 2000 (for block size 8) are strongly recommended.
+
+        Internally it is coefficient for SAD penalty of vector squared
+        difference from predictors (neighbors), scaled by 256.
+        """
 
         sad_limit: int
-        """@@PLACEHOLDER@@"""
+        """
+        SAD limit for coherence using.
+
+        Local coherence is decreased if SAD value of vector predictor (formed from neighbor blocks)
+        is greater than the limit. It prevents bad predictors using but decreases the motion coherence.
+
+        Values above 1000 (for block size=8) are recommended for true motion.
+        """
 
         pnew: int
-        """@@PLACEHOLDER@@"""
+        """
+        Relative penalty (scaled to 256) to SAD cost for new candidate vector.
+
+        New candidate vector must be better will be accepted as new vector only
+        if its SAD with penalty (SAD + SAD*pnew/256) is lower then predictor cost (old SAD).
+
+        It prevent replacing of quite good predictors by new vector with
+        a little better SAD but different length and direction.
+        """
 
         plevel: int
-        """@@PLACEHOLDER@@"""
+        """
+        Penalty factor coherence level scaling mode.
+         * 0 - No scaling.
+         * 1 - Linear.
+         * 2 - Quadratic dependence from hierarchical level size.
+
+        Note that vector length is smaller at lower level.
+        """
 
         global_motion: bool
-        """@@PLACEHOLDER@@"""
+        """
+        Enable estimate global motion (at every level) and use it as an additional predictor.
+        Only pan shift is estimated (no zoom and rotation).
+        """
 
     HIGH_SAD = Config(False, 0, 400, 0, 0, False)
-    """@@PLACEHOLDER@@"""
+    """Use to search motion vectors with best SAD."""
 
     VECT_COHERENCE = Config(True, 1000, 1200, 50, 1, True)
-    """@@PLACEHOLDER@@"""
+    """Use for true motion search (high vector coherence)."""
 
     VECT_NOSCALING = Config(True, 1000, 1200, 50, 0, True)
-    """@@PLACEHOLDER@@"""
+    """Same as :py:attr:`VECT_COHERENCE` but with plevel set to no scaling (lower penality factor)."""
 
     class _CustomConfig:
         def __call__(
@@ -273,7 +333,12 @@ class MotionMode:
             pnew: int | None = None, plevel: int | None = None, global_motion: bool | None = None,
             truemotion: bool = True
         ) -> MotionMode.Config:
-            """@@PLACEHOLDER@@"""
+            """
+            Create a custom :py:class:`MotionMode.Config`.
+            Default values will depend on `truemotion`.
+
+            For parameters, please refer to :py:class:`MotionMode.Config`
+            """
 
             ref = MotionMode.from_param(truemotion)
 
@@ -287,11 +352,17 @@ class MotionMode:
             )
 
     MANUAL = _CustomConfig()
-    """@@PLACEHOLDER@@"""
+    """Construct a custom config."""
 
     @classmethod
     def from_param(cls, truemotion: bool) -> Config:
-        """@@PLACEHOLDER@@"""
+        """
+        Get a default :py:class:`MotionMode.Config`.
+
+        :param truemotion:  Wheter to have a true motion config or not.
+
+        :return:            A :py:class:`MotionMode.Config`.
+        """
 
         return MotionMode.VECT_COHERENCE if truemotion else MotionMode.HIGH_SAD
 
