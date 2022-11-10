@@ -767,7 +767,16 @@ class MVTools:
         return vectors
 
     def get_vectors_bf(self, *, inplace: bool = False) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
-        """@@PLACEHOLDER@@"""
+        """
+        Get the backwards and forward vectors.
+        If :py:attr:`analyze` wasn't previously called, it will do with default values or
+        kwargs specified in the constructor.
+
+        :param inplace:     Only return the list, not modifying the internal state.
+                            (Useful if you haven't called :py:attr:`analyze` previously)
+
+        :return:            Two lists, respectively for backward and forwards, containing motion vectors.
+        """
 
         vectors = self.vectors if self.vectors.got_vectors else self.analyze(inplace=inplace)
 
@@ -859,7 +868,14 @@ class MVTools:
         return output.std.DoubleWeave(self.source_type.value) if self.source_type.is_inter else output
 
     def get_ref_clip(self, ref: vs.VideoNode | None, func: FuncExceptT) -> ConstantFormatVideoNode:
-        """@@PLACEHOLDER@@"""
+        """
+        Utility for getting the ref clip and set it up with internal modifying.
+
+        :param ref:     Input clip. If None, the workclip will be used.
+        :param func:    Function this was called from.
+
+        :return:        Clip to be used in this instance of MVTools.
+        """
 
         ref = fallback(ref, self.workclip)
 
@@ -875,7 +891,16 @@ class MVTools:
     def get_subpel_clips(
         self, pref: vs.VideoNode, ref: vs.VideoNode, pel_type: tuple[PelType, PelType]
     ) -> tuple[vs.VideoNode | None, vs.VideoNode | None]:
-        """@@PLACEHOLDER@@"""
+        """
+        Get upscaled clips for the subpel param.
+
+        :param pref:        Prefiltered clip.
+        :param ref:         Input clip.
+        :param pel_type:    :py:class:`PelType` to use for upscaling.
+                            First is for the prefilter, the other is for normal clip.
+
+        :return:            Two values. An upscaled clip or None if PelType.NONE.
+        """
 
         return tuple(  # type: ignore[return-value]
             None if ptype is PelType.NONE else ptype(  # type: ignore[misc]
