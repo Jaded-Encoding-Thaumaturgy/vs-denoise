@@ -7,10 +7,10 @@ from __future__ import annotations
 from itertools import count, zip_longest
 from typing import Any, Callable, Iterable, cast
 
-from vskernels import Bilinear, Scaler, ScalerT, Catrom
+from vskernels import Bilinear, Catrom, Scaler, ScalerT
 from vsrgtools import RemoveGrainMode, removegrain
 from vsrgtools.util import norm_rmode_planes
-from vstools import depth, vs, PlanesT, expect_bits, get_h, get_w, normalize_planes, KwargsT
+from vstools import KwargsT, PlanesT, depth, expect_bits, get_h, get_w, normalize_planes, vs
 
 from .mvtools import MVTools
 from .prefilters import PelType
@@ -102,7 +102,7 @@ def mlm_degrain(
         mvtools_arg |= dict(subpixel=1) | kwargs
 
         mv = MVTools(clip, **mvtools_arg)
-        mv.analyze(ref, **analise_args)
+        mv.analyze(ref=ref, **analise_args)
         return mv.degrain(**norm_dkwargs[idx])
 
     clip, bits = expect_bits(clip, 16)

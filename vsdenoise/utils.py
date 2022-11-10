@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from vstools import CustomValueError
-
 from typing import List, Sequence, Tuple
+
+from vstools import CustomValueError
 
 
 def planes_to_mvtools(planes: Sequence[int]) -> Tuple[List[int], int]:
