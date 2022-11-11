@@ -39,10 +39,13 @@ class MotionVectors:
     vmulti: vs.VideoNode
     super_render: vs.VideoNode
 
+    kwargs: dict[str, Any]
+
     temporal_vectors: dict[MVWay, dict[int, vs.VideoNode]]
 
     def __init__(self) -> None:
         self._init_vects()
+        self.kwargs = dict[str, Any]()
 
     def _init_vects(self) -> None:
         self.temporal_vectors = {w: {} for w in MVWay}
@@ -63,6 +66,7 @@ class MotionVectors:
     def clear(self) -> None:
         del self.vmulti
         del self.super_render
+        self.kwargs.clear()
         self.temporal_vectors.clear()
         self._init_vects()
 
@@ -308,6 +312,7 @@ class MVTools:
         high_precision: bool = False,
         hpad: int | None = None, vpad: int | None = None,
         vectors: MotionVectors | MVTools | None = None,
+        params_curve: bool = True,
         *,
         # kwargs for mvtools calls
         super_args: dict[str, Any] | None = None,
@@ -315,9 +320,8 @@ class MVTools:
         recalculate_args: dict[str, Any] | None = None,
         compensate_args: dict[str, Any] | None = None,
         # Analyze kwargs
-        block_size: int | None = None,
-        overlap: int | None = None,
-        range_conversion: float | None = None,
+        block_size: int | None = None, overlap: int | None = None,
+        thSAD: int | None = None, range_conversion: float | None = None,
         search: SearchMode | SearchMode.Config | None = None,
         sharp: int | None = None, rfilter: int | None = None,
         sad_mode: SADMode | tuple[SADMode, SADMode] | None = None,
@@ -343,15 +347,16 @@ class MVTools:
 
         self.source_type = FieldBased.from_param(source_type, MVTools) or FieldBased.from_video(self.clip)
         self.range_in = range_in
+
         self.pel = fallback(pel, 1 + int(not self.is_hd))
 
-        planes = normalize_planes(self.clip, planes)
+        self.planes = normalize_planes(self.clip, planes)
 
-        self.is_gray = planes == [0]
+        self.is_gray = self.planes == [0]
 
-        self.planes, self.mv_plane = planes_to_mvtools(planes)
+        self.mv_plane = planes_to_mvtools(planes)
 
-        self.chroma = 1 in self.planes or 2 in self.planes
+        self.chroma = self.mv_plane != 0
 
         if isinstance(vectors, MVTools):
             self.vectors = vectors.vectors
@@ -359,6 +364,8 @@ class MVTools:
             self.vectors = vectors
         else:
             self.vectors = MotionVectors()
+
+        self.params_curve = params_curve
 
         self.super_args = fallback(super_args, dict[str, Any]())
         self.analyze_args = fallback(analyze_args, dict[str, Any]())
@@ -385,14 +392,14 @@ class MVTools:
 
         self.analyze_func_kwargs = dict(
             rfilter=rfilter, overlap=overlap, range_conversion=range_conversion, search=search, sharp=sharp,
-            block_size=block_size, sad_mode=sad_mode, motion=motion, prefilter=prefilter, pel_type=pel_type
+            block_size=block_size, sad_mode=sad_mode, motion=motion, prefilter=prefilter, pel_type=pel_type,
+            thSAD=thSAD
         )
 
     def analyze(
         self,
-        block_size: int | None = None,
-        overlap: int | None = None,
-        range_conversion: float | None = None,
+        block_size: int | None = None, overlap: int | None = None,
+        thSAD: int | None = None, range_conversion: float | None = None,
         search: SearchMode | SearchMode.Config | None = None,
         sharp: int | None = None, rfilter: int | None = None,
         sad_mode: SADMode | tuple[SADMode, SADMode] | None = None,
@@ -404,7 +411,7 @@ class MVTools:
         ref = self.get_ref_clip(ref, self.__class__.analyze)
 
         block_size = kwargs_fallback(block_size, (self.analyze_func_kwargs, 'block_size'), 16 if self.is_hd else 8)
-        blocksize = max(self.refine and 2 ** (self.refine + 2), block_size)
+        blocksize = max(self.refine and 2 ** (self.refine + 1), block_size)
 
         halfblocksize = max(8, blocksize // 2)
         halfoverlap = max(2, halfblocksize // 2)
@@ -412,6 +419,8 @@ class MVTools:
         overlap = kwargs_fallback(overlap, (self.analyze_func_kwargs, 'overlap'), halfblocksize)
 
         rfilter = kwargs_fallback(rfilter, (self.analyze_func_kwargs, 'rfilter'), 3)
+
+        thSAD = kwargs_fallback(thSAD, (self.analyze_func_kwargs, 'thSAD'), 300)
 
         range_conversion = kwargs_fallback(range_conversion, (self.analyze_func_kwargs, 'range_conversion'), 5.0)
 
@@ -488,22 +497,26 @@ class MVTools:
             prefilter, **(dict(levels=1) | common_args)
         ) if self.refine else super_render
 
-        recalculate_SAD = round(exp(-101. / (150 * 0.83)) * 360)
+        if self.params_curve:
+            thSAD_recalc = round(exp(-101. / (thSAD * 0.83)) * 360)
+        else:
+            thSAD_recalc = thSAD
+
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
-        analyse_args = dict[str, Any](
+        analyze_args = dict[str, Any](
             dct=sad_mode, pelsearch=search.pel, blksize=blocksize, overlap=overlap, search=search.mode,
             truemotion=motion.truemotion, searchparam=search.param, chroma=self.chroma,
             plevel=0, pglobal=11
         ) | self.analyze_args
 
         recalc_args = dict[str, Any](
-            search=0, dct=recalc_sad_mode, thsad=recalculate_SAD, blksize=halfblocksize, overlap=halfoverlap,
+            search=0, dct=recalc_sad_mode, thsad=thSAD_recalc, blksize=halfblocksize, overlap=halfoverlap,
             truemotion=motion.truemotion, searchparam=search.param_recalc, chroma=self.chroma
         ) | self.recalculate_args
 
         if self.mvtools is MVToolsPlugin.FLOAT_NEW:
-            vmulti = self.mvtools.Analyse(super_search, radius=t2, **analyse_args)
+            vmulti = self.mvtools.Analyse(super_search, radius=t2, **analyze_args)
 
             if self.source_type.is_inter:
                 vmulti = vmulti.std.SelectEvery(4, 2, 3)
@@ -517,7 +530,7 @@ class MVTools:
             def _add_vector(delta: int, analyze: bool = True) -> None:
                 for way in MVWay:
                     if analyze:
-                        vect = self.mvtools.Analyse(super_search, isb=way.isb, delta=delta, **analyse_args)
+                        vect = self.mvtools.Analyse(super_search, isb=way.isb, delta=delta, **analyze_args)
                     else:
                         vect = self.mvtools.Recalculate(super_recalculate, vectors.get_mv(way, delta), **recalc_args)
 
@@ -546,6 +559,7 @@ class MVTools:
                         _add_vector(i, False)
 
         vectors.super_render = super_render
+        vectors.kwargs.update(thSAD=thSAD)
 
         return vectors
 
@@ -598,20 +612,29 @@ class MVTools:
         return processed.std.SelectEvery(cycle=n_clips, offsets=ceil(n_clips / 2))
 
     def degrain(
-        self, thSAD: int | tuple[int, int] = 300, limit: int | tuple[int, int] = 255,
+        self,
+        thSAD: int | tuple[int | None, int | None] | None = None,
+        limit: int | tuple[int, int] = 255,
         thSCD: tuple[int | None, int | None] = (None, 130),
         *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
         ref = self.get_ref_clip(ref, self.__class__.degrain)
 
-        thSAD, thSADC = normalize_seq(thSAD, 2)
+        thSAD, thSADC = (thSAD if isinstance(thSAD, tuple) else (thSAD, None))
+
+        thSAD = kwargs_fallback(thSAD, (self.vectors.kwargs, 'thSAD'), 300)
+        thSADC = fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)) if self.params_curve else thSAD)
+
         limit, limitC = normalize_seq(limit, 2)
+
+        if not all(0 <= x <= 255 for x in (limit, limitC)):
+            raise CustomOverflowError(
+                '"limit" values should be between 0 and 255 (inclusive)!', self.__class__.degrain
+            )
+
         thSCD1, thSCD2 = thSCD
 
-        thSAD = round(exp(-101. / (thSAD * 0.83)) * 360)
-        thSADC = fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)))
-
-        thSCD1 = fallback(thSCD1, round(0.35 * thSAD + 260))
+        thSCD1 = fallback(thSCD1, round(0.35 * thSAD + 260) if self.params_curve else thSAD // 2)
         thSCD2 = fallback(thSCD2, 130)
 
         vect_b, vect_f = self.get_vectors_bf()
