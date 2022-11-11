@@ -638,10 +638,10 @@ class MVTools:
     def get_ref_clip(self, ref: vs.VideoNode | None, func: FuncExceptT) -> ConstantFormatVideoNode:
         ref = fallback(ref, self.workclip)
 
-        check_ref_clip(self.workclip, ref)
-
         if self.high_precision:
             ref = depth(ref, 32)
+
+        check_ref_clip(self.workclip, ref)
 
         assert check_variable(ref, func)
 
