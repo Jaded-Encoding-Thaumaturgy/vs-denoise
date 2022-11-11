@@ -22,35 +22,35 @@ __all__ = [
 
 
 class CCDMode(CustomIntEnum):
-    """Processing mode for ccd"""
+    """Processing mode for CCD."""
 
     CHROMA_ONLY = 0
-    """Only process chroma"""
+    """Only process chroma."""
 
     BICUBIC_CHROMA = 1
-    """Process in 4:4:4 downscaling the luma to chroma size"""
+    """Process in 4:4:4, downscaling the luma to chroma size."""
 
     BICUBIC_LUMA = 2
-    """Process in 4:4:4 upscaling the chroma to luma size with bicubic"""
+    """Process in 4:4:4, upscaling the chroma to luma size with :py:class:`Bicubic`."""
 
     NNEDI_BICUBIC = 3
     """
-    Process in 4:4:4 upscaling the chroma to luma size with nnedi3,
-    then downscaled to original size with bicuic.
+    Process in 4:4:4, upscaling the chroma to luma size with :py:class:`NNedi3`,
+    then downscaled to original size with :py:class:`Bicubic`.
     """
 
     NNEDI_SSIM = 4
     """
-    Process in 4:4:4 upscaling the chroma to luma size with nnedi3,
-    then downscaled to original size with SSIM.
+    Process in 4:4:4 upscaling the chroma to luma size with :py:class:`NNedi3`,
+    then downscaled to original size with :py:class:`SSIM`.
     """
 
 
 class CCDPoints(CustomIntEnum):
     """
-    Sample point of reference taken in processing for ccd.
+    Sample point of reference taken in processing for CCD.
 
-    Graph of all the points.
+    Graph of all the points:
 
     x => center pixel
     ^ => CCDPoints.LOW

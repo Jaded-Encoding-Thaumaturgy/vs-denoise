@@ -57,8 +57,8 @@ class Regression:
         ) -> None:
             """
             :param func:        Function used for blurring.
-            :param *args:       Positional arguments passed to the function.
-            :param *kwargs:     Keyword arguments passed to the function.
+            :param args:        Positional arguments passed to the function.
+            :param kwargs:      Keyword arguments passed to the function.
             """
 
             self.func = func
@@ -74,8 +74,8 @@ class Regression:
             Get a :py:attr:`BlurConf` from generic parameters.
 
             :param func:        Function used for blurring or already existing config.
-            :param *args:       Positional arguments passed to the function.
-            :param *kwargs:     Keyword arguments passed to the function.
+            :param args:        Positional arguments passed to the function.
+            :param kwargs:      Keyword arguments passed to the function.
 
             :return:            :py:attr:`BlurConf` object.
             """
@@ -89,8 +89,8 @@ class Regression:
             """
             Extend the current config arguments and get a new :py:attr:`BlurConf` object.
 
-            :param *args:       Positional arguments passed to the function.
-            :param *kwargs:     Keyword arguments passed to the function.
+            :param args:        Positional arguments passed to the function.
+            :param kwargs:      Keyword arguments passed to the function.
 
             :return:            :py:attr:`BlurConf` object.
             """
@@ -108,8 +108,8 @@ class Regression:
 
             :param clip:            Clip to be blurred.
             :param chroma_only:     Try only processing chroma.
-            :param *args:           Positional arguments passed to the function.
-            :param *kwargs:         Keyword arguments passed to the function.
+            :param args:            Positional arguments passed to the function.
+            :param kwargs:          Keyword arguments passed to the function.
 
             :return:                Blurred clip.
             """
@@ -154,8 +154,8 @@ class Regression:
 
             :param clip:            Clip to be blurred.
             :param chroma_only:     Try only processing chroma.
-            :param *args:           Positional arguments passed to the function.
-            :param *kwargs:         Keyword arguments passed to the function.
+            :param args:            Positional arguments passed to the function.
+            :param kwargs:          Keyword arguments passed to the function.
 
             :return:                Blurred clip.
             """
@@ -213,8 +213,8 @@ class Regression:
 
         :param func:        Function used for blurring or already existing blurring config.
         :param eps:         Epsilon, used in expressions to avoid division by zero.
-        :param *args:       Positional arguments passed to the blurring function.
-        :param *kwargs:     Keyword arguments passed to the blurring function.
+        :param args:        Positional arguments passed to the blurring function.
+        :param kwargs:      Keyword arguments passed to the blurring function.
 
         :return:            :py:attr:`Regression` object.
         """
@@ -231,8 +231,8 @@ class Regression:
 
         :param clip:        Clip or singular planes to be processed.
         :param eps:         Epsilon, used in expressions to avoid division by zero.
-        :param *args:       Positional arguments passed to the blurring function.
-        :param *kwargs:     Keyword arguments passed to the blurring function.
+        :param args:        Positional arguments passed to the blurring function.
+        :param kwargs:      Keyword arguments passed to the blurring function.
 
         :return:            List of a :py:attr:`Regression.Linear` object for each plane.
         """
@@ -268,8 +268,8 @@ class Regression:
         :param clip:        Clip or individual planes to be processed.
         :param eps:         Epsilon, used in expressions to avoid division by zero.
         :param avg:         Average (blur) the final result.
-        :param *args:       Positional arguments passed to the blurring function.
-        :param *kwargs:     Keyword arguments passed to the blurring function.
+        :param args:        Positional arguments passed to the blurring function.
+        :param kwargs:      Keyword arguments passed to the blurring function.
 
         :return:            List of clips representing the correlation of slopes.
         """
@@ -310,7 +310,7 @@ def chroma_reconstruct(
     """
     Chroma reconstruction filter using :py:attr:`Regress`.
 
-    This function should be used with care, and not blindly applied to anything.
+    This function should be used with care, and not blindly applied to anything.\n
     Ideally you should see how the function works,
     and then mangle the luma of your source to match how your chroma was mangled.
 
@@ -325,8 +325,8 @@ def chroma_reconstruct(
     :param downscaler:  Scaler used to downscale the luma plane. Defaults to :py:attr:`kernel`
     :param func:        Function used for blurring or blurring config.
     :param eps:         Epsilon, used in expressions to avoid division by zero.
-    :param *args:       Positional arguments passed to the blurring function.
-    :param *kwargs:     Keyword arguments passed to the blurring function.
+    :param args:        Positional arguments passed to the blurring function.
+    :param kwargs:      Keyword arguments passed to the blurring function.
 
     :return:        Clip with demangled chroma.
     """

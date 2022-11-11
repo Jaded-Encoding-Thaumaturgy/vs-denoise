@@ -115,7 +115,7 @@ class MVToolsPlugin(CustomIntEnum):
     """Abstraction around the three versions of mvtools plugin there exist."""
 
     INTEGER = 0
-    """Original plugin. Only works with integer 8-16bits clips."""
+    """Original plugin. Only works with integer 8-16 bits clips."""
 
     FLOAT_OLD = 1
     """New plugin by IFeelBloated. Latest release. Only works with float single precision clips."""
@@ -178,7 +178,7 @@ class MVToolsPlugin(CustomIntEnum):
         if clip.format.sample_type is vs.FLOAT:
             if not hasattr(core, 'mvsf'):
                 raise ImportError(
-                    "MVTools: With the current settings, the processing has to be done in float precision, "
+                    "MVTools: With the current clip, the processing has to be done in float precision, "
                     "but you're missing mvsf."
                     "\n\tPlease download it from: https://github.com/IFeelBloated/vapoursynth-mvtools-sf"
                 )
@@ -200,22 +200,22 @@ class SADMode(CustomIntEnum):
     """
     SAD Calculation mode for MVTools.
 
-    Decides the using of block DCT, SAD, SAT or SATD for SAD calculation.
+    Decides the using of block pure Spatial Data, DCT, SAD, or SATD for SAD calculation.
 
-    SAD => Sum of Absolute Difference (The main parameter mvtools uses)
+    SAD => Sum of Absolute Difference (The main parameter mvtools uses)\n
     This is calculated over 2 macroblocks that are being compared.
 
-    DCT => Discrete Cosine Transform (Frequency Spectrum)
+    DCT => Discrete Cosine Transform (Frequency Spectrum)\n
     Transform both the current blocks and the reference block to frequency domain,
     then calculate the sum of the absolute difference between each pair of transformed samples in that domain.
 
-    SATD => Sum of HAdamard Transformed Differences.
+    SATD => Sum of HAdamard Transformed Differences.\n
     Get the difference block between the current blocks and the reference block,
     and transform that difference block to frequency domain and calculate the sum of the absolute value
     of each sample in that transformed difference block.
 
-    You can read more about the algorithm SATD uses `here <https://en.wikipedia.org/wiki/Hadamard_transform>`_.
-    The actual implementation is a recursive Hadamard Ordered Walsh-Hadamard Transform
+    You can read more about the algorithm SATD uses `here <https://en.wikipedia.org/wiki/Hadamard_transform>`_.\n
+    The actual implementation is a recursive Hadamard Ordered Walsh-Hadamard Transform.
 
     The usage of DCT in particular, can improve motion vector estimation at luma flicker and fades.
     """
@@ -318,8 +318,8 @@ class MotionMode:
 
         global_motion: bool
         """
-        Enable estimate global motion (at every level) and use it as an additional predictor.
-        Only pan shift is estimated (no zoom and rotation).
+        Relative penalty (scaled to 8 bit) to SAD cost for global predictor vector.\n
+        Coherence is not used for global vector.
         """
 
     HIGH_SAD = Config(False, 0, 400, 0, 0, False)
@@ -338,7 +338,7 @@ class MotionMode:
             truemotion: bool = True
         ) -> MotionMode.Config:
             """
-            Create a custom :py:class:`MotionMode.Config`.
+            Create a custom :py:class:`MotionMode.Config`.\n
             Default values will depend on `truemotion`.
 
             For parameters, please refer to :py:class:`MotionMode.Config`
@@ -607,33 +607,34 @@ class MVTools:
 
         The plugin uses block-matching method of motion estimation (similar methods are used in MPEG2, MPEG4, etc).
 
-        Of course, the motion estimation and compensation is not ideal and precise.
+        Of course, the motion estimation and compensation is not ideal and precise.\n
         In some complex cases (video with fading, ultra-fast motion, or periodic structures) the motion estimation
         may be completely wrong, and compensated frame will be blocky and (or) ugly.
 
-        Severe difficulty is also due to objects mutual screening (occlusion) or reverse opening.
+        Severe difficulty is also due to objects mutual screening (occlusion) or reverse opening.\n
         Complex scripts with many motion compensation functions may eat huge amount of memory
-        and result in very slow processing. It is not simple but quite advanced plugin.
+        and result in very slow processing.
 
-        Use it for appropriate cases only, and try tuning its (many) parameters.
+        It's not simple to use, but it's a quite advanced plugin. This wrapper is aimed at easing its use.\n
+        However, use it for appropriate cases only, and try tuning its (many) parameters.
 
         :param clip:                Input clip that will be processed. Must be GRAY or YUV.
         :param tr:                  Temporal radius of the processing.
-        :param refine:              This represents the times the analyzed clip will be recalculated.
-                                    At every recalculation step, the block size will be refined.
-                                    i.e. refine=4 it will analyze at block_size=32, then refine at 16, 8, 4
-        :param pel:                 Pixel EnLargement value aka subpixel accuracy of the motion estimation.
+        :param refine:              This represents the times the analyzed clip will be recalculated.\n
+                                    At every recalculation step, the block size will be refined.\n
+                                    i.e. `refine=4` it will analyze at `block_size=32`, then refine at 16, 8, 4.
+        :param pel:                 Pixel EnLargement value aka subpixel accuracy of the motion estimation.\n
                                     Value can only be 1, 2 or 4.
                                      * 1 means a precision to the pixel.
-                                     * 2 means a precision to half a pixel
-                                     * 4 means a precision to quarter a pixel
-                                    pel=4 is produced by spatial interpolation which is more accurate
+                                     * 2 means a precision to half a pixel.
+                                     * 4 means a precision to quarter a pixel.
+                                    `pel=4` is produced by spatial interpolation which is more accurate
                                     but slower and not always better due to big level scale step.
         :param planes:              Planes to process.
         :param range_in:            ColorRange of the input clip.
         :param source_type:         Source type of the input clip
         :param high_precision:      Whether to process everything in float32 (very slow).
-        :param hpad:                It is horizontal padding added to source frame (both left and right).
+        :param hpad:                It is horizontal padding added to source frame (both left and right).\n
                                     Small padding is added for more correct motion estimation near frame borders.
         :param vpad:                It is vertical padding added to source frame (both top and bottom).
         :param vectors:             Already calculated vectors, either a custom instance or another MVTools instance.
@@ -645,29 +646,30 @@ class MVTools:
         :param compensate_args:     Arguments passed to all the :py:attr:`MVToolsPlugin.Compensate` calls.
 
         :param block_size:          Block size to be used as smallest portion of the picture for analysis.
-        :param overlap:             Nlock overlap value which must be even and less than block size.
-                                    The step between blocks for motion estimation is equal to (`block_size - overlap`).
-                                    N blocks cover the size (`(block_size - overlap) * N + overlap`) on frame.
-                                    Try using overlap value from `block_size / 4` to `block_size / 2`.
-                                    The greater overlap, the more blocks number, and the lesser the processing speed.
-                                    However the default value 0 may cause blocking-like artefacts.
+        :param overlap:             Nlock overlap value which must be even and less than block size.\n
+                                    The step between blocks for motion estimation is equal to `block_size - overlap`.\n
+                                    N blocks cover the size `(block_size - overlap) * N + overlap` on frame.\n
+                                    Try using overlap value from `block_size / 4` to `block_size / 2`.\n
+                                    The greater overlap, the more blocks number, and the lesser the processing speed.\n
+                                    However the default value 0 may cause blocking-like artefacts.\n
         :param thSAD:               During recalculate only bad quality new vectors with SAD above this thSAD
                                     will be re-estimated by search. thSAD value is scaled to 8x8 block size.
                                     Good vectors are not changed, but their SAD will be re-calculated and updated.
         :param range_conversion:    If the input is limited, it will be converted to full for more values to use
-                                    for motion analysis. This is for deciding what range conversion method to use.
+                                    for motion analysis.\n
+                                    This is for deciding what range conversion method to use.
                                      * >= 1.0 - Expansion with expr based on this coefficient.
                                      * >  0.0 - Expansion with retinex.
                                      * <= 0.0 - Simple conversion with resize plugin.
         :param search:              Decides the type of search at every level of the hierarchial
                                     analysis made while searching for motion vectors.
-        :param sharp:               Subpixel interpolation method for pel = 2 or 4. Possible values are 0, 1, 2.
+        :param sharp:               Subpixel interpolation method for pel = 2 or 4. Possible values are 0, 1, 2.\n
                                      * 0 - for soft interpolation (bilinear).
                                      * 1 - for bicubic interpolation (4 tap Catmull-Rom).
                                      * 2 - for sharper Wiener interpolation (6 tap, similar to Lanczos).
                                     This parameter controls the calculation of the first level only.
                                     When pel = 4, bilinear interpolation is always used to compute the second level.
-        :param rfilter:             Hierarchical levels smoothing and reducing (halving) filter.
+        :param rfilter:             Hierarchical levels smoothing and reducing (halving) filter.\n
                                      * 0 - Simple 4 pixels averaging.
                                      * 1 - Triangle (shifted) for more smoothing (decrease aliasing).
                                      * 2 - Triangle filter like Bilinear for even more smoothing.
@@ -760,36 +762,37 @@ class MVTools:
     ) -> MotionVectors:
         """
         At analysis stage plugin divides frames by small blocks and try to find for every block in current frame
-        the most similar (matching) block in second frame (previous or next).
-        The relative shift of these blocks is motion vector.
+        the most similar (matching) block in second frame (previous or next).\n
+        The relative shift of these blocks gets represented by a motion vector.
 
         The main measure of block similarity is sum of absolute differences (SAD) of all pixels of
         these two blocks compared. SAD is a value which says how good the motion estimation was.
 
         :param block_size:          Block size to be used as smallest portion of the picture for analysis.
-        :param overlap:             Nlock overlap value which must be even and less than block size.
-                                    The step between blocks for motion estimation is equal to (`block_size - overlap`).
-                                    N blocks cover the size (`(block_size - overlap) * N + overlap`) on frame.
-                                    Try using overlap value from `block_size / 4` to `block_size / 2`.
-                                    The greater overlap, the more blocks number, and the lesser the processing speed.
-                                    However the default value 0 may cause blocking-like artefacts.
+        :param overlap:             Nlock overlap value which must be even and less than block size.\n
+                                    The step between blocks for motion estimation is equal to `block_size - overlap`.\n
+                                    N blocks cover the size `(block_size - overlap) * N + overlap` on frame.\n
+                                    Try using overlap value from `block_size / 4` to `block_size / 2`.\n
+                                    The greater overlap, the more blocks number, and the lesser the processing speed.\n
+                                    However the default value 0 may cause blocking-like artefacts.\n
         :param thSAD:               During recalculate only bad quality new vectors with SAD above this thSAD
                                     will be re-estimated by search. thSAD value is scaled to 8x8 block size.
                                     Good vectors are not changed, but their SAD will be re-calculated and updated.
         :param range_conversion:    If the input is limited, it will be converted to full for more values to use
-                                    for motion analysis. This is for deciding what range conversion method to use.
+                                    for motion analysis.\n
+                                    This is for deciding what range conversion method to use.
                                      * >= 1.0 - Expansion with expr based on this coefficient.
                                      * >  0.0 - Expansion with retinex.
                                      * <= 0.0 - Simple conversion with resize plugin.
         :param search:              Decides the type of search at every level of the hierarchial
                                     analysis made while searching for motion vectors.
-        :param sharp:               Subpixel interpolation method for pel = 2 or 4. Possible values are 0, 1, 2.
+        :param sharp:               Subpixel interpolation method for pel = 2 or 4. Possible values are 0, 1, 2.\n
                                      * 0 - for soft interpolation (bilinear).
                                      * 1 - for bicubic interpolation (4 tap Catmull-Rom).
                                      * 2 - for sharper Wiener interpolation (6 tap, similar to Lanczos).
                                     This parameter controls the calculation of the first level only.
                                     When pel = 4, bilinear interpolation is always used to compute the second level.
-        :param rfilter:             Hierarchical levels smoothing and reducing (halving) filter.
+        :param rfilter:             Hierarchical levels smoothing and reducing (halving) filter.\n
                                      * 0 - Simple 4 pixels averaging.
                                      * 1 - Triangle (shifted) for more smoothing (decrease aliasing).
                                      * 2 - Triangle filter like Bilinear for even more smoothing.
@@ -962,11 +965,12 @@ class MVTools:
 
     def get_vectors_bf(self, *, inplace: bool = False) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
         """
-        Get the backwards and forward vectors.
-        If :py:attr:`analyze` wasn't previously called, it will do with default values or
-        kwargs specified in the constructor.
+        Get the backwards and forward vectors.\n
 
-        :param inplace:     Only return the list, not modifying the internal state.
+        If :py:attr:`analyze` wasn't previously called, it will do with
+        default values or kwargs specified in the constructor.
+
+        :param inplace:     Only return the list, not modifying the internal state.\n
                             (Useful if you haven't called :py:attr:`analyze` previously)
 
         :return:            Two lists, respectively for backward and forwards, containing motion vectors.
@@ -1009,11 +1013,11 @@ class MVTools:
         denoising it with the external temporal filter `func`, and select central cleaned original frames for output.
 
         :param func:        Temporal function to motion compensate.
-        :param thSAD:       This is the SAD threshold for safe (dummy) compensation.
+        :param thSAD:       This is the SAD threshold for safe (dummy) compensation.\n
                             If block SAD is above thSAD, the block is bad, and we use source block
                             instead of the compensated block.
         :param ref:         Reference clip to use instead of main clip.
-        :param **kwargs:    Keyword arguments passed to `func` to avoid using `partial`.
+        :param kwargs:      Keyword arguments passed to `func` to avoid using `partial`.
 
         :return:            Motion compensated output of `func`.
         """
@@ -1054,30 +1058,30 @@ class MVTools:
         Blocks of previous and next frames are motion compensated and then averaged with current
         frame with weigthing factors depended on block differences from current (SAD).
 
-        :param thSAD:   Defines the soft threshold of block sum absolute differences.
-                        If an int is specified, it will be used for luma and chroma will be a scaled value.
-                        If a tuple is specified, the first value is for luma, second is for chroma.
-                        If None, the same `thSAD` used in the `analyze` step will be used.
-                        Block with SAD above threshold thSAD have a zero weight for averaging (denoising).
-                        Block with low SAD has highest weight. Rest of weight is taken from pixels of source clip.
-                        The provided thSAD value is scaled to a 8x8 blocksize.
+        :param thSAD:   Defines the soft threshold of block sum absolute differences.\n
+                        If an int is specified, it will be used for luma and chroma will be a scaled value.\n
+                        If a tuple is specified, the first value is for luma, second is for chroma.\n
+                        If None, the same `thSAD` used in the `analyze` step will be used.\n
+                        Block with SAD above threshold thSAD have a zero weight for averaging (denoising).\n
+                        Block with low SAD has highest weight. Rest of weight is taken from pixels of source clip.\n
+                        The provided thSAD value is scaled to a 8x8 blocksize.\n
                         Low values can result in staggered denoising, large values can result in ghosting and artifacts.
-        :param limit:   Maximal change of pixel. This is post-processing to prevent some artifacts.
+        :param limit:   Maximal change of pixel. This is post-processing to prevent some artifacts.\n
                         Value ranges from 0 to 255. 255 does nothing.
         :param thSCD:   The first value is a threshold for whether a block has changed
-                        between the previous frame and the current one.
+                        between the previous frame and the current one.\n
                         When a block has changed, it means that motion estimation for it isn't relevant.
                         It, for example, occurs at scene changes, and is one of the thresholds used to
-                        tweak the scene changes detection engine.
-                        Raising it will lower the number of blocks detected as changed.
-                        It may be useful for noisy or flickered video. This threshold is compared to the SAD value.
+                        tweak the scene changes detection engine.\n
+                        Raising it will lower the number of blocks detected as changed.\n
+                        It may be useful for noisy or flickered video. This threshold is compared to the SAD value.\n
                         For exactly identical blocks we have SAD = 0, but real blocks are always different
                         because of objects complex movement (zoom, rotation, deformation),
-                        discrete pixels sampling, and noise.
-                        Suppose we have two compared 8×8 blocks with every pixel different by 5.
-                        It this case SAD will be 8×8×5 = 320 (block will not detected as changed for thSCD1 = 400).
+                        discrete pixels sampling, and noise.\n
+                        Suppose we have two compared 8×8 blocks with every pixel different by 5.\n
+                        It this case SAD will be 8×8×5 = 320 (block will not detected as changed for thSCD1 = 400).\n
                         Actually this parameter is scaled internally in MVTools,
-                        and it is always relative to 8x8 block size.
+                        and it is always relative to 8x8 block size.\n
                         The second value is a threshold of the percentage of how many blocks have to change for
                         the frame to be considered as a scene change. It ranges from 0 to 100 %.
         :param ref:     Reference clip to use instead of main clip.
@@ -1159,7 +1163,7 @@ class MVTools:
 
         :param pref:        Prefiltered clip.
         :param ref:         Input clip.
-        :param pel_type:    :py:class:`PelType` to use for upscaling.
+        :param pel_type:    :py:class:`PelType` to use for upscaling.\n
                             First is for the prefilter, the other is for normal clip.
 
         :return:            Two values. An upscaled clip or None if PelType.NONE.

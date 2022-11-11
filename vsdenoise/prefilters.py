@@ -136,7 +136,7 @@ class PrefilterBase(CustomIntEnum):
 
 class Prefilter(PrefilterBase):
     """
-    Enum representing available filters.
+    Enum representing available filters.\n
     These are mainly thought as prefilters for :py:attr:`MVTools`,
     but can be used standalone as-is.
     """
@@ -226,22 +226,21 @@ class Prefilter(PrefilterBase):
 
             :param clip:            Clip to be processed.
             :param planes:          Planes to be processed.
-            :param strength:        Controls the strength of the filtering.
+            :param strength:        Controls the strength of the filtering.\n
                                     Larger values will remove more noise.
-            :param tr:              Temporal Radius. Set the number of past and future frame that the filter uses
-                                    for denoising the current frame.
-                                    tr=0 uses 1 frame, while tr=1 uses 3 frames and so on.
+            :param tr:              Temporal Radius. Temporal size = `(2 * tr + 1)`.\n
+                                    Sets the number of past and future frames to uses for denoising the current frame.\n
+                                    tr=0 uses 1 frame, while tr=1 uses 3 frames and so on.\n
                                     Usually, larger it the better the result of the denoising.
-                                    Temporal size = (2 * tr + 1).
-            :param sr:              Search Radius. Set the radius of the search window.
-                                    sr=1 uses 9 pixel, while sr=2 uses 25 pixels and so on.
+            :param sr:              Search Radius. Spatial size = `(2 * sr + 1)^2`.\n
+                                    Sets the radius of the search window.\n
+                                    sr=1 uses 9 pixel, while sr=2 uses 25 pixels and so on.\n
                                     Usually, larger it the better the result of the denoising.
-                                    Spatial size = (2 * sr + 1)^2.
-            :param simr:            Similarity Radius. Set the radius of the similarity neighbourhood window.
+            :param simr:            Similarity Radius. Similarity neighbourhood size = `(2 * simr + 1) ** 2`.\n
+                                    Sets the radius of the similarity neighbourhood window.\n
                                     The impact on performance is low, therefore it depends on the nature of the noise.
-                                    Similarity neighbourhood size = (2 * simr + 1)^2.
             :param device_type:     Set the OpenCL device.
-            :param **kwargs:        Additional settings
+            :param kwargs:          Additional settings
 
             :return:                Filtered clip.
             """
@@ -257,22 +256,20 @@ class Prefilter(PrefilterBase):
             """
             Normal spatio-temporal denoising with the BM3D denoiser.
 
-            :param clip:        Clip to be processed.
-            :param planes:      Planes to be processed.
-            :param arch:        BM3D Architecture to use (class).
-            :param sigma:       Strength of denoising, valid range is [0, +inf)
-            :param radius:      Temporal radius, valid range is [1, 16]
-            :param profile:     Preset profiles
-            :param ref:         Reference clip used in block-matching, it replaces basic estimate
-                                If not specified, the input clip is used instead
+            :param clip:        Source clip.
+            :param sigma:       Strength of denoising, valid range is [0, +inf).
+            :param radius:      Temporal radius, valid range is [1, 16].
+            :param profile:     Preset profile.
+            :param ref:         Reference clip used in block-matching, it replaces basic estimate.
+                                If not specified, the input clip is used instead.
             :param refine:      Refinement times:
-                                * 0 means basic estimate only
-                                * 1 means basic estimate with one final estimate
-                                * n means basic estimate refined with final estimate for n times
-            :param yuv2rgb:     Kernel used for converting the clip from YUV to RGB
-            :param rgb2yuv:     Kernel used for converting back the clip from RGB to YUV
+                                * 0 means basic estimate only.
+                                * 1 means basic estimate with one final estimate.
+                                * n means basic estimate refined with final estimate for n times.
+            :param yuv2rgb:     Kernel used for converting the clip from YUV to RGB.
+            :param rgb2yuv:     Kernel used for converting back the clip from RGB to YUV.
 
-            :return:                Filtered clip.
+            :return:            Filtered clip.
             """
 
         @overload
@@ -290,7 +287,7 @@ class Prefilter(PrefilterBase):
             :param radius:      :py:attr:`vsrgtools.blur` radius param.
             :param mode:        Convolution mode for blurring.
             :param downscaler:  Scaler to be used for downscaling.
-            :param upscaler:    Scaler to be used to reupscale the clip.
+            :param upscaler:    Scaler to be used to reupscale the clip.\n
                                 If None, :py:attr:`downscaler` will be used.
 
             :return:            Filtered clip.
@@ -307,7 +304,7 @@ class Prefilter(PrefilterBase):
             :param clip:        Clip to be processed.
             :param planes:      Planes to be processed.
             :param sigma:       Sigma param for :py:attr:`vsrgtools.gauss_blur`.
-            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.
+            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.\n
                                 Either :py:attr:`sigma` or this should be specified.
             :param mode:        Convolution mode for blurring.
 
@@ -326,10 +323,10 @@ class Prefilter(PrefilterBase):
             :param clip:        Clip to be processed.
             :param planes:      Planes to be processed.
             :param radius:      Radius param for the blurring.
-            :param strength:    Clamping strength between the two blurred clips.
+            :param strength:    Clamping strength between the two blurred clips.\n
                                 Must be between 1 and 99 (inclusive).
             :param sigma:       Sigma param for :py:attr:`vsrgtools.gauss_blur`.
-            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.
+            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.\n
                                 Either :py:attr:`sigma` or this should be specified.
             :param mode:        Convolution mode for blurring.
 
@@ -348,10 +345,10 @@ class Prefilter(PrefilterBase):
             :param clip:        Clip to be processed.
             :param planes:      Planes to be processed.
             :param radius:      Radius param for the blurring.
-            :param strength:    Edge detection strength.
+            :param strength:    Edge detection strength.\n
                                 Must be between 1 and 99 (inclusive).
             :param sigma:       Sigma param for :py:attr:`vsrgtools.gauss_blur`.
-            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.
+            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.\n
                                 Either :py:attr:`sigma` or this should be specified.
             :param mode:        Convolution mode for blurring.
 
@@ -365,7 +362,7 @@ class Prefilter(PrefilterBase):
 
             :param clip:        Clip to be processed.
             :param planes:      Planes to be processed.
-            :param **kwargs:    Arguments for the specified filter.
+            :param kwargs:      Arguments for the specified filter.
 
             :return:            Filtered clip.
             """
@@ -378,14 +375,14 @@ class Prefilter(PrefilterBase):
 
 def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
     """
-    Convert a limited range clip to full range.
+    Convert a limited range clip to full range.\n
     Useful for expanding prefiltered clips' ranges for more values for motion estimation.
 
     :param pref:                Clip to be processed.
-    :param range_conversion:    Value for deciding what range conversion method to use.
-                                * >= 1.0 - Expansion with expr based on this coefficient.
-                                * >  0.0 - Expansion with retinex.
-                                * <= 0.0 - Simple conversion with resize plugin.
+    :param range_conversion:    Value for deciding what range conversion method to use.\n
+                                 * >= 1.0 - Expansion with expr based on this coefficient.
+                                 * >  0.0 - Expansion with retinex.
+                                 * <= 0.0 - Simple conversion with resize plugin.
     :param planes:              Planes to be processed.
 
     :return:                    Full range clip.
@@ -484,7 +481,7 @@ class PelType(int, PelTypeBase):
         from .prefilters import PelType
 
         class CUSTOM(Scaler, PelType):  # type: ignore
-            """Class for constructing your own :py:class:`PelType`"""
+            """Class for constructing your own :py:class:`PelType`."""
 
             def __init__(self, scaler: str | type[Scaler] | Scaler, **kwargs: Any) -> None:
                 """
@@ -521,11 +518,11 @@ class PelType(int, PelTypeBase):
 
         :param clip:        Clip to be scaled.
         :param pel:         Rate of scaling.
-        :param subpixel:    Precision used in mvtools calls.
+        :param subpixel:    Precision used in mvtools calls.\n
                             Will be used with :py:attr:`PelType.AUTO`.
-        :param default:     Default :py:class:`PelType`/:py:class:`Scaler` top be used.
+        :param default:     Specify a default :py:class:`PelType`/:py:class:`Scaler` top be used.\n
                             Will be used with :py:attr:`PelType.AUTO`.
-        :param **kwargs:    Keyword arguments passed to the scaler.
+        :param kwargs:      Keyword arguments passed to the scaler.
 
         :return:            Upscaled clip.
         """

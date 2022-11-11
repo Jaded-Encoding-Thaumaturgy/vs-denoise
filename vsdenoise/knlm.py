@@ -82,23 +82,22 @@ def knl_means_cl(
     `original documentation <https://github.com/Khanattila/KNLMeansCL/wiki/Filter-description>`_.
 
     :param clip:            Source clip.
-    :param strength:        Controls the strength of the filtering.
+    :param strength:        Controls the strength of the filtering.\n
                             Larger values will remove more noise.
-    :param tr:              Temporal Radius. Set the number of past and future frame that the filter uses
-                            for denoising the current frame.
-                            tr=0 uses 1 frame, while tr=1 uses 3 frames and so on.
+    :param tr:              Temporal Radius. Temporal size = `(2 * tr + 1)`.\n
+                            Sets the number of past and future frames to uses for denoising the current frame.\n
+                            tr=0 uses 1 frame, while tr=1 uses 3 frames and so on.\n
                             Usually, larger it the better the result of the denoising.
-                            Temporal size = (2 * tr + 1).
-    :param sr:              Search Radius. Set the radius of the search window.
-                            sr=1 uses 9 pixel, while sr=2 uses 25 pixels and so on.
+    :param sr:              Search Radius. Spatial size = `(2 * sr + 1)^2`.\n
+                            Sets the radius of the search window.\n
+                            sr=1 uses 9 pixel, while sr=2 uses 25 pixels and so on.\n
                             Usually, larger it the better the result of the denoising.
-                            Spatial size = (2 * sr + 1)^2.
-    :param simr:            Similarity Radius. Set the radius of the similarity neighbourhood window.
+    :param simr:            Similarity Radius. Similarity neighbourhood size = `(2 * simr + 1) ** 2`.\n
+                            Sets the radius of the similarity neighbourhood window.\n
                             The impact on performance is low, therefore it depends on the nature of the noise.
-                            Similarity neighbourhood size = (2 * simr + 1)^2.
-    :param channels:        Set the colour channels to be denoised
+    :param channels:        Set the clip channels to be denoised.
     :param device_type:     Set the OpenCL device.
-    :param kwargs:          Additional settings
+    :param kwargs:          Additional arguments.
 
     :return:                Denoised clip.
     """
