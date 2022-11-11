@@ -1045,7 +1045,7 @@ class MVTools:
         self,
         thSAD: int | tuple[int | None, int | None] | None = None,
         limit: int | tuple[int, int] = 255,
-        thSCD: tuple[int | None, int | None] = (None, 130),
+        thSCD: tuple[int | None, int | None] = (None, 51),
         *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
         """
@@ -1102,7 +1102,12 @@ class MVTools:
         thSCD1, thSCD2 = thSCD
 
         thSCD1 = fallback(thSCD1, round(0.35 * thSAD + 260) if self.params_curve else thSAD // 2)
-        thSCD2 = fallback(thSCD2, 130)
+        thSCD2 = int(fallback(thSCD2, 51) / 100 * 255)
+
+        if not 1 <= thSCD2 <= 100:
+            raise CustomOverflowError(
+                '"thSCD[1]" must be between 1 and 100 (inclusive)!', self.__class__.degrain
+            )
 
         vect_b, vect_f = self.get_vectors_bf()
 
