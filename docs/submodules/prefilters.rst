@@ -1,6 +1,6 @@
-======================
-vsdenoise.prefilters
-======================
+==========
+Prefilters
+==========
 
 .. autosummary::
 

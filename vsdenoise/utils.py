@@ -11,7 +11,7 @@ def planes_to_mvtools(input_planes: Sequence[int]) -> int:
 
     :param planes:  Sequence of planes to be processed.
 
-    :return:        Tuple of planes, and mv planes.
+    :return:        Value of planes used by mvtools.
     """
 
     planes = set(input_planes)

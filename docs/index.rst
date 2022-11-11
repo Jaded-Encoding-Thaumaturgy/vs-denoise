@@ -1,6 +1,6 @@
-=====================
+=======================
 vsdenoise Documentation
-=====================
+=======================
 
 .. _home:
 
@@ -52,7 +52,9 @@ Check out the `how to contribute <contribute>` section!
     submodules/ccd
     submodules/knlm
     submodules/mvtools
+    submodules/funcs
     submodules/prefilters
+    submodules/regress
     submodules/utils
 
 

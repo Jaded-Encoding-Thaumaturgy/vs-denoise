@@ -64,10 +64,10 @@ class AbstractBM3D(ABC):
     is_gray: bool
 
     basic_args: dict[str, Any]
-    """Custom kwargs passed to bm3d for the :py:arg:`basic` clip"""
+    """Custom kwargs passed to bm3d for the :py:attr:`basic` clip"""
 
     final_args: dict[str, Any]
-    """Custom kwargs passed to bm3d for the :py:arg:`final` clip"""
+    """Custom kwargs passed to bm3d for the :py:attr:`final` clip"""
 
     _clip: vs.VideoNode
     _format: vs.VideoFormat
