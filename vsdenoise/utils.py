@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import List, Sequence, Tuple
+from typing import Sequence
 
 from vstools import CustomValueError
 
 
-def planes_to_mvtools(planes: Sequence[int]) -> Tuple[List[int], int]:
+def planes_to_mvtools(input_planes: Sequence[int]) -> int:
     """
     Util function to normalize planes, and converting them to mvtools planes param.
 
@@ -14,15 +14,15 @@ def planes_to_mvtools(planes: Sequence[int]) -> Tuple[List[int], int]:
     :return:        Tuple of planes, and mv planes.
     """
 
-    planes = list(planes)
+    planes = set(input_planes)
 
-    if planes == [0, 1, 2]:
-        mv_plane = 4
-    elif len(planes) == 1 and planes[0] in {0, 1, 2}:
-        mv_plane = planes[0]
-    elif planes == [1, 2]:
-        mv_plane = 3
-    else:
-        raise CustomValueError("Invalid planes specified!", planes_to_mvtools)
+    if planes == {0, 1, 2}:
+        return 4
 
-    return planes, mv_plane
+    if len(planes) == 1 and planes.intersection({0, 1, 2}):
+        return planes.pop()
+
+    if planes == {1, 2}:
+        return 3
+
+    raise CustomValueError("Invalid planes specified!", planes_to_mvtools)
