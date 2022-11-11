@@ -372,98 +372,154 @@ class MotionMode:
 
 
 class SearchModeBase:
-    """@@PLACEHOLDER@@"""
-
     @dataclass
     class Config:
-        """@@PLACEHOLDER@@"""
+        """Dataclass to represent all the search related parameters."""
 
         mode: SearchMode
-        """@@PLACEHOLDER@@"""
+        """SearchMode that decides which analysis mode to use for search of motion vectors."""
 
         param: int
-        """@@PLACEHOLDER@@"""
+        """Parameter used by the search mode in analysis."""
 
         param_recalc: int
-        """@@PLACEHOLDER@@"""
+        """Parameter used by the search mode in recalculation."""
 
         pel: int
-        """@@PLACEHOLDER@@"""
+        """Parameter used by search mode for subpixel accuracy."""
 
 
 class SearchMode(SearchModeBase, CustomIntEnum):
+    """Decides the type of search at every level of the hierarchial analysis made while searching for motion vectors."""
+
     AUTO = -1
-    """@@PLACEHOLDER@@"""
+    """Automatically select one SearchMode."""
 
     ONETIME = 0
-    """@@PLACEHOLDER@@"""
+    """One time search."""
 
     NSTEP = 1
-    """@@PLACEHOLDER@@"""
+    """N step searches. It's the most well known of the MV search algorithm."""
 
     DIAMOND = 2
-    """@@PLACEHOLDER@@"""
+    """Logarithmic search, also named Diamond Search."""
 
     HEXAGON = 4
-    """@@PLACEHOLDER@@"""
+    """Hexagon search. (Similar to x264's)"""
 
     UMH = 5
-    """@@PLACEHOLDER@@"""
+    """Uneven Multi Hexagon search. (similar to x264's)"""
 
     EXHAUSTIVE = 3
-    """@@PLACEHOLDER@@"""
+    """Exhaustive search, square side is 2 * radius + 1. It is slow, but it gives the best results, SAD-wise."""
 
     EXHAUSTIVE_H = 6
-    """@@PLACEHOLDER@@"""
+    """Pure horizontal exhaustive search, width is 2 * radius + 1."""
 
     EXHAUSTIVE_V = 7
-    """@@PLACEHOLDER@@"""
+    """Pure vertical exhaustive search, height is 2 * radius + 1."""
 
     @overload
     def __call__(  # type: ignore
         self: Literal[ONETIME], step: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        """@@PLACEHOLDER@@"""
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param step:    Step between each vector tried. If > 1, step will be progressively refined.
+        :param pel:     Search pixel enlargement, for subpixel precision.
+
+        :return:        :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
     @overload
     def __call__(  # type: ignore
         self: Literal[NSTEP], times: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        """@@PLACEHOLDER@@"""
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param times:   Number of step for search.
+        :param pel:     Search pixel enlargement, for subpixel precision.
+
+        :return:        :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
     @overload
     def __call__(  # type: ignore
         self: Literal[DIAMOND], init_step: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        """@@PLACEHOLDER@@"""
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param init_step:   Initial step search, then refined progressively.
+        :param pel:         Search pixel enlargement, for subpixel precision.
+
+        :return:            :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
     @overload
     def __call__(  # type: ignore
         self: Literal[HEXAGON], range: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        """@@PLACEHOLDER@@"""
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param range:   Range of search.
+        :param pel:     Search pixel enlargement, for subpixel precision.
+
+        :return:        :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
     @overload
     def __call__(  # type: ignore
         self: Literal[UMH], range: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        """@@PLACEHOLDER@@"""
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param range:   Radius of the multi hexagonal search.
+        :param pel:     Search pixel enlargement, for subpixel precision.
+
+        :return:        :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
     @overload
     def __call__(  # type: ignore
         self: Literal[EXHAUSTIVE] | Literal[EXHAUSTIVE_H] | Literal[EXHAUSTIVE_V],
         radius: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        """@@PLACEHOLDER@@"""
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param radius:  Radius of the exhaustive (tesa) search.
+        :param pel:     Search pixel enlargement, for subpixel precision.
+
+        :return:        :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
     @overload
     def __call__(self, param: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any) -> SearchMode.Config:
-        """@@PLACEHOLDER@@"""
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param param:   Parameter used by the search mode. Purpose depends on the mode.
+        :param pel:     Search pixel enlargement, for subpixel precision.
+
+        :return:        :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
     def __call__(
         self, param: int | tuple[int, int] | MissingT = MISSING, pel: int | MissingT = MISSING, /, **kwargs: Any
     ) -> SearchMode.Config:
-        """@@PLACEHOLDER@@"""
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param step:    Parameter of the mvtools search mode.
+        :param pel:     Search pixel enlargement, for subpixel precision.
+
+        :return:        :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
         is_uhd = kwargs.get('is_uhd', False)
         refine = kwargs.get('refine', 3)
