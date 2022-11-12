@@ -87,17 +87,17 @@ def knl_means_cl(
     :param tr:              Temporal Radius. Temporal size = `(2 * tr + 1)`.\n
                             Sets the number of past and future frames to uses for denoising the current frame.\n
                             tr=0 uses 1 frame, while tr=1 uses 3 frames and so on.\n
-                            Usually, larger it the better the result of the denoising.
+                            Usually, larger values result in better denoising.
     :param sr:              Search Radius. Spatial size = `(2 * sr + 1)^2`.\n
                             Sets the radius of the search window.\n
                             sr=1 uses 9 pixel, while sr=2 uses 25 pixels and so on.\n
-                            Usually, larger it the better the result of the denoising.
+                            Usually, larger values result in better denoising.
     :param simr:            Similarity Radius. Similarity neighbourhood size = `(2 * simr + 1) ** 2`.\n
                             Sets the radius of the similarity neighbourhood window.\n
                             The impact on performance is low, therefore it depends on the nature of the noise.
     :param channels:        Set the clip channels to be denoised.
-    :param device_type:     Set the OpenCL device.
-    :param kwargs:          Additional arguments.
+    :param device_type:     Set the OpenCL device to use for processing.
+    :param kwargs:          Additional arguments to pass to knlmeansCL.
 
     :return:                Denoised clip.
     """

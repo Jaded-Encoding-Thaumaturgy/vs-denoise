@@ -29,17 +29,20 @@ class Profile(CustomStrEnum):
     https://github.com/HomeOfVapourSynthEvolution/VapourSynth-BM3D#profile-default
     """
 
+    # @@@ Consider explaining more about what settings get changed. Maybe including the new settings/table?
+    # @@@ As always, having more exact examples is also neat. Like, what is "low-complexity noise"?
+
     FAST = 'fast'
-    """Profile aimed at speed."""
+    """Profile aimed at maximizing speed."""
 
     LOW_COMPLEXITY = 'lc'
-    """Profile for content with low complexity noise."""
+    """Profile for content with low-complexity noise."""
 
     NORMAL = 'np'
-    """Normal, neutral profile."""
+    """Neutral profile."""
 
     HIGH = 'high'
-    """Profile aimed at high precision denoising."""
+    """Profile aimed at high-precision denoising."""
 
     VERY_NOISY = 'vn'
     """Profile for very noisy content."""
@@ -93,15 +96,15 @@ class AbstractBM3D(ABC):
     ) -> None:
         """
         :param clip:        Source clip.
-        :param sigma:       Strength of denoising, valid range is [0, +inf).
+        :param sigma:       Strength of denoising, valid range is [0, +inf].
         :param radius:      Temporal radius, valid range is [1, 16].
-        :param profile:     Preset profile.
-        :param ref:         Reference clip used in block-matching, it replaces basic estimate.
+        :param profile:     Preset profile. See :py:attr:`vsdenoise.bm3d.Profile`.
+        :param ref:         Reference clip used in block-matching, replacing the basic estimation.
                             If not specified, the input clip is used instead.
-        :param refine:      Refinement times:
+        :param refine:      Times to refine the estimation.
                              * 0 means basic estimate only.
                              * 1 means basic estimate with one final estimate.
-                             * n means basic estimate refined with final estimate for n times.
+                             * n means basic estimate refined with final estimate applied n times.
         :param yuv2rgb:     Kernel used for converting the clip from YUV to RGB.
         :param rgb2yuv:     Kernel used for converting back the clip from RGB to YUV.
         """
@@ -136,7 +139,7 @@ class AbstractBM3D(ABC):
 
     def yuv2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
         """
-        Convert a YUV clip to OPP colorspace.
+        Convert a YUV clip to the OPP colorspace.
 
         :param clip:    YUV clip to be processed.
 
@@ -146,7 +149,7 @@ class AbstractBM3D(ABC):
 
     def rgb2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
         """
-        Convert an RGB clip to OPP colorspace.
+        Convert an RGB clip to the OPP colorspace.
 
         :param clip:    RGB clip to be processed.
 
@@ -156,7 +159,7 @@ class AbstractBM3D(ABC):
 
     def opp2rgb(self, clip: vs.VideoNode) -> vs.VideoNode:
         """
-        Convert an OPP clip to RGB colorspace.
+        Convert an OPP clip to the RGB colorspace.
 
         :param clip:    OPP clip to be processed.
 
@@ -177,7 +180,7 @@ class AbstractBM3D(ABC):
     @abstractmethod
     def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
         """
-        Get the "basic" clip, used normally as `ref` for :py:attr:`final`
+        Retrieve the "basic" clip, typically used as a `ref` clip for :py:attr:`final`.
 
         :param clip:    OPP or GRAY colorspace clip to be processed.
 
@@ -187,7 +190,7 @@ class AbstractBM3D(ABC):
     @abstractmethod
     def final(self, clip: vs.VideoNode, ref: vs.VideoNode | None = None) -> vs.VideoNode:
         """
-        Get the "final" clip.
+        Retrieve the "final" clip.
 
         :param clip:    OPP or GRAY colorspace clip to be processed.
         :param ref:     Reference clip used for weight calculations.
@@ -197,7 +200,13 @@ class AbstractBM3D(ABC):
 
     @property
     def clip(self) -> vs.VideoNode:
-        """Denoised clip. ``denoised_clip = BM3D(...).clip`` is the intended use in encoding scripts."""
+        """
+        Final denoised clip.
+
+        ``denoised_clip = BM3D(...).clip`` is the intended use in encoding scripts.
+
+        :return:        Output clip.
+        """
         self._preprocessing()
 
         # Make basic estimation
@@ -270,19 +279,19 @@ class BM3D(AbstractBM3D):
     ) -> None:
         """
         :param clip:                Source clip.
-        :param sigma:               Strength of denoising, valid range is [0, +inf).
+        :param sigma:               Strength of denoising, valid range is [0, +inf].
         :param radius:              Temporal radius, valid range is [1, 16].
         :param profile:             Preset profiles.
         :param pre:                 Pre-filtered clip for basic estimate.
                                     Should be a clip better suited for block-matching than the input clip.
-        :param ref:                 Reference clip used in block-matching, it replaces basic estimate.
+        :param ref:                 Reference clip used in block-matching, replacing the basic estimation.
                                     If not specified, the input clip is used instead.
-        :param refine:              Refinement times:
+        :param refine:              Times to refine the estimation.
                                      * 0 means basic estimate only.
                                      * 1 means basic estimate with one final estimate.
                                      * n means basic estimate refined with final estimate for n times.
         :param yuv2rgb:             Kernel used for converting the clip from YUV to RGB.
-        :param rgb2yuv:             Kernel used for converting back the clip from RGB to YUV.
+        :param rgb2yuv:             Kernel used for converting the clip back from RGB to YUV.
         """
         super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb, rgb2yuv)
         self._check_clips(pre)

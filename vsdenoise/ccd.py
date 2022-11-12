@@ -36,19 +36,19 @@ class CCDMode(CustomIntEnum):
     NNEDI_BICUBIC = 3
     """
     Process in 4:4:4, upscaling the chroma to luma size with :py:class:`NNedi3`,
-    then downscaled to original size with :py:class:`Bicubic`.
+    finally downscaling it to the original size with :py:class:`Bicubic`.
     """
 
     NNEDI_SSIM = 4
     """
-    Process in 4:4:4 upscaling the chroma to luma size with :py:class:`NNedi3`,
-    then downscaled to original size with :py:class:`SSIM`.
+    Process in 4:4:4, upscaling the chroma to luma size with :py:class:`NNedi3`,
+    finally downscaling it to original size with :py:class:`SSIM`.
     """
 
 
 class CCDPoints(CustomIntEnum):
     """
-    Sample point of reference taken in processing for CCD.
+    Sample points of reference taken into account when processing with CCD.
 
     Graph of all the points:
 
@@ -101,6 +101,25 @@ def ccd(
     It works as a convolution of near pixels determined by ``ref_points``.
     If the euclidian distance between the RGB values of the center pixel and a given pixel in the convolution
     matrix is less than the threshold, then this pixel is considered in the average.
+
+    :param src:         Source clip.
+    :param thr:         Euclidean distance threshold for including pixel in the matrix.
+                        Higher values results in stronger denoising.
+    :param tr:          Temporal radius of the processing.
+    :param ref:         Ref clip to use for calculating the processing to perform on the main clip.
+    :param mode:        Processing mode for CCD. See :py:attr:`vsdenoise.ccd.CCDMode`.
+    :param scale:       @@@
+    :param matrix:      Enum for the matrix of the Clip to process.
+                        See :py:attr:`vstools.enums.color.Matrix` for more info.
+                        If `None`, gets matrix from the "_Matrix" prop of the clip unless it's an RGB clip,
+                        in which case it stays as `None`.
+    :param ref_points:  Sample points of reference for processing.
+                        See :py:attr:`vsdenoise.ccd.CCDPoints`.
+    :param i444:        Output the clip as 4:4:4.
+    :param planes:      Planes to process.
+    :param ssim_kwargs: Keyword arguments to pass to :py:class:`vsscale.scale.SSIM`.
+
+    :return:            Denoised clip.
     """
 
     assert src.format
