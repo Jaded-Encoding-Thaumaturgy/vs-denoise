@@ -22,11 +22,11 @@ from .utils import planes_to_mvtools
 __all__ = [
     'MVTools', 'MVToolsPlugin',
     'SADMode', 'SearchMode', 'MotionMode',
-    'MVWay', 'MotionVectors'
+    'MVDirection', 'MotionVectors'
 ]
 
 
-class MVWay(CustomStrEnum):
+class MVDirection(CustomStrEnum):
     """Motion vector analyze direction."""
 
     BACK = 'backward'
@@ -39,7 +39,7 @@ class MVWay(CustomStrEnum):
     def isb(self) -> bool:
         """Whether it's using backwards motion detection."""
 
-        return self is MVWay.BACK
+        return self is MVDirection.BACK
 
 
 class MotionVectors:
@@ -51,7 +51,7 @@ class MotionVectors:
 
     kwargs: dict[str, Any]
 
-    temporal_vectors: dict[MVWay, dict[int, vs.VideoNode]]
+    temporal_vectors: dict[MVDirection, dict[int, vs.VideoNode]]
     """Dict containing backwards and forwards motion vectors."""
 
     def __init__(self) -> None:
@@ -59,15 +59,15 @@ class MotionVectors:
         self.kwargs = dict[str, Any]()
 
     def _init_vects(self) -> None:
-        self.temporal_vectors = {w: {} for w in MVWay}
+        self.temporal_vectors = {w: {} for w in MVDirection}
 
     @property
     def got_vectors(self) -> bool:
         """Whether the instance uses bidirectional motion vectors."""
 
-        return bool(self.temporal_vectors[MVWay.BACK] and self.temporal_vectors[MVWay.FWRD])
+        return bool(self.temporal_vectors[MVDirection.BACK] and self.temporal_vectors[MVDirection.FWRD])
 
-    def got_mv(self, way: MVWay, delta: int) -> bool:
+    def got_mv(self, way: MVDirection, delta: int) -> bool:
         """
         Returns whether the motion vector exists.
 
@@ -79,24 +79,24 @@ class MotionVectors:
 
         return delta in self.temporal_vectors[way]
 
-    def get_mv(self, way: MVWay, delta: int) -> vs.VideoNode:
+    def get_mv(self, direction: MVDirection, delta: int) -> vs.VideoNode:
         """
         Get the motion vector.
 
-        :param way:     Which way the motion vector was analyzed.
-        :param delta:   Delta with which the motion vector was analyzed.
+        :param direction:   Which direction the motion vector was analyzed.
+        :param delta:       Delta with which the motion vector was analyzed.
 
-        :return:        Motion vector.
+        :return:            Motion vector.
         """
 
-        return self.temporal_vectors[way][delta]
+        return self.temporal_vectors[direction][delta]
 
-    def set_mv(self, way: MVWay, delta: int, vect: vs.VideoNode) -> None:
+    def set_mv(self, way: MVDirection, delta: int, vect: vs.VideoNode) -> None:
         """
         Sets the motion vector.
 
-        :param way:     Which way the motion vector was analyzed.
-        :param delta:   Delta with which the motion vector was analyzed.
+        :param direction:   Which direction the motion vector was analyzed.
+        :param delta:       Delta with which the motion vector was analyzed.
         """
 
         self.temporal_vectors[way][delta] = vect
@@ -901,7 +901,7 @@ class MVTools:
 
         super_search = self.mvtools.Super(ref, **(dict(rfilter=rfilter) | common_args))
         super_render = self.mvtools.Super(self.workclip, **super_render_args)
-        super_recalculate = self.mvtools.Super(
+        super_recalc = self.mvtools.Super(
             prefilter, **(dict(levels=1) | common_args)
         ) if self.refine else super_render
 
@@ -933,16 +933,16 @@ class MVTools:
 
             for i in range(self.refine):
                 recalc_args.update(blksize=blocksize / 2 ** i, overlap=blocksize / 2 ** (i + 1))
-                vectors.vmulti = self.mvtools.Recalculate(super_recalculate, vectors.vmulti, **recalc_args)
+                vectors.vmulti = self.mvtools.Recalculate(super_recalc, vectors.vmulti, **recalc_args)
         else:
             def _add_vector(delta: int, analyze: bool = True) -> None:
-                for way in MVWay:
+                for direction in MVDirection:
                     if analyze:
-                        vect = self.mvtools.Analyse(super_search, isb=way.isb, delta=delta, **analyze_args)
+                        vect = self.mvtools.Analyse(super_search, isb=direction.isb, delta=delta, **analyze_args)
                     else:
-                        vect = self.mvtools.Recalculate(super_recalculate, vectors.get_mv(way, delta), **recalc_args)
+                        vect = self.mvtools.Recalculate(super_recalc, vectors.get_mv(direction, delta), **recalc_args)
 
-                    vectors.set_mv(way, delta, vect)
+                    vectors.set_mv(direction, delta, vect)
 
             for i in range(1, self.tr + 1):
                 _add_vector(i)
@@ -951,7 +951,7 @@ class MVTools:
                 refblks = blocksize
 
                 for i in range(1, t2 + 1):
-                    if not vectors.got_mv(MVWay.BACK, i) or not vectors.got_mv(MVWay.FWRD, i):
+                    if not vectors.got_mv(MVDirection.BACK, i) or not vectors.got_mv(MVDirection.FWRD, i):
                         continue
 
                     for j in range(1, self.refine):
@@ -1000,8 +1000,8 @@ class MVTools:
         else:
             it = 1 + int(self.source_type.is_inter)
             for i in range(it, t2 + 1, it):
-                vectors_backward.append(vectors.get_mv(MVWay.BACK, i))
-                vectors_forward.append(vectors.get_mv(MVWay.FWRD, i))
+                vectors_backward.append(vectors.get_mv(MVDirection.BACK, i))
+                vectors_forward.append(vectors.get_mv(MVDirection.FWRD, i))
 
         return (vectors_backward, vectors_forward)
 
