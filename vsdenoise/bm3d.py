@@ -29,9 +29,6 @@ class Profile(CustomStrEnum):
     https://github.com/HomeOfVapourSynthEvolution/VapourSynth-BM3D#profile-default
     """
 
-    # @@@ Consider explaining more about what settings get changed. Maybe including the new settings/table?
-    # @@@ As always, having more exact examples is also neat. Like, what is "low-complexity noise"?
-
     FAST = 'fast'
     """Profile aimed at maximizing speed."""
 

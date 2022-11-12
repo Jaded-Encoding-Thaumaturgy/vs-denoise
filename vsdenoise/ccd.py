@@ -108,7 +108,7 @@ def ccd(
     :param tr:          Temporal radius of the processing.
     :param ref:         Ref clip to use for calculating the processing to perform on the main clip.
     :param mode:        Processing mode for CCD. See :py:attr:`vsdenoise.ccd.CCDMode`.
-    :param scale:       @@@
+    :param scale:       Relative scale of the analyzed matrix of points decided by ``ref_points``.
     :param matrix:      Enum for the matrix of the Clip to process.
                         See :py:attr:`vstools.enums.color.Matrix` for more info.
                         If `None`, gets matrix from the "_Matrix" prop of the clip unless it's an RGB clip,

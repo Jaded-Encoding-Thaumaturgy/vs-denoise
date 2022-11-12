@@ -67,7 +67,7 @@ class MotionVectors:
 
         return bool(self.temporal_vectors[MVWay.BACK] and self.temporal_vectors[MVWay.FWRD])
 
-    def got_mv(self, way: MVWay, delta: int) -> bool:  # @@@ consider "direction" instead of "way"?
+    def got_mv(self, way: MVWay, delta: int) -> bool:
         """
         Returns whether the motion vector exists.
 
@@ -224,8 +224,7 @@ class SADMode(CustomIntEnum):
     """Regular usage of spatial block data only, does not use DCT."""
 
     DCT = 1
-    """Use block DCT instead of spatial data (slow for block size of 8x8 and very slow for other sizes)."""
-    # @@@ bigger or smaller sizes?
+    """Use block DCT instead of spatial data (slow for block size of 8x8 and very slow for smaller sizes)."""
 
     MIXED_SPATIAL_DCT = 2
     """Mixed spatial and DCT data; weight is dependent on mean frame luma difference."""
@@ -1009,7 +1008,6 @@ class MVTools:
     def compensate(
         self, func: GenericVSFunction, thSAD: int = 150, *, ref: vs.VideoNode | None = None, **kwargs: Any
     ) -> vs.VideoNode:
-        # @@@ "are coincide"?
         """
         At compensation stage, the plugin client functions read the motion vectors and use them to move blocks
         and form a motion compensated frame (or realize some other full- or partial motion compensation or
@@ -1018,7 +1016,7 @@ class MVTools:
         Every block in this fully-compensated frame is placed in the same position as this block in current frame.
 
         So, we may (for example) use strong temporal denoising even for quite fast moving objects without producing
-        annoying artefactes and ghosting (object's features and edges are coincide if compensation is perfect).
+        annoying artefactes and ghosting (object's features and edges coincide if compensation is perfect).
 
         This function is for using compensated and original frames to create an interleaved clip,
         denoising it with the external temporal filter `func`, and select central cleaned original frames for output.
