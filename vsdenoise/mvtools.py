@@ -67,17 +67,17 @@ class MotionVectors:
 
         return bool(self.temporal_vectors[MVDirection.BACK] and self.temporal_vectors[MVDirection.FWRD])
 
-    def got_mv(self, way: MVDirection, delta: int) -> bool:
+    def got_mv(self, direction: MVDirection, delta: int) -> bool:
         """
         Returns whether the motion vector exists.
 
-        :param way:     Which way the motion vector was analyzed.
-        :param delta:   Delta with which the motion vector was analyzed.
+        :param direction:   Which direction the motion vector was analyzed.
+        :param delta:       Delta with which the motion vector was analyzed.
 
-        :return:        Whether the motion vector exists.
+        :return:            Whether the motion vector exists.
         """
 
-        return delta in self.temporal_vectors[way]
+        return delta in self.temporal_vectors[direction]
 
     def get_mv(self, direction: MVDirection, delta: int) -> vs.VideoNode:
         """
@@ -91,7 +91,7 @@ class MotionVectors:
 
         return self.temporal_vectors[direction][delta]
 
-    def set_mv(self, way: MVDirection, delta: int, vect: vs.VideoNode) -> None:
+    def set_mv(self, direction: MVDirection, delta: int, vect: vs.VideoNode) -> None:
         """
         Sets the motion vector.
 
@@ -99,7 +99,7 @@ class MotionVectors:
         :param delta:       Delta with which the motion vector was analyzed.
         """
 
-        self.temporal_vectors[way][delta] = vect
+        self.temporal_vectors[direction][delta] = vect
 
     def clear(self) -> None:
         """Deletes all :py:class:`vsdenoise.mvtools.MotionVectors` attributes."""
