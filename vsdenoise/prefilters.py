@@ -137,39 +137,39 @@ class PrefilterBase(CustomIntEnum):
 class Prefilter(PrefilterBase):
     """
     Enum representing available filters.\n
-    These are mainly thought as prefilters for :py:attr:`MVTools`,
+    These are mainly thought of as prefilters for :py:attr:`MVTools`,
     but can be used standalone as-is.
     """
 
     AUTO = -2
-    """Automatically decide what filter to use."""
+    """Automatically decide what prefilter to use."""
 
     NONE = -1
-    """Don't use any filters. Will return the clip as-is."""
+    """Don't do any prefiltering. Returns the clip as-is."""
 
     MINBLUR1 = 0
-    """A gaussian/temporal median merge of radius 1."""
+    """A gaussian/temporal median merge with a radius of 1."""
 
     MINBLUR2 = 1
-    """A gaussian/temporal median merge of radius 2."""
+    """A gaussian/temporal median merge with a radius of 2."""
 
     MINBLUR3 = 2
-    """A gaussian/temporal median merge of radius 3."""
+    """A gaussian/temporal median merge with a radius of 3."""
 
     MINBLURFLUX = 3
     """:py:attr:`MINBLUR2` with temporal/spatial average."""
 
     DFTTEST = 4
-    """Denoising in frequency domain with dfttest with adaptive mask for retaining lineart."""
+    """Denoising in frequency domain with dfttest and an adaptive mask for retaining lineart."""
 
     KNLMEANSCL = 5
     """Denoising with KNLMeansCL, then postprocessed to remove low frequencies."""
 
     BM3D = 6
-    """Normal spatio-temporal denoising with the BM3D denoiser."""
+    """Normal spatio-temporal denoising using BM3D."""
 
     SCALEDBLUR = 7
-    """Perform blurring at a scaled down resolution, then rescale up."""
+    """Perform blurring at a scaled-down resolution, then scale it back up."""
 
     GAUSSBLUR = 8
     """Gaussian blurred, then postprocessed to remove low frequencies."""
@@ -191,12 +191,12 @@ class Prefilter(PrefilterBase):
             """
             :py:attr:`MINBLUR2` with temporal/spatial average.
 
-            :param clip:        Clip to be processed.
-            :param planes:      Planes to be processed.
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
             :param temp_thr:    Temporal threshold for the temporal median function.
             :param spat_thr:    Spatial threshold for the temporal median function.
 
-            :return:            Filtered clip.
+            :return:            Preprocessed clip.
             """
 
         @overload
@@ -224,25 +224,25 @@ class Prefilter(PrefilterBase):
             """
             Denoising with KNLMeansCL, then postprocessed to remove low frequencies.
 
-            :param clip:            Clip to be processed.
-            :param planes:          Planes to be processed.
+            :param clip:            Clip to be preprocessed.
+            :param planes:          Planes to be preprocessed.
             :param strength:        Controls the strength of the filtering.\n
                                     Larger values will remove more noise.
             :param tr:              Temporal Radius. Temporal size = `(2 * tr + 1)`.\n
                                     Sets the number of past and future frames to uses for denoising the current frame.\n
                                     tr=0 uses 1 frame, while tr=1 uses 3 frames and so on.\n
-                                    Usually, larger it the better the result of the denoising.
+                                    Usually, larger values result in better denoising.
             :param sr:              Search Radius. Spatial size = `(2 * sr + 1)^2`.\n
                                     Sets the radius of the search window.\n
                                     sr=1 uses 9 pixel, while sr=2 uses 25 pixels and so on.\n
-                                    Usually, larger it the better the result of the denoising.
+                                    Usually, larger values result in better denoising.
             :param simr:            Similarity Radius. Similarity neighbourhood size = `(2 * simr + 1) ** 2`.\n
                                     Sets the radius of the similarity neighbourhood window.\n
                                     The impact on performance is low, therefore it depends on the nature of the noise.
-            :param device_type:     Set the OpenCL device.
-            :param kwargs:          Additional settings
+            :param device_type:     Set the OpenCL device to use for processing.
+            :param kwargs:          Additional arguments to pass to knlmeansCL.
 
-            :return:                Filtered clip.
+            :return:                Denoised clip.
             """
 
         @overload
@@ -254,22 +254,22 @@ class Prefilter(PrefilterBase):
             yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
         ) -> vs.VideoNode:
             """
-            Normal spatio-temporal denoising with the BM3D denoiser.
+            Normal spatio-temporal denoising using BM3D.
 
-            :param clip:        Source clip.
-            :param sigma:       Strength of denoising, valid range is [0, +inf).
+            :param clip:        Clip to be preprocessed.
+            :param sigma:       Strength of denoising, valid range is [0, +inf].
             :param radius:      Temporal radius, valid range is [1, 16].
-            :param profile:     Preset profile.
-            :param ref:         Reference clip used in block-matching, it replaces basic estimate.
+            :param profile:     See :py:attr:`vsdenoise.bm3d.Profile`.
+            :param ref:         Reference clip used in block-matching, replacing the basic estimation.
                                 If not specified, the input clip is used instead.
-            :param refine:      Refinement times:
+            :param refine:      Times to refine the estimation.
                                 * 0 means basic estimate only.
                                 * 1 means basic estimate with one final estimate.
                                 * n means basic estimate refined with final estimate for n times.
             :param yuv2rgb:     Kernel used for converting the clip from YUV to RGB.
             :param rgb2yuv:     Kernel used for converting back the clip from RGB to YUV.
 
-            :return:            Filtered clip.
+            :return:            Preprocessed clip.
             """
 
         @overload
@@ -279,18 +279,18 @@ class Prefilter(PrefilterBase):
             downscaler: ScalerT = Bilinear, upscaler: ScalerT | None = None
         ) -> vs.VideoNode:
             """
-            Perform blurring at a scaled down resolution, then rescale up.
+            Perform blurring at a scaled-down resolution, then scale it back up.
 
-            :param clip:        Clip to be processed.
-            :param planes:      Planes to be processed.
-            :param scale:       Rate of downscaling.
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
+            :param scale:       Ratios for downscaling. A ratio of 2 will divide the resolution by 2, 4 by 4, etc. @@@
             :param radius:      :py:attr:`vsrgtools.blur` radius param.
             :param mode:        Convolution mode for blurring.
             :param downscaler:  Scaler to be used for downscaling.
-            :param upscaler:    Scaler to be used to reupscale the clip.\n
+            :param upscaler:    Scaler to be used for reupscaling.\n
                                 If None, :py:attr:`downscaler` will be used.
 
-            :return:            Filtered clip.
+            :return:            Preprocessed clip.
             """
 
         @overload
@@ -301,14 +301,14 @@ class Prefilter(PrefilterBase):
             """
             Gaussian blurred, then postprocessed to remove low frequencies.
 
-            :param clip:        Clip to be processed.
-            :param planes:      Planes to be processed.
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
             :param sigma:       Sigma param for :py:attr:`vsrgtools.gauss_blur`.
             :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.\n
                                 Either :py:attr:`sigma` or this should be specified.
             :param mode:        Convolution mode for blurring.
 
-            :return:            Filtered clip.
+            :return:            Preprocessed clip.
             """
 
         @overload
@@ -320,8 +320,8 @@ class Prefilter(PrefilterBase):
             """
             Clamped gaussian/box blurring with edge preservation.
 
-            :param clip:        Clip to be processed.
-            :param planes:      Planes to be processed.
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
             :param radius:      Radius param for the blurring.
             :param strength:    Clamping strength between the two blurred clips.\n
                                 Must be between 1 and 99 (inclusive).
@@ -330,7 +330,7 @@ class Prefilter(PrefilterBase):
                                 Either :py:attr:`sigma` or this should be specified.
             :param mode:        Convolution mode for blurring.
 
-            :return:            Filtered clip.
+            :return:            Preprocessed clip.
             """
 
         @overload
@@ -342,8 +342,8 @@ class Prefilter(PrefilterBase):
             """
             Clamped gaussian/box blurring.
 
-            :param clip:        Clip to be processed.
-            :param planes:      Planes to be processed.
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
             :param radius:      Radius param for the blurring.
             :param strength:    Edge detection strength.\n
                                 Must be between 1 and 99 (inclusive).
@@ -352,7 +352,7 @@ class Prefilter(PrefilterBase):
                                 Either :py:attr:`sigma` or this should be specified.
             :param mode:        Convolution mode for blurring.
 
-            :return:            Filtered clip.
+            :return:            Preprocessed clip.
             """
 
         @overload
@@ -360,11 +360,11 @@ class Prefilter(PrefilterBase):
             """
             Run the selected filter.
 
-            :param clip:        Clip to be processed.
-            :param planes:      Planes to be processed.
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
             :param kwargs:      Arguments for the specified filter.
 
-            :return:            Filtered clip.
+            :return:            Preprocessed clip.
             """
 
         def __call__(  # type: ignore
@@ -376,10 +376,10 @@ class Prefilter(PrefilterBase):
 def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
     """
     Convert a limited range clip to full range.\n
-    Useful for expanding prefiltered clips' ranges for more values for motion estimation.
+    Useful for expanding prefiltered clip's ranges to give motion estimation additional information to work with.
 
-    :param pref:                Clip to be processed.
-    :param range_conversion:    Value for deciding what range conversion method to use.\n
+    :param pref:                Clip to be preprocessed.
+    :param range_conversion:    Value which determines what range conversion method gets used.\n
                                  * >= 1.0 - Expansion with expr based on this coefficient.
                                  * >  0.0 - Expansion with retinex.
                                  * <= 0.0 - Simple conversion with resize plugin.

@@ -50,7 +50,7 @@ class Regression:
         """The relationship between the error term and the regressors."""
 
     class BlurConf:
-        """Class for the blur (or averager) used for regression."""
+        """Class for the blur (or averaging filter) used for regression."""
 
         def __init__(
             self, func: Callable[Concatenate[vs.VideoNode, P], vs.VideoNode], /, *args: P.args, **kwargs: P.kwargs
@@ -209,9 +209,9 @@ class Regression:
         *args: P1.args, **kwargs: P1.kwargs
     ) -> Regression:
         """
-        Get a :py:attr:`Regressoin` from generic parameters.
+        Get a :py:attr:`Regression` from generic parameters.
 
-        :param func:        Function used for blurring or already existing blurring config.
+        :param func:        Function used for blurring or a preconfigured :py:attr:`Regression.BlurConf`.
         :param eps:         Epsilon, used in expressions to avoid division by zero.
         :param args:        Positional arguments passed to the blurring function.
         :param kwargs:      Keyword arguments passed to the blurring function.
@@ -316,19 +316,20 @@ def chroma_reconstruct(
 
     This function can also return a 4:4:4 clip.\n
     This is not recommended except for very specific cases, like for example where you're
-    dealing with a razor-sharp 1080p source with a lot of bright colours.
+    dealing with a razor-sharp 1080p source with a lot of bright (mostly reddish) colours
+    or a lot of high-contrast edges.
 
     :param clip:        Clip to process.
-    :param i444:        Whether to return a YUV444Px clip.
+    :param i444:        Whether to return a 444 clip.
     :param kernel:      Kernel used for resampling and general scaling operations.
     :param scaler:      Scaler used to scale up chroma planes.
     :param downscaler:  Scaler used to downscale the luma plane. Defaults to :py:attr:`kernel`
-    :param func:        Function used for blurring or blurring config.
+    :param func:        Function used for blurring or a preconfigured :py:attr:`Regression.BlurConf`.
     :param eps:         Epsilon, used in expressions to avoid division by zero.
     :param args:        Positional arguments passed to the blurring function.
     :param kwargs:      Keyword arguments passed to the blurring function.
 
-    :return:        Clip with demangled chroma.
+    :return:            Clip with demangled chroma.
     """
 
     assert check_variable(clip, chroma_reconstruct)
