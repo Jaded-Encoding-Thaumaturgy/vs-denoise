@@ -12,7 +12,7 @@ from vsrgtools import RemoveGrainMode, removegrain
 from vsrgtools.util import norm_rmode_planes
 from vstools import KwargsT, PlanesT, depth, expect_bits, get_h, get_w, normalize_planes, vs
 
-from .mvtools import MVTools
+from .mvtools import MotionMode, MVTools
 from .prefilters import PelType
 
 
@@ -34,8 +34,8 @@ def mlm_degrain(
 
     do_soft = bool(soften)
 
-    mkwargs_def = dict[str, Any](pel_type=PelType.WIENER, tr=tr, refine=refine, planes=planes)
-    akwargs_def = dict[str, Any](truemotion=False)
+    mkwargs_def = dict[str, Any](tr=tr, refine=refine, planes=planes)
+    akwargs_def = dict[str, Any](motion=MotionMode.HIGH_SAD, thSAD=thSAD, pel_type=PelType.WIENER)
     dkwargs_def = dict[str, Any](thSAD=thSAD)
 
     mkwargs, akwargs, dkwargs = [
