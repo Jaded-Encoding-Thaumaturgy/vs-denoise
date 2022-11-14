@@ -283,7 +283,8 @@ class Prefilter(PrefilterBase):
 
             :param clip:        Clip to be preprocessed.
             :param planes:      Planes to be preprocessed.
-            :param scale:       Ratios for downscaling. A ratio of 2 will divide the resolution by 2, 4 by 4, etc. @@@
+            :param scale:       Ratios for downscaling.
+                                A ratio of 2 will divide the resolution by 2, 4 by 4, etc.
             :param radius:      :py:attr:`vsrgtools.blur` radius param.
             :param mode:        Convolution mode for blurring.
             :param downscaler:  Scaler to be used for downscaling.
