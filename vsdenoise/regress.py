@@ -22,16 +22,45 @@ _cached_blurs = WeakValueDictionary[int, vs.VideoNode]()
 
 @dataclass
 class Regression:
+    """
+    Class for math operation on a clip.
+
+    For more info see `this Wikipedia article <https://en.wikipedia.org/wiki/Regression_analysis>`_.
+    """
+
     @dataclass
     class Linear:
+        """
+        Representation of a Linear Regression.
+
+        For more info see `this Wikipedia article <https://en.wikipedia.org/wiki/Linear_regression>`_.
+        """
+
         slope: vs.VideoNode
+        """
+        One of the regression coefficients.
+
+        In simple linear regression the coefficient is the regression slope.
+        """
+
         intercept: vs.VideoNode
+        """Component of :py:attr:`slope`, the intercept term."""
+
         correlation: vs.VideoNode
+        """The relationship between the error term and the regressors."""
 
     class BlurConf:
+        """Class for the blur (or averaging filter) used for regression."""
+
         def __init__(
             self, func: Callable[Concatenate[vs.VideoNode, P], vs.VideoNode], /, *args: P.args, **kwargs: P.kwargs
         ) -> None:
+            """
+            :param func:        Function used for blurring.
+            :param args:        Positional arguments passed to the function.
+            :param kwargs:      Keyword arguments passed to the function.
+            """
+
             self.func = func
             self.args = args
             self.kwargs = kwargs
@@ -41,12 +70,30 @@ class Regression:
             self, func: Callable[Concatenate[vs.VideoNode, P1], vs.VideoNode] | Regression.BlurConf,
             *args: P1.args, **kwargs: P1.kwargs
         ) -> Regression.BlurConf:
+            """
+            Get a :py:attr:`BlurConf` from generic parameters.
+
+            :param func:        Function used for blurring or already existing config.
+            :param args:        Positional arguments passed to the function.
+            :param kwargs:      Keyword arguments passed to the function.
+
+            :return:            :py:attr:`BlurConf` object.
+            """
+
             if isinstance(func, Regression.BlurConf):
                 return func.extend(*args, **kwargs)
 
             return Regression.BlurConf(func, *args, **kwargs)
 
         def extend(self, *args: Any, **kwargs: Any) -> Regression.BlurConf:
+            """
+            Extend the current config arguments and get a new :py:attr:`BlurConf` object.
+
+            :param args:        Positional arguments passed to the function.
+            :param kwargs:      Keyword arguments passed to the function.
+
+            :return:            :py:attr:`BlurConf` object.
+            """
             if args or kwargs:
                 return Regression.BlurConf(
                     self.func, *(args or self.args), **(self.kwargs | kwargs)  # type: ignore[arg-type]
@@ -56,6 +103,17 @@ class Regression:
         def __call__(
             self, clip: vs.VideoNode, chroma_only: bool = False, *args: Any, **kwargs: Any
         ) -> vs.VideoNode:
+            """
+            Blur a clip with the current config.
+
+            :param clip:            Clip to be blurred.
+            :param chroma_only:     Try only processing chroma.
+            :param args:            Positional arguments passed to the function.
+            :param kwargs:          Keyword arguments passed to the function.
+
+            :return:                Blurred clip.
+            """
+
             if not args:
                 args = self.args
 
@@ -91,11 +149,30 @@ class Regression:
             return _cached_blurs.setdefault(key, out)
 
         def blur(self, clip: vs.VideoNode, chroma_only: bool = False, *args: Any, **kwargs: Any) -> Any:
+            """
+            Blur a clip with the current config.
+
+            :param clip:            Clip to be blurred.
+            :param chroma_only:     Try only processing chroma.
+            :param args:            Positional arguments passed to the function.
+            :param kwargs:          Keyword arguments passed to the function.
+
+            :return:                Blurred clip.
+            """
+
             return self(clip, chroma_only, *args, **kwargs)
 
         def get_bases(
             self, clip: vs.VideoNode | Sequence[vs.VideoNode]
         ) -> tuple[list[vs.VideoNode], list[vs.VideoNode], list[vs.VideoNode]]:
+            """
+            Get the base elements for a regression.
+
+            :param clip:    Clip or individual planes to be processed.
+
+            :return:        Tuple containing the blurred clips, variations, and relation of the two.
+            """
+
             planes = split(clip) if isinstance(clip, vs.VideoNode) else clip
 
             blur = [self(shifted) for shifted in planes]
@@ -117,7 +194,10 @@ class Regression:
     blur_func: BlurConf | Callable[  # type: ignore[misc]
         Concatenate[vs.VideoNode, P0], vs.VideoNode
     ] = BlurConf(box_blur, radius=2)
+    """Function used for blurring (averaging)."""
+
     eps: float = 1e-7
+    """Epsilon, used in expressions to avoid division by zero."""
 
     def __post_init__(self) -> None:
         self.blur_conf = Regression.BlurConf.from_param(self.blur_func)
@@ -128,6 +208,17 @@ class Regression:
         eps: float = 1e-7,
         *args: P1.args, **kwargs: P1.kwargs
     ) -> Regression:
+        """
+        Get a :py:attr:`Regression` from generic parameters.
+
+        :param func:        Function used for blurring or a preconfigured :py:attr:`Regression.BlurConf`.
+        :param eps:         Epsilon, used in expressions to avoid division by zero.
+        :param args:        Positional arguments passed to the blurring function.
+        :param kwargs:      Keyword arguments passed to the blurring function.
+
+        :return:            :py:attr:`Regression` object.
+        """
+
         return Regression(
             Regression.BlurConf.from_param(func, *args, **kwargs), eps
         )
@@ -135,6 +226,17 @@ class Regression:
     def linear(
         self, clip: vs.VideoNode | Sequence[vs.VideoNode], eps: float | None = None, *args: Any, **kwargs: Any
     ) -> list[Regression.Linear]:
+        """
+        Perform a simple linear regression.
+
+        :param clip:        Clip or singular planes to be processed.
+        :param eps:         Epsilon, used in expressions to avoid division by zero.
+        :param args:        Positional arguments passed to the blurring function.
+        :param kwargs:      Keyword arguments passed to the blurring function.
+
+        :return:            List of a :py:attr:`Regression.Linear` object for each plane.
+        """
+
         eps = eps or self.eps
         blur_conf = self.blur_conf.extend(*args, **kwargs)
 
@@ -160,6 +262,18 @@ class Regression:
         self, clip: vs.VideoNode | Sequence[vs.VideoNode],
         eps: float | None = None, avg: bool = False, *args: Any, **kwargs: Any
     ) -> list[vs.VideoNode]:
+        """
+        Compute correlation of slopes of a simple regression.
+
+        :param clip:        Clip or individual planes to be processed.
+        :param eps:         Epsilon, used in expressions to avoid division by zero.
+        :param avg:         Average (blur) the final result.
+        :param args:        Positional arguments passed to the blurring function.
+        :param kwargs:      Keyword arguments passed to the blurring function.
+
+        :return:            List of clips representing the correlation of slopes.
+        """
+
         eps = eps or self.eps
         blur_conf = self.blur_conf.extend(*args, **kwargs)
 
@@ -193,6 +307,31 @@ def chroma_reconstruct(
     ] | Regression.BlurConf = Regression.BlurConf(box_blur, radius=2),
     eps: float = 1e-7, *args: P.args, **kwargs: P.kwargs
 ) -> vs.VideoNode:
+    """
+    Chroma reconstruction filter using :py:attr:`Regress`.
+
+    This function should be used with care, and not blindly applied to anything.\n
+    Ideally you should see how the function works,
+    and then mangle the luma of your source to match how your chroma was mangled.
+
+    This function can also return a 4:4:4 clip.\n
+    This is not recommended except for very specific cases, like for example where you're
+    dealing with a razor-sharp 1080p source with a lot of bright (mostly reddish) colours
+    or a lot of high-contrast edges.
+
+    :param clip:        Clip to process.
+    :param i444:        Whether to return a 444 clip.
+    :param kernel:      Kernel used for resampling and general scaling operations.
+    :param scaler:      Scaler used to scale up chroma planes.
+    :param downscaler:  Scaler used to downscale the luma plane. Defaults to :py:attr:`kernel`
+    :param func:        Function used for blurring or a preconfigured :py:attr:`Regression.BlurConf`.
+    :param eps:         Epsilon, used in expressions to avoid division by zero.
+    :param args:        Positional arguments passed to the blurring function.
+    :param kwargs:      Keyword arguments passed to the blurring function.
+
+    :return:            Clip with demangled chroma.
+    """
+
     assert check_variable(clip, chroma_reconstruct)
 
     kernel = Kernel.ensure_obj(kernel, chroma_reconstruct)

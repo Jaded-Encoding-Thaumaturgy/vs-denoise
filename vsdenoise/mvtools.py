@@ -27,21 +27,32 @@ __all__ = [
 
 
 class MVDirection(CustomStrEnum):
+    """Motion vector analyze direction."""
+
     BACK = 'backward'
+    """Backwards motion detection."""
+
     FWRD = 'forward'
+    """Forwards motion detection."""
 
     @property
     def isb(self) -> bool:
+        """Whether it's using backwards motion detection."""
+
         return self is MVDirection.BACK
 
 
 class MotionVectors:
     vmulti: vs.VideoNode
+    """Super analyzed clip."""
+
     super_render: vs.VideoNode
+    """Super clip used for analyzing."""
 
     kwargs: dict[str, Any]
 
     temporal_vectors: dict[MVDirection, dict[int, vs.VideoNode]]
+    """Dict containing backwards and forwards motion vectors."""
 
     def __init__(self) -> None:
         self._init_vects()
@@ -52,18 +63,47 @@ class MotionVectors:
 
     @property
     def got_vectors(self) -> bool:
+        """Whether the instance uses bidirectional motion vectors."""
+
         return bool(self.temporal_vectors[MVDirection.BACK] and self.temporal_vectors[MVDirection.FWRD])
 
     def got_mv(self, direction: MVDirection, delta: int) -> bool:
+        """
+        Returns whether the motion vector exists.
+
+        :param direction:   Which direction the motion vector was analyzed.
+        :param delta:       Delta with which the motion vector was analyzed.
+
+        :return:            Whether the motion vector exists.
+        """
+
         return delta in self.temporal_vectors[direction]
 
     def get_mv(self, direction: MVDirection, delta: int) -> vs.VideoNode:
+        """
+        Get the motion vector.
+
+        :param direction:   Which direction the motion vector was analyzed.
+        :param delta:       Delta with which the motion vector was analyzed.
+
+        :return:            Motion vector.
+        """
+
         return self.temporal_vectors[direction][delta]
 
     def set_mv(self, direction: MVDirection, delta: int, vect: vs.VideoNode) -> None:
+        """
+        Sets the motion vector.
+
+        :param direction:   Which direction the motion vector was analyzed.
+        :param delta:       Delta with which the motion vector was analyzed.
+        """
+
         self.temporal_vectors[direction][delta] = vect
 
     def clear(self) -> None:
+        """Deletes all :py:class:`vsdenoise.mvtools.MotionVectors` attributes."""
+
         del self.vmulti
         del self.super_render
         self.kwargs.clear()
@@ -72,9 +112,16 @@ class MotionVectors:
 
 
 class MVToolsPlugin(CustomIntEnum):
+    """Abstraction around the three versions of mvtools plugins that exist."""
+
     INTEGER = 0
+    """Original plugin. Only accepts integer 8-16 bits clips."""
+
     FLOAT_OLD = 1
+    """New plugin by IFeelBloated. Latest release. Only works with float single precision clips."""
+
     FLOAT_NEW = 2
+    """Latest git master of :py:attr:`FLOAT_OLD`. Must be compiled by yourself."""
 
     @property
     def namespace(self) -> Any:
@@ -118,12 +165,20 @@ class MVToolsPlugin(CustomIntEnum):
 
     @classmethod
     def from_video(cls, clip: vs.VideoNode) -> MVToolsPlugin:
+        """
+        Automatically select the appropriate plugin for the specified clip.
+
+        :param clip:    Clip you will use the plugin on.
+
+        :return:        Correct MVToolsPlugin for the specified clip.
+        """
+
         assert clip.format
 
         if clip.format.sample_type is vs.FLOAT:
             if not hasattr(core, 'mvsf'):
                 raise ImportError(
-                    "MVTools: With the current settings, the processing has to be done in float precision, "
+                    "MVTools: With the current clip, the processing has to be done in float precision, "
                     "but you're missing mvsf."
                     "\n\tPlease download it from: https://github.com/IFeelBloated/vapoursynth-mvtools-sf"
                 )
@@ -142,36 +197,139 @@ class MVToolsPlugin(CustomIntEnum):
 
 
 class SADMode(CustomIntEnum):
+    """
+    SAD Calculation mode for MVTools.
+
+    Decides the using of block pure Spatial Data, DCT, SAD, or SATD for SAD calculation.
+
+    SAD => Sum of Absolute Difference (The main parameter mvtools uses).\n
+    This is calculated over the 2 macroblocks that get compared.
+
+    DCT => Discrete Cosine Transform (Frequency Spectrum).\n
+    Transform both the current blocks and the reference block to frequency domain,
+    then calculate the sum of the absolute difference between each pair of transformed samples in that domain.
+
+    SATD => Sum of HAdamard Transformed Differences.\n
+    Get the difference block between the current blocks and the reference block,
+    and transform that difference block to frequency domain and calculate the sum of the absolute value
+    of each sample in that transformed difference block.
+
+    You can read more about the algorithm SATD uses `here <https://en.wikipedia.org/wiki/Hadamard_transform>`_.\n
+    The actual implementation is a recursive Hadamard Ordered Walsh-Hadamard Transform.
+
+    The usage of DCT in particular, can improve motion vector estimation in the event of luma flicker and fades.
+    """
+
     SPATIAL = 0
+    """Regular usage of spatial block data only, does not use DCT."""
+
     DCT = 1
+    """Use block DCT instead of spatial data (slow for block size of 8x8 and very slow for smaller sizes)."""
+
     MIXED_SPATIAL_DCT = 2
+    """Mixed spatial and DCT data; weight is dependent on mean frame luma difference."""
+
     ADAPTIVE_SPATIAL_MIXED = 3
+    """Adaptive per-block switching from spatial to equal-weighted mixed mode."""
+
     ADAPTIVE_SPATIAL_DCT = 4
+    """Adaptive per-block switching from spatial to mixed mode with more weight given to DCT."""
 
     SATD = 5
+    """SATD instead of SAD for luma."""
+
     MIXED_SATD_DCT = 6
+    """Same as 2, except use SATD instead of SAD."""
+
     ADAPTIVE_SATD_MIXED = 7
+    """Same as 3, except use SATD instead of SAD."""
+
     ADAPTIVE_SATD_DCT = 8
+    """Same as 4, except use SATD instead of SAD."""
+
     MIXED_SATEQSATD_DCT = 9
+    """Similar to 2, use SATD and weight ranges from SAD only to equal SAD & SATD."""
+
     ADAPTIVE_SATD_MAJLUMA = 10
+    """Similar to 3 and 4, use SATD weight is on SAD, only on strong luma changes."""
 
     def is_satd(self) -> bool:
+        """Returns wether this SADMode uses SATD rather than SAD."""
+
         return self >= SADMode.SATD
 
 
 class MotionMode:
+    """
+    A preset or custom parameters values for truemotion/motion analysis modes of mvtools.
+
+    Presets allows easy to switch default values of all "true motion" parameters at once.
+    """
+
     @dataclass
     class Config:
+        """Dataclass to represent all the "true motion" parameters."""
+
         truemotion: bool
+        """Straight MVTools preset parameter."""
+
         coherence: int
+        """
+        Coherence of the field of vectors. The higher, the more coherent.
+
+        However, if set too high, some best motion vectors can be missed.
+
+        Values around 400 - 2000 (for block size 8) are strongly recommended.
+
+        Internally it is coefficient for SAD penalty of vector squared
+        difference from predictors (neighbors), scaled by 256.
+        """
+
         sad_limit: int
+        """
+        SAD limit for coherence using.
+
+        Local coherence is decreased if SAD value of vector predictor (formed from neighbor blocks)
+        is greater than the limit. It prevents bad predictors using but decreases the motion coherence.
+
+        Values above 1000 (for block size=8) are recommended for true motion.
+        """
+
         pnew: int
+        """
+        Relative penalty (scaled to 256) to SAD cost for new candidate vector.
+
+        New candidate vector will be accepted as new vector only if its SAD with penalty (SAD + SAD*pnew/256)
+        is lower then predictor cost (old SAD).
+
+        It prevent replacing of quite good predictors by new vector
+        with a slightly better SAD but different length and direction.
+        """
+
         plevel: int
+        """
+        Penalty factor coherence level scaling mode.
+         * 0 - No scaling.
+         * 1 - Linear.
+         * 2 - Quadratic dependence from hierarchical level size.
+
+        Note that vector length is smaller at lower level.
+        """
+
         global_motion: bool
+        """
+        Relative penalty (scaled to 8 bit) to SAD cost for global predictor vector.\n
+        Coherence is not used for global vector.
+        """
 
     HIGH_SAD = Config(False, 0, 400, 0, 0, False)
+    """Use to search motion vectors with best SAD."""
+
     VECT_COHERENCE = Config(True, 1000, 1200, 50, 1, True)
+    """Use for true motion search (high vector coherence)."""
+
     VECT_NOSCALING = Config(True, 1000, 1200, 50, 0, True)
+    """Same as :py:attr:`VECT_COHERENCE` but with plevel set to no scaling (lower penality factor)."""
 
     class _CustomConfig:
         def __call__(
@@ -179,6 +337,13 @@ class MotionMode:
             pnew: int | None = None, plevel: int | None = None, global_motion: bool | None = None,
             truemotion: bool = True
         ) -> MotionMode.Config:
+            """
+            Create a custom :py:class:`MotionMode.Config`.\n
+            Default values will depend on `truemotion`.
+
+            For parameters, please refer to :py:class:`MotionMode.Config`
+            """
+
             ref = MotionMode.from_param(truemotion)
 
             return MotionMode.Config(
@@ -191,76 +356,171 @@ class MotionMode:
             )
 
     MANUAL = _CustomConfig()
+    """Construct a custom config."""
 
     @classmethod
     def from_param(cls, truemotion: bool) -> Config:
+        """
+        Get a default :py:class:`MotionMode.Config`.
+
+        :param truemotion:  Whether to have a true motion config or not.
+
+        :return:            A :py:class:`MotionMode.Config`.
+        """
+
         return MotionMode.VECT_COHERENCE if truemotion else MotionMode.HIGH_SAD
 
 
 class SearchModeBase:
     @dataclass
     class Config:
+        """Dataclass to represent all the search related parameters."""
+
         mode: SearchMode
+        """SearchMode that decides which analysis mode to use for search of motion vectors."""
+
         param: int
+        """Parameter used by the search mode in analysis."""
+
         param_recalc: int
+        """Parameter used by the search mode in recalculation."""
+
         pel: int
+        """Parameter used by search mode for subpixel accuracy."""
 
 
 class SearchMode(SearchModeBase, CustomIntEnum):
+    """Decides the type of search at every level of the hierarchial analysis made while searching for motion vectors."""
+
     AUTO = -1
+    """Automatically select a SearchMode."""
+
     ONETIME = 0
+    """One time search."""
+
     NSTEP = 1
+    """N step searches. The most well-known of the MV search algorithms."""
+
     DIAMOND = 2
+    """Logarithmic search, also known as Diamond Search."""
+
     HEXAGON = 4
+    """Hexagon search (similar to x264's)."""
+
     UMH = 5
+    """Uneven Multi Hexagon search (similar to x264's)."""
+
     EXHAUSTIVE = 3
+    """Exhaustive search, square side is 2 * radius + 1. It's slow, but gives the best results SAD-wise."""
+
     EXHAUSTIVE_H = 6
+    """Pure horizontal exhaustive search, width is 2 * radius + 1."""
+
     EXHAUSTIVE_V = 7
+    """Pure vertical exhaustive search, height is 2 * radius + 1."""
 
     @overload
     def __call__(  # type: ignore
         self: Literal[ONETIME], step: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        ...
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param step:    Step between each vector tried. If > 1, step will be progressively refined.
+        :param pel:     Search pixel enlargement, for subpixel precision.
+
+        :return:        :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
     @overload
     def __call__(  # type: ignore
         self: Literal[NSTEP], times: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        ...
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param times:   Number of step for search.
+        :param pel:     Search pixel enlargement, for subpixel precision.
+
+        :return:        :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
     @overload
     def __call__(  # type: ignore
         self: Literal[DIAMOND], init_step: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        ...
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param init_step:   Initial step search, then refined progressively.
+        :param pel:         Search pixel enlargement, for subpixel precision.
+
+        :return:            :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
     @overload
     def __call__(  # type: ignore
         self: Literal[HEXAGON], range: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        ...
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param range:   Range of search.
+        :param pel:     Search pixel enlargement, for subpixel precision.
+
+        :return:        :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
     @overload
     def __call__(  # type: ignore
         self: Literal[UMH], range: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        ...
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param range:   Radius of the multi hexagonal search.
+        :param pel:     Search pixel enlargement, for subpixel precision.
+
+        :return:        :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
     @overload
     def __call__(  # type: ignore
         self: Literal[EXHAUSTIVE] | Literal[EXHAUSTIVE_H] | Literal[EXHAUSTIVE_V],
         radius: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
-        ...
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param radius:  Radius of the exhaustive (tesa) search.
+        :param pel:     Search pixel enlargement, for subpixel precision.
+
+        :return:        :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
     @overload
     def __call__(self, param: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any) -> SearchMode.Config:
-        ...
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param param:   Parameter used by the search mode. Purpose depends on the mode.
+        :param pel:     Search pixel enlargement, for subpixel precision.
+
+        :return:        :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
 
     def __call__(
         self, param: int | tuple[int, int] | MissingT = MISSING, pel: int | MissingT = MISSING, /, **kwargs: Any
     ) -> SearchMode.Config:
+        """
+        Get the :py:class:`SearchMode.Config` from this mode and params.
+
+        :param step:    Parameter of the mvtools search mode.
+        :param pel:     Search pixel enlargement, for subpixel precision.
+
+        :return:        :py:class:`SearchMode.Config` from this mode, param and accuracy.
+        """
+
         is_uhd = kwargs.get('is_uhd', False)
         refine = kwargs.get('refine', 3)
         truemotion = kwargs.get('truemotion', False)
@@ -293,13 +553,22 @@ class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
 
     super_args: dict[str, Any]
+    """Arguments passed to all the :py:attr:`MVToolsPlugin.Super` calls."""
+
     analyze_args: dict[str, Any]
+    """Arguments passed to all the :py:attr:`MVToolsPlugin.Analyze` calls."""
+
     recalculate_args: dict[str, Any]
+    """Arguments passed to all the :py:attr:`MVToolsPlugin.Recalculate` calls."""
+
     compensate_args: dict[str, Any]
+    """Arguments passed to all the :py:attr:`MVToolsPlugin.Compensate` calls."""
 
     vectors: MotionVectors
+    """Motion vectors analyzed and used for all operations."""
 
     clip: vs.VideoNode
+    """Clip to process."""
 
     @disallow_variable_format
     @disallow_variable_resolution
@@ -319,7 +588,7 @@ class MVTools:
         analyze_args: dict[str, Any] | None = None,
         recalculate_args: dict[str, Any] | None = None,
         compensate_args: dict[str, Any] | None = None,
-        # Analyze kwargs
+        # analyze kwargs
         block_size: int | None = None, overlap: int | None = None,
         thSAD: int | None = None, range_conversion: float | None = None,
         search: SearchMode | SearchMode.Config | None = None,
@@ -329,6 +598,94 @@ class MVTools:
         prefilter: Prefilter | vs.VideoNode | None = None,
         pel_type: PelType | tuple[PelType, PelType] | None = None
     ) -> None:
+        """
+        MVTools is a wrapper around the Motion Vector Tools plugin for VapourSynth,
+        used for estimation and compensation of object motion in video clips.
+
+        This may be used for strong temporal denoising, degraining,
+        advanced framerate conversions, image restoration, and other similar tasks.
+
+        The plugin uses block-matching method of motion estimation (similar methods are used in MPEG2, MPEG4, etc).
+
+        Of course, the motion estimation and compensation is not ideal and precise.\n
+        In some complex cases (video with fading, ultra-fast motion, or periodic structures)
+        the motion estimation may be completely wrong, and the compensated frame will be blocky and(/or) ugly.
+
+        Severe difficulty is also due to objects mutual screening (occlusion) or reverse opening.\n
+        Complex scripts with many motion compensation functions may eat huge amounts of memory
+        which results in very slow processing.
+
+        It's not simple to use, but it's quite an advanced plugin.
+        The goal of this wrapper is to make it more accessible to your average user.
+        However, use it for appropriate cases only, and try tuning its (many) parameters.
+
+        :param clip:                Input clip to process. Must be either a GRAY or YUV format.
+        :param tr:                  Temporal radius of the processing.
+        :param refine:              This represents the times the analyzed clip will be recalculated.\n
+                                    With every recalculation step, the block size will be further refined.\n
+                                    i.e. `refine=4` it will analyze at `block_size=32`, then refine at 16, 8, 4.
+        :param pel:                 Pixel EnLargement value, a.k.a. subpixel accuracy of the motion estimation.\n
+                                    Value can only be 1, 2 or 4.
+                                     * 1 means a precision to the pixel.
+                                     * 2 means a precision to half a pixel.
+                                     * 4 means a precision to quarter a pixel.
+                                    `pel=4` is produced by spatial interpolation which is more accurate,
+                                    but slower and not always better due to big level scale step.
+        :param planes:              Planes to process.
+        :param range_in:            ColorRange of the input clip.
+        :param source_type:         Source type of the input clip.
+        :param high_precision:      Whether to process everything in float32 (very slow).
+                                    If set to False, it will process it in the input clip's bitdepth.
+        :param hpad:                Horizontal padding added to source frame (both left and right).\n
+                                    Small padding is added for more correct motion estimation near frame borders.
+        :param vpad:                Vertical padding added to source frame (both top and bottom).
+        :param vectors:             Precalculated vectors, either a custom instance or another MVTools instance.
+        :param params_curve:        Apply a curve to some parameters and apply a limit to Recalculate parameters.
+
+        :param super_args:          Arguments passed to all the :py:attr:`MVToolsPlugin.Super` calls.
+        :param analyze_args:        Arguments passed to all the :py:attr:`MVToolsPlugin.Analyze` calls.
+        :param recalculate_args:    Arguments passed to all the :py:attr:`MVToolsPlugin.Recalculate` calls.
+        :param compensate_args:     Arguments passed to all the :py:attr:`MVToolsPlugin.Compensate` calls.
+
+        :param block_size:          Block size to be used as smallest portion of the picture for analysis.
+        :param overlap:             N block overlap value. Must be even to or lesser than the block size.\n
+                                    The step between blocks for motion estimation is equal to `block_size - overlap`.\n
+                                    N blocks cover the size `(block_size - overlap) * N + overlap` on the frame.\n
+                                    Try using overlap value from `block_size / 4` to `block_size / 2`.\n
+                                    The greater the overlap, the higher the amount of blocks,
+                                    and the longer the processing will take.\n
+                                    However the default value of 0 may cause blocking-like artefacts.\n
+        :param thSAD:               During the recalculation, only bad quality new vectors with SAD above this thSAD
+                                    will be re-estimated by search. thSAD value is scaled to 8x8 block size.
+                                    Good vectors are not changed, but their SAD will be re-calculated and updated.
+        :param range_conversion:    If the input is limited, it will be converted to full range
+                                    to allow the motion analysis to use a wider array of information.\n
+                                    This is for deciding what range conversion method to use.
+                                     * >= 1.0 - Expansion with expr based on this coefficient.
+                                     * >  0.0 - Expansion with retinex.
+                                     * <= 0.0 - Simple conversion with resize plugin.
+        :param search:              Decides the type of search at every level of the hierarchial
+                                    analysis made while searching for motion vectors.
+        :param sharp:               Subpixel interpolation method for pel = 2 or 4. Possible values are 0, 1, 2.\n
+                                     * 0 - for soft interpolation (bilinear).
+                                     * 1 - for bicubic interpolation (4 tap Catmull-Rom).
+                                     * 2 - for sharper Wiener interpolation (6 tap, similar to Lanczos).
+                                    This parameter controls the calculation of the first level only.
+                                    When pel = 4, bilinear interpolation is always used to compute the second level.
+        :param rfilter:             Hierarchical levels smoothing and reducing (halving) filter.\n
+                                     * 0 - Simple 4 pixels averaging.
+                                     * 1 - Triangle (shifted) for more smoothing (decrease aliasing).
+                                     * 2 - Triangle filter like Bilinear for even more smoothing.
+                                     * 3 - Quadratic filter for even more smoothing.
+                                     * 4 - Cubic filter like Bicubic(b=1, c=0) for even more smoothing.
+        :param sad_mode:            SAD Calculation mode.
+        :param motion:              A preset or custom parameters values for truemotion/motion analysis mode.
+        :param prefilter:           Prefilter to use for motion estimation. Can be a prefiltered clip instead.
+                                    The ideal prefiltered clip will be one that has little to not
+                                    temporal instability or dynamic grain, but retains most of the detail.
+        :param pel_type:            Type of interpolation to use for upscaling the pel clip.
+        """
+
         assert check_variable(clip, self.__class__)
 
         InvalidColorFamilyError.check(clip, (vs.GRAY, vs.YUV), self.__class__)
@@ -408,6 +765,57 @@ class MVTools:
         pel_type: PelType | tuple[PelType, PelType] | None = None,
         *, ref: vs.VideoNode | None = None, inplace: bool = False
     ) -> MotionVectors:
+        """
+        During the analysis stage, the plugin divides frames by small blocks and for every block in current frame
+        it tries to find the most similar (matching) block in the second frame (previous or next).\n
+        The relative shift of these blocks is represented by a motion vector.
+
+        The main measure of block similarity is the sum of absolute differences (SAD) of all pixels
+        of the two compared blocks. SAD is a value which says how good the motion estimation was.
+
+        :param block_size:          Block size to be used as smallest portion of the picture for analysis.
+        :param overlap:             N block overlap value. Must be even to or lesser than the block size.\n
+                                    The step between blocks for motion estimation is equal to `block_size - overlap`.\n
+                                    N blocks cover the size `(block_size - overlap) * N + overlap` on the frame.\n
+                                    Try using overlap value from `block_size / 4` to `block_size / 2`.\n
+                                    The greater the overlap, the higher the amount of blocks,
+                                    and the longer the processing will take.\n
+                                    However the default value of 0 may cause blocking-like artefacts.\n
+        :param thSAD:               During the recalculation, only bad quality new vectors with SAD above this thSAD
+                                    will be re-estimated by search. thSAD value is scaled to 8x8 block size.
+                                    Good vectors are not changed, but their SAD will be re-calculated and updated.
+        :param range_conversion:    If the input is limited, it will be converted to full range
+                                    to allow the motion analysis to use a wider array of information.\n
+                                    This is for deciding what range conversion method to use.
+                                     * >= 1.0 - Expansion with expr based on this coefficient.
+                                     * >  0.0 - Expansion with retinex.
+                                     * <= 0.0 - Simple conversion with resize plugin.
+        :param search:              Decides the type of search at every level of the hierarchial
+                                    analysis made while searching for motion vectors.
+        :param sharp:               Subpixel interpolation method for pel = 2 or 4. Possible values are 0, 1, 2.\n
+                                     * 0 - for soft interpolation (bilinear).
+                                     * 1 - for bicubic interpolation (4 tap Catmull-Rom).
+                                     * 2 - for sharper Wiener interpolation (6 tap, similar to Lanczos).
+                                    This parameter controls the calculation of the first level only.
+                                    When pel = 4, bilinear interpolation is always used to compute the second level.
+        :param rfilter:             Hierarchical levels smoothing and reducing (halving) filter.\n
+                                     * 0 - Simple 4 pixels averaging.
+                                     * 1 - Triangle (shifted) for more smoothing (decrease aliasing).
+                                     * 2 - Triangle filter like Bilinear for even more smoothing.
+                                     * 3 - Quadratic filter for even more smoothing.
+                                     * 4 - Cubic filter like Bicubic(b=1, c=0) for even more smoothing.
+        :param sad_mode:            SAD Calculation mode.
+        :param motion:              A preset or custom parameters values for truemotion/motion analysis mode.
+        :param prefilter:           Prefilter to use for motion estimation. Can be a prefiltered clip instead.
+                                    The ideal prefiltered clip will be one that has little to not
+                                    temporal instability or dynamic grain, but retains most of the detail.
+        :param pel_type:            Type of interpolation to use for upscaling the pel clip.
+        :param ref:                 Reference clip to use for analyzes over the main clip.
+        :param inplace:             Whether to save the analysis in the MVTools instance or not.
+
+        :return:                    :py:class:`MotionVectors` object with the analyzed motion vectors.
+        """
+
         ref = self.get_ref_clip(ref, self.__class__.analyze)
 
         block_size = kwargs_fallback(block_size, (self.analyze_func_kwargs, 'block_size'), 16 if self.is_hd else 8)
@@ -564,6 +972,18 @@ class MVTools:
         return vectors
 
     def get_vectors_bf(self, *, inplace: bool = False) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
+        """
+        Get the backwards and forward vectors.\n
+
+        If :py:attr:`analyze` wasn't previously called,
+        it will do so here with default values or kwargs specified in the constructor.
+
+        :param inplace:     Only return the list, not modifying the internal state.\n
+                            (Useful if you haven't called :py:attr:`analyze` previously)
+
+        :return:            Two lists, respectively for backward and forwards, containing motion vectors.
+        """
+
         vectors = self.vectors if self.vectors.got_vectors else self.analyze(inplace=inplace)
 
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
@@ -588,6 +1008,29 @@ class MVTools:
     def compensate(
         self, func: GenericVSFunction, thSAD: int = 150, *, ref: vs.VideoNode | None = None, **kwargs: Any
     ) -> vs.VideoNode:
+        """
+        At compensation stage, the plugin client functions read the motion vectors and use them to move blocks
+        and form a motion compensated frame (or realize some other full- or partial motion compensation or
+        interpolation function).
+
+        Every block in this fully-compensated frame is placed in the same position as this block in current frame.
+
+        So, we may (for example) use strong temporal denoising even for quite fast moving objects without producing
+        annoying artefactes and ghosting (object's features and edges coincide if compensation is perfect).
+
+        This function is for using compensated and original frames to create an interleaved clip,
+        denoising it with the external temporal filter `func`, and select central cleaned original frames for output.
+
+        :param func:        Temporal function to motion compensate.
+        :param thSAD:       This is the SAD threshold for safe (dummy) compensation.\n
+                            If block SAD is above thSAD, the block is bad, and we use source block
+                            instead of the compensated block.
+        :param ref:         Reference clip to use instead of main clip.
+        :param kwargs:      Keyword arguments passed to `func` to avoid using `partial`.
+
+        :return:            Motion compensated output of `func`.
+        """
+
         ref = self.get_ref_clip(ref, self.__class__.compensate)
 
         vect_b, vect_f = self.get_vectors_bf()
@@ -618,6 +1061,45 @@ class MVTools:
         thSCD: tuple[int | None, int | None] = (None, 51),
         *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
+        """
+        Makes a temporal denoising with motion compensation.
+
+        Blocks of previous and next frames are motion compensated and then averaged with current
+        frame with weigthing factors depended on block differences from current (SAD).
+
+        :param thSAD:   Defines the soft threshold of the block sum absolute differences.\n
+                        If an int is specified, it will be used for luma and chroma will be a scaled value.\n
+                        If a tuple is specified, the first value is for luma, second is for chroma.\n
+                        If None, the same `thSAD` used in the `analyze` step will be used.\n
+                        Block with SAD above threshold thSAD have a zero weight for averaging (denoising).\n
+                        Block with low SAD has highest weight. Rest of weight is taken from pixels of source clip.\n
+                        The provided thSAD value is scaled to a 8x8 blocksize.\n
+                        Low values can result in staggered denoising, large values can result in ghosting and artifacts.
+        :param limit:   Maximum change of pixel. This is post-processing to prevent some artifacts.\n
+                        Value ranges from 0 to 255. At 255, no pixel may be adjusted,
+                        effectively preventing any degraining from occuring.
+        :param thSCD:   The first value is a threshold for whether a block has changed
+                        between the previous frame and the current one.\n
+                        When a block has changed, it means that motion estimation for it isn't relevant.
+                        It, for example, occurs at scene changes, and is one of the thresholds used to
+                        tweak the scene changes detection engine.\n
+                        Raising it will lower the number of blocks detected as changed.\n
+                        It may be useful for noisy or flickered video. This threshold is compared to the SAD value.\n
+                        For exactly identical blocks we have SAD = 0, but real blocks are always different
+                        because of objects complex movement (zoom, rotation, deformation),
+                        discrete pixels sampling, and noise.\n
+                        Suppose we have two compared 8×8 blocks with every pixel different by 5.\n
+                        It this case SAD will be 8×8×5 = 320 (block will not detected as changed for thSCD1 = 400).\n
+                        Actually this parameter is scaled internally in MVTools,
+                        and it is always relative to 8x8 block size.\n
+                        The second value is a threshold of the percentage of how many blocks have to change for
+                        the frame to be considered as a scene change. It ranges from 0 to 100 %.
+        :param ref:     Reference clip to use rather than the main clip. If passed,
+                        the degraining will be applied to the ref clip rather than the original input clip.
+
+        :return:        Degrained clip.
+        """
+
         ref = self.get_ref_clip(ref, self.__class__.degrain)
 
         thSAD, thSADC = (thSAD if isinstance(thSAD, tuple) else (thSAD, None))
@@ -664,6 +1146,15 @@ class MVTools:
         return output.std.DoubleWeave(self.source_type.value) if self.source_type.is_inter else output
 
     def get_ref_clip(self, ref: vs.VideoNode | None, func: FuncExceptT) -> ConstantFormatVideoNode:
+        """
+        Utility for getting the ref clip and set it up with internal modifying.
+
+        :param ref:     Input clip. If None, the workclip will be used.
+        :param func:    Function this was called from.
+
+        :return:        Clip to be used in this instance of MVTools.
+        """
+
         ref = fallback(ref, self.workclip)
 
         if self.high_precision:
@@ -678,6 +1169,17 @@ class MVTools:
     def get_subpel_clips(
         self, pref: vs.VideoNode, ref: vs.VideoNode, pel_type: tuple[PelType, PelType]
     ) -> tuple[vs.VideoNode | None, vs.VideoNode | None]:
+        """
+        Get upscaled clips for the subpel param.
+
+        :param pref:        Prefiltered clip.
+        :param ref:         Input clip.
+        :param pel_type:    :py:class:`PelType` to use for upscaling.\n
+                            First is for the prefilter, the other is for normal clip.
+
+        :return:            Two values. An upscaled clip or None if PelType.NONE.
+        """
+
         return tuple(  # type: ignore[return-value]
             None if ptype is PelType.NONE else ptype(  # type: ignore[misc]
                 clip, self.pel, default=PelType.WIENER if is_ref else PelType.BICUBIC

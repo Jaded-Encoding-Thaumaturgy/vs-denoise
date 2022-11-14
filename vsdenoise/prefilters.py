@@ -135,19 +135,50 @@ class PrefilterBase(CustomIntEnum):
 
 
 class Prefilter(PrefilterBase):
+    """
+    Enum representing available filters.\n
+    These are mainly thought of as prefilters for :py:attr:`MVTools`,
+    but can be used standalone as-is.
+    """
+
     AUTO = -2
+    """Automatically decide what prefilter to use."""
+
     NONE = -1
+    """Don't do any prefiltering. Returns the clip as-is."""
+
     MINBLUR1 = 0
+    """A gaussian/temporal median merge with a radius of 1."""
+
     MINBLUR2 = 1
+    """A gaussian/temporal median merge with a radius of 2."""
+
     MINBLUR3 = 2
+    """A gaussian/temporal median merge with a radius of 3."""
+
     MINBLURFLUX = 3
+    """:py:attr:`MINBLUR2` with temporal/spatial average."""
+
     DFTTEST = 4
+    """Denoising in frequency domain with dfttest and an adaptive mask for retaining lineart."""
+
     KNLMEANSCL = 5
+    """Denoising with KNLMeansCL, then postprocessed to remove low frequencies."""
+
     BM3D = 6
+    """Normal spatio-temporal denoising using BM3D."""
+
     SCALEDBLUR = 7
+    """Perform blurring at a scaled-down resolution, then scale it back up."""
+
     GAUSSBLUR = 8
+    """Gaussian blurred, then postprocessed to remove low frequencies."""
+
     GAUSSBLUR1 = 9
+    """Clamped gaussian/box blurring."""
+
     GAUSSBLUR2 = 10
+    """Clamped gaussian/box blurring with edge preservation."""
 
     if TYPE_CHECKING:
         from .prefilters import Prefilter
@@ -157,7 +188,16 @@ class Prefilter(PrefilterBase):
             self: Literal[Prefilter.MINBLURFLUX], clip: vs.VideoNode, /, planes: PlanesT = None,
             *, temp_thr: int = 2, spat_thr: int = 2
         ) -> vs.VideoNode:
-            ...
+            """
+            :py:attr:`MINBLUR2` with temporal/spatial average.
+
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
+            :param temp_thr:    Temporal threshold for the temporal median function.
+            :param spat_thr:    Spatial threshold for the temporal median function.
+
+            :return:            Preprocessed clip.
+            """
 
         @overload
         def __call__(  # type: ignore
@@ -181,7 +221,29 @@ class Prefilter(PrefilterBase):
             *, strength: SingleOrArr[float] = 7.0, tr: SingleOrArr[int] = 1, sr: SingleOrArr[int] = 2,
             simr: SingleOrArr[int] = 2, device_type: DEVICETYPE | DeviceType = DeviceType.AUTO, **kwargs: Any
         ) -> vs.VideoNode:
-            ...
+            """
+            Denoising with KNLMeansCL, then postprocessed to remove low frequencies.
+
+            :param clip:            Clip to be preprocessed.
+            :param planes:          Planes to be preprocessed.
+            :param strength:        Controls the strength of the filtering.\n
+                                    Larger values will remove more noise.
+            :param tr:              Temporal Radius. Temporal size = `(2 * tr + 1)`.\n
+                                    Sets the number of past and future frames to uses for denoising the current frame.\n
+                                    tr=0 uses 1 frame, while tr=1 uses 3 frames and so on.\n
+                                    Usually, larger values result in better denoising.
+            :param sr:              Search Radius. Spatial size = `(2 * sr + 1)^2`.\n
+                                    Sets the radius of the search window.\n
+                                    sr=1 uses 9 pixel, while sr=2 uses 25 pixels and so on.\n
+                                    Usually, larger values result in better denoising.
+            :param simr:            Similarity Radius. Similarity neighbourhood size = `(2 * simr + 1) ** 2`.\n
+                                    Sets the radius of the similarity neighbourhood window.\n
+                                    The impact on performance is low, therefore it depends on the nature of the noise.
+            :param device_type:     Set the OpenCL device to use for processing.
+            :param kwargs:          Additional arguments to pass to knlmeansCL.
+
+            :return:                Denoised clip.
+            """
 
         @overload
         def __call__(  # type: ignore
@@ -191,7 +253,24 @@ class Prefilter(PrefilterBase):
             profile: Profile = ..., ref: vs.VideoNode | None = None, refine: int = 1,
             yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
         ) -> vs.VideoNode:
-            ...
+            """
+            Normal spatio-temporal denoising using BM3D.
+
+            :param clip:        Clip to be preprocessed.
+            :param sigma:       Strength of denoising, valid range is [0, +inf].
+            :param radius:      Temporal radius, valid range is [1, 16].
+            :param profile:     See :py:attr:`vsdenoise.bm3d.Profile`.
+            :param ref:         Reference clip used in block-matching, replacing the basic estimation.
+                                If not specified, the input clip is used instead.
+            :param refine:      Times to refine the estimation.
+                                * 0 means basic estimate only.
+                                * 1 means basic estimate with one final estimate.
+                                * n means basic estimate refined with final estimate for n times.
+            :param yuv2rgb:     Kernel used for converting the clip from YUV to RGB.
+            :param rgb2yuv:     Kernel used for converting back the clip from RGB to YUV.
+
+            :return:            Preprocessed clip.
+            """
 
         @overload
         def __call__(  # type: ignore
@@ -199,14 +278,39 @@ class Prefilter(PrefilterBase):
             scale: int = 2, radius: int = 1, mode: ConvMode = ConvMode.SQUARE,
             downscaler: ScalerT = Bilinear, upscaler: ScalerT | None = None
         ) -> vs.VideoNode:
-            ...
+            """
+            Perform blurring at a scaled-down resolution, then scale it back up.
+
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
+            :param scale:       Ratios for downscaling.
+                                A ratio of 2 will divide the resolution by 2, 4 by 4, etc.
+            :param radius:      :py:attr:`vsrgtools.blur` radius param.
+            :param mode:        Convolution mode for blurring.
+            :param downscaler:  Scaler to be used for downscaling.
+            :param upscaler:    Scaler to be used for reupscaling.\n
+                                If None, :py:attr:`downscaler` will be used.
+
+            :return:            Preprocessed clip.
+            """
 
         @overload
         def __call__(  # type: ignore
             self: Literal[Prefilter.GAUSSBLUR], clip: vs.VideoNode, /, planes: PlanesT = None,
             *, sigma: float | None = 1.0, sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
         ) -> vs.VideoNode:
-            ...
+            """
+            Gaussian blurred, then postprocessed to remove low frequencies.
+
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
+            :param sigma:       Sigma param for :py:attr:`vsrgtools.gauss_blur`.
+            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.\n
+                                Either :py:attr:`sigma` or this should be specified.
+            :param mode:        Convolution mode for blurring.
+
+            :return:            Preprocessed clip.
+            """
 
         @overload
         def __call__(  # type: ignore
@@ -214,7 +318,21 @@ class Prefilter(PrefilterBase):
             *, radius: int = 1, strength: int = 90, sigma: float | None = 1.75,
             sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
         ) -> vs.VideoNode:
-            ...
+            """
+            Clamped gaussian/box blurring with edge preservation.
+
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
+            :param radius:      Radius param for the blurring.
+            :param strength:    Clamping strength between the two blurred clips.\n
+                                Must be between 1 and 99 (inclusive).
+            :param sigma:       Sigma param for :py:attr:`vsrgtools.gauss_blur`.
+            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.\n
+                                Either :py:attr:`sigma` or this should be specified.
+            :param mode:        Convolution mode for blurring.
+
+            :return:            Preprocessed clip.
+            """
 
         @overload
         def __call__(  # type: ignore
@@ -222,11 +340,33 @@ class Prefilter(PrefilterBase):
             *, radius: int = 1, strength: int = 50, sigma: float | None = 1.75,
             sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
         ) -> vs.VideoNode:
-            ...
+            """
+            Clamped gaussian/box blurring.
+
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
+            :param radius:      Radius param for the blurring.
+            :param strength:    Edge detection strength.\n
+                                Must be between 1 and 99 (inclusive).
+            :param sigma:       Sigma param for :py:attr:`vsrgtools.gauss_blur`.
+            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.\n
+                                Either :py:attr:`sigma` or this should be specified.
+            :param mode:        Convolution mode for blurring.
+
+            :return:            Preprocessed clip.
+            """
 
         @overload
         def __call__(self, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any) -> vs.VideoNode:
-            ...
+            """
+            Run the selected filter.
+
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
+            :param kwargs:      Arguments for the specified filter.
+
+            :return:            Preprocessed clip.
+            """
 
         def __call__(  # type: ignore
             self, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any
@@ -235,6 +375,20 @@ class Prefilter(PrefilterBase):
 
 
 def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
+    """
+    Convert a limited range clip to full range.\n
+    Useful for expanding prefiltered clip's ranges to give motion estimation additional information to work with.
+
+    :param pref:                Clip to be preprocessed.
+    :param range_conversion:    Value which determines what range conversion method gets used.\n
+                                 * >= 1.0 - Expansion with expr based on this coefficient.
+                                 * >  0.0 - Expansion with retinex.
+                                 * <= 0.0 - Simple conversion with resize plugin.
+    :param planes:              Planes to be processed.
+
+    :return:                    Full range clip.
+    """
+
     planes = normalize_planes(pref, planes)
 
     work_clip, *chroma = split(pref) if planes == [0] else (pref, )
@@ -316,15 +470,26 @@ else:
 
 class PelType(int, PelTypeBase):
     AUTO = -1
+    """Automatically decide what :py:class:`PelType` to use."""
+
     NONE = 0
+    """Don't perform any scaling."""
+
     NNEDI3 = 4
+    """Performs scaling with NNedi3, ZNedi3."""
 
     if TYPE_CHECKING:
         from .prefilters import PelType
 
         class CUSTOM(Scaler, PelType):  # type: ignore
+            """Class for constructing your own :py:class:`PelType`."""
+
             def __init__(self, scaler: str | type[Scaler] | Scaler, **kwargs: Any) -> None:
-                ...
+                """
+                Create custom :py:class`PelType` from a scaler.
+
+                :param scaler:  Scaler to be used for scaling and create a pel clip.
+                """
 
             def scale(  # type: ignore
                 self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
@@ -332,7 +497,10 @@ class PelType(int, PelTypeBase):
                 ...
 
         BICUBIC: CUSTOM
+        """Performs scaling with default bicubic values (:py:class:`vskernels.Catrom`)."""
+
         WIENER: CUSTOM
+        """Performs scaling with the wiener filter (:py:class:`BicubicZopti`)."""
 
         def __new__(cls, value: int) -> PelType:
             ...
@@ -346,6 +514,20 @@ class PelType(int, PelTypeBase):
         pel_type: Scaler | PelType, clip: vs.VideoNode, pel: int,
         default: ScalerT | PelType | None = None, **kwargs: Any
     ) -> vs.VideoNode:
+        """
+        Scale a clip. Useful for motion interpolation.
+
+        :param clip:        Clip to be scaled.
+        :param pel:         Rate of scaling.
+        :param subpixel:    Precision used in mvtools calls.\n
+                            Will be used with :py:attr:`PelType.AUTO`.
+        :param default:     Specify a default :py:class:`PelType`/:py:class:`Scaler` top be used.\n
+                            Will be used with :py:attr:`PelType.AUTO`.
+        :param kwargs:      Keyword arguments passed to the scaler.
+
+        :return:            Upscaled clip.
+        """
+
         assert clip.format
 
         if pel_type is PelType.NONE or pel <= 1:

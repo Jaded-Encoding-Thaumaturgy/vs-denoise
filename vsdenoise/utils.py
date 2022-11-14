@@ -6,6 +6,14 @@ from vstools import CustomValueError
 
 
 def planes_to_mvtools(input_planes: Sequence[int]) -> int:
+    """
+    Util function to normalize planes, and converting them to mvtools planes param.
+
+    :param planes:  Sequence of planes to be processed.
+
+    :return:        Value of planes used by mvtools.
+    """
+
     planes = set(input_planes)
 
     if planes == {0, 1, 2}:

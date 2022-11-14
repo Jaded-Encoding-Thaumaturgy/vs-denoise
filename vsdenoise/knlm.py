@@ -15,12 +15,27 @@ from vstools import core, disallow_variable_format, vs
 
 @final
 class ChannelMode(Enum):
+    """Enum representing the KNLMeansCL channel operation mode."""
+
     ALL_PLANES = auto()
+    """Process all planes."""
+
     LUMA = auto()
+    """Only process luma in YUV/GRAY."""
+
     CHROMA = auto()
+    """Only process chroma in YUV."""
 
     @classmethod
     def from_planes(cls, planes: Sequence[int]) -> ChannelMode:
+        """
+        Get :py:attr:`ChannelMode` from a traditional ``planes`` param.
+
+        :param planes:  Sequence of planes to be processed.
+
+        :return:        :py:attr:`ChannelMode` value.
+        """
+
         planes = list(planes)
 
         if planes == [0]:
@@ -34,10 +49,19 @@ class ChannelMode(Enum):
 
 @final
 class DeviceType(str, Enum):
+    """Enum representing available OpenCL device on which to run the plugin."""
+
     ACCELERATOR = 'accelerator'
+    """Dedicated OpenCL accelerators."""
+
     CPU = 'cpu'
+    """An OpenCL device that is the host processor."""
+
     GPU = 'gpu'
+    """An OpenCL device that is a GPU."""
+
     AUTO = 'auto'
+    """Automatically detect device. Priority is "accelerator" -> "gpu" -> "cpu"."""
 
 
 DEVICETYPE = Literal['accelerator', 'cpu', 'gpu', 'auto']
@@ -54,29 +78,30 @@ def knl_means_cl(
     Convenience wrapper for KNLMeansCL.\n
     Parameters that accept Sequences will only use the first two elements of it.
 
-    For more information, please refer to the original documentation.
-    https://github.com/Khanattila/KNLMeansCL/wiki/Filter-description
+    For more information, please refer to the
+    `original documentation <https://github.com/Khanattila/KNLMeansCL/wiki/Filter-description>`_.
 
     :param clip:            Source clip.
-    :param strength:        Controls the strength of the filtering.
+    :param strength:        Controls the strength of the filtering.\n
                             Larger values will remove more noise.
-    :param tr:              Temporal Radius. Set the number of past and future frame that the filter uses
-                            for denoising the current frame.
-                            tr=0 uses 1 frame, while tr=1 uses 3 frames and so on.
-                            Usually, larger it the better the result of the denoising.
-                            Temporal size = (2 * tr + 1).
-    :param sr:              Search Radius. Set the radius of the search window.
-                            sr=1 uses 9 pixel, while sr=2 uses 25 pixels and so on.
-                            Usually, larger it the better the result of the denoising.
-                            Spatial size = (2 * sr + 1)^2.
-    :param simr:            Similarity Radius. Set the radius of the similarity neighbourhood window.
+    :param tr:              Temporal Radius. Temporal size = `(2 * tr + 1)`.\n
+                            Sets the number of past and future frames to uses for denoising the current frame.\n
+                            tr=0 uses 1 frame, while tr=1 uses 3 frames and so on.\n
+                            Usually, larger values result in better denoising.
+    :param sr:              Search Radius. Spatial size = `(2 * sr + 1)^2`.\n
+                            Sets the radius of the search window.\n
+                            sr=1 uses 9 pixel, while sr=2 uses 25 pixels and so on.\n
+                            Usually, larger values result in better denoising.
+    :param simr:            Similarity Radius. Similarity neighbourhood size = `(2 * simr + 1) ** 2`.\n
+                            Sets the radius of the similarity neighbourhood window.\n
                             The impact on performance is low, therefore it depends on the nature of the noise.
-                            Similarity neighbourhood size = (2 * simr + 1)^2.
-    :param channels:        Set the colour channels to be denoised
-    :param device_type:     Set the OpenCL device.
-    :param kwargs:          Additional settings
+    :param channels:        Set the clip channels to be denoised.
+    :param device_type:     Set the OpenCL device to use for processing.
+    :param kwargs:          Additional arguments to pass to knlmeansCL.
+
     :return:                Denoised clip.
     """
+
     assert clip.format
 
     if isinstance(strength, (float, int)):
