@@ -128,7 +128,7 @@ def mlm_degrain(
         block_size = 16 if clip.width > 960 else 8
         analise_args = dict[str, Any](blksize=block_size, overlap=block_size // 2) | norm_akwargs[idx]
 
-        mvtools_arg |= dict(subpixel=1) | kwargs
+        mvtools_arg |= dict(pel=1) | kwargs
 
         mv = MVTools(clip, **mvtools_arg)
         mv.analyze(ref=ref, **analise_args)
