@@ -126,7 +126,7 @@ def mlm_degrain(
             mvtools_arg |= dict(prefilter=softened)
 
         block_size = 16 if clip.width > 960 else 8
-        analise_args = dict[str, Any](blksize=block_size, overlap=block_size // 2) | norm_akwargs[idx]
+        analise_args = dict[str, Any](block_size=block_size, overlap=block_size // 2) | norm_akwargs[idx]
 
         mvtools_arg |= dict(pel=1) | kwargs
 
