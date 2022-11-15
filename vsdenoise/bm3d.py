@@ -14,8 +14,8 @@ from typing import Any, ClassVar, NamedTuple, final
 
 from vskernels import Bicubic, Kernel, KernelT, Point
 from vstools import (
-    ColorRange, CustomStrEnum, CustomValueError, DitherType, Matrix, SingleOrArr, check_variable, core, get_y, iterate,
-    join, normalize_seq, vs, get_video_format
+    ColorRange, ColorRangeT, CustomStrEnum, CustomValueError, DitherType, FuncExceptT, Matrix, MatrixT, SingleOrArr,
+    check_variable, core, get_video_format, get_y, iterate, join, normalize_seq, vs
 )
 
 from .types import _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
@@ -86,10 +86,9 @@ class AbstractBM3D(ABC):
         self, clip: vs.VideoNode, /,
         sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
         profile: Profile = Profile.FAST,
-        ref: vs.VideoNode | None = None,
-        refine: int = 1,
-        yuv2rgb: KernelT = Bicubic,
-        rgb2yuv: KernelT = Bicubic
+        ref: vs.VideoNode | None = None, refine: int = 1,
+        matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
+        yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
     ) -> None:
         """
         :param clip:        Source clip.
@@ -108,23 +107,23 @@ class AbstractBM3D(ABC):
         assert check_variable(clip, self.__class__)
 
         self._format = clip.format
-        self._clip = clip
-        self._check_clips(clip, ref)
-        self._matrix = Matrix.from_video(clip, True) if self._format.color_family is vs.YUV else None
+        self._clip = self._check_clip(clip, matrix, range_in, self.__class__)
 
-        self.wclip = clip
+        self._matrix = Matrix.from_video(self._clip, True) if self._format.color_family is vs.YUV else None
+
+        self.wclip = self._clip
 
         self.sigma = self._Sigma(*normalize_seq(sigma, 3))
         self.radius = self._Radius(*normalize_seq(radius or 0, 2))
 
         self.profile = profile
-        self.ref = ref
+        self.ref = ref and self._check_clip(ref, matrix, range_in, self.__class__)
         self.refine = refine
 
         self.yuv2rgb = Kernel.ensure_obj(yuv2rgb)
         self.rgb2yuv = Kernel.ensure_obj(rgb2yuv)
 
-        self.is_gray = clip.format.color_family == vs.GRAY
+        self.is_gray = self._format.color_family == vs.GRAY
 
         self.basic_args = {}
         self.final_args = {}
@@ -249,16 +248,18 @@ class AbstractBM3D(ABC):
         if self.sigma.y == 0:
             self.wclip = join(self._clip, self.wclip)
 
-    def _check_clips(self, *clips: vs.VideoNode | None) -> None:
-        for clip in clips:
-            if clip:
-                fmt = get_video_format(clip)
+    def _check_clip(
+        self, clip: vs.VideoNode, matrix: MatrixT | None, range_in: ColorRange | None, func: FuncExceptT
+    ) -> vs.VideoNode:
+        fmt = get_video_format(clip)
 
-                if fmt.sample_type != vs.FLOAT or fmt.bits_per_sample != 32:
-                    ColorRange.from_video(clip, True)
+        if fmt.sample_type != vs.FLOAT or fmt.bits_per_sample != 32:
+            clip = ColorRange.ensure_presence(clip, range_in, func)
 
-                if fmt.color_family is vs.YUV:
-                    Matrix.from_video(clip, True)
+        if fmt.color_family is vs.YUV:
+            clip = Matrix.ensure_presence(clip, matrix, func)
+
+        return clip
 
 
 class BM3D(AbstractBM3D):
@@ -274,10 +275,10 @@ class BM3D(AbstractBM3D):
         self, clip: vs.VideoNode, /,
         sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
         profile: Profile = Profile.FAST,
-        pre: vs.VideoNode | None = None, ref: vs.VideoNode | None = None,
-        refine: int = 1,
-        yuv2rgb: KernelT = Bicubic,
-        rgb2yuv: KernelT = Bicubic
+        pre: vs.VideoNode | None = None,
+        ref: vs.VideoNode | None = None, refine: int = 1,
+        matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
+        yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
     ) -> None:
         """
         :param clip:                Source clip.
@@ -295,9 +296,8 @@ class BM3D(AbstractBM3D):
         :param yuv2rgb:             Kernel used for converting the clip from YUV to RGB.
         :param rgb2yuv:             Kernel used for converting the clip back from RGB to YUV.
         """
-        super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb, rgb2yuv)
-        self._check_clips(pre)
-        self.pre = pre
+        super().__init__(clip, sigma, radius, profile, ref, refine, matrix, range_in, yuv2rgb, rgb2yuv)
+        self.pre = self._check_clip(pre, matrix, range_in, self.__class__)
 
     def rgb2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
         return clip.bm3d.RGB2OPP(self.fp32)
@@ -358,12 +358,11 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
         self, clip: vs.VideoNode, /,
         sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
         profile: Profile = Profile.FAST,
-        ref: vs.VideoNode | None = None,
-        refine: int = 1,
-        yuv2rgb: KernelT = Bicubic,
-        rgb2yuv: KernelT = Bicubic
+        ref: vs.VideoNode | None = None, refine: int = 1,
+        matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
+        yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
     ) -> None:
-        super().__init__(clip, sigma, radius, profile, ref, refine, yuv2rgb, rgb2yuv)
+        super().__init__(clip, sigma, radius, profile, ref, refine, matrix, range_in, yuv2rgb, rgb2yuv)
         if self.profile == Profile.VERY_NOISY:
             raise CustomValueError('Profile "VERY_NOISY" is not supported!', self.__class__)
 
