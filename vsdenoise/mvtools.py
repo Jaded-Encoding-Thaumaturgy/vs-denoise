@@ -1123,7 +1123,7 @@ class MVTools:
             raise CustomOverflowError(
                 '"thSCD[1]" must be between 1 and 100 (inclusive)!', self.__class__.degrain
             )
-        
+
         thSCD2 = int(thSCD2 / 100 * 255)
 
         vect_b, vect_f = self.get_vectors_bf()
