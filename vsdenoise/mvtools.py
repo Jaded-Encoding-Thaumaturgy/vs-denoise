@@ -711,7 +711,7 @@ class MVTools:
 
         self.is_gray = self.planes == [0]
 
-        self.mv_plane = planes_to_mvtools(planes)
+        self.mv_plane = planes_to_mvtools(self.planes)
 
         self.chroma = self.mv_plane != 0
 
