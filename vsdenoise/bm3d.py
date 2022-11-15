@@ -15,7 +15,7 @@ from typing import Any, ClassVar, NamedTuple, final
 from vskernels import Bicubic, Kernel, KernelT, Point
 from vstools import (
     ColorRange, CustomStrEnum, CustomValueError, DitherType, Matrix, SingleOrArr, check_variable, core, get_y, iterate,
-    join, normalize_seq, vs
+    join, normalize_seq, vs, get_video_format
 )
 
 from .types import _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
@@ -110,7 +110,7 @@ class AbstractBM3D(ABC):
         self._format = clip.format
         self._clip = clip
         self._check_clips(clip, ref)
-        self._matrix = Matrix.from_video(clip, True)
+        self._matrix = Matrix.from_video(clip, True) if self._format.color_family is vs.YUV else None
 
         self.wclip = clip
 
@@ -252,8 +252,13 @@ class AbstractBM3D(ABC):
     def _check_clips(self, *clips: vs.VideoNode | None) -> None:
         for clip in clips:
             if clip:
-                ColorRange.from_video(clip, True)
-                Matrix.from_video(clip, True)
+                fmt = get_video_format(clip)
+
+                if fmt.sample_type != vs.FLOAT or fmt.bits_per_sample != 32:
+                    ColorRange.from_video(clip, True)
+
+                if fmt.color_family is vs.YUV:
+                    Matrix.from_video(clip, True)
 
 
 class BM3D(AbstractBM3D):
