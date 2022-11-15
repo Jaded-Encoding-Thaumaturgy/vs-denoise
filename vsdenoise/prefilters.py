@@ -453,7 +453,7 @@ else:
             self, clip: vs.VideoNode, pel: int, subpixel: int = 3,
             default: ScalerT | None = None, **kwargs: Any
         ) -> vs.VideoNode:
-            return PelType.__call__(self.scaler, clip, pel, subpixel, default, **(self.kwargs | kwargs))
+            return PelType.__call__(self.scaler, clip, pel, default, **(self.kwargs | kwargs))
 
         def scale(
             self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any

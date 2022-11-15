@@ -1182,6 +1182,6 @@ class MVTools:
 
         return tuple(  # type: ignore[return-value]
             None if ptype is PelType.NONE else ptype(  # type: ignore[misc]
-                clip, self.pel, default=PelType.WIENER if is_ref else PelType.BICUBIC
+                clip, self.pel, PelType.WIENER if is_ref else PelType.BICUBIC
             ) for is_ref, ptype, clip in zip((False, True), pel_type, (pref, ref))
         )
