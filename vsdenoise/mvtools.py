@@ -7,13 +7,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from itertools import chain
 from math import ceil, exp
-from typing import Any, Literal, Sequence, cast, overload
+from typing import Any, Literal, Sequence, cast, overload, TypeVar
 
 from vstools import (
     MISSING, ColorRange, ConstantFormatVideoNode, CustomIntEnum, CustomOverflowError, CustomStrEnum, CustomValueError,
     FieldBased, FieldBasedT, FuncExceptT, GenericVSFunction, InvalidColorFamilyError, MissingT, VSFunction,
     check_ref_clip, check_variable, core, depth, disallow_variable_format, disallow_variable_resolution, fallback,
-    kwargs_fallback, normalize_planes, normalize_seq, vs
+    kwargs_fallback, normalize_planes, normalize_seq, vs, scale_value, clamp
 )
 
 from .prefilters import PelType, Prefilter, prefilter_to_full_range
@@ -258,6 +258,13 @@ class SADMode(CustomIntEnum):
         """Returns wether this SADMode uses SATD rather than SAD."""
 
         return self >= SADMode.SATD
+
+    @property
+    def same_recalc(self: SelfSADMode) -> tuple[SelfSADMode, SelfSADMode]:
+        return (self, self)
+
+
+SelfSADMode = TypeVar('SelfSADMode', bound=SADMode)
 
 
 class MotionMode:
