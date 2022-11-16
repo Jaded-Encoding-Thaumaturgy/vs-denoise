@@ -253,6 +253,7 @@ class SADMode(CustomIntEnum):
     ADAPTIVE_SATD_MAJLUMA = 10
     """Similar to 3 and 4, use SATD weight is on SAD, only on strong luma changes."""
 
+    @property
     def is_satd(self) -> bool:
         """Returns wether this SADMode uses SATD rather than SAD."""
 

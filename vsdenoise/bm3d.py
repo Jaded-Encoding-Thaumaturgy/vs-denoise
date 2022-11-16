@@ -348,7 +348,7 @@ class AbstractBM3D(ABC):
             self.wclip = join(self._clip, self.wclip)
 
     def _check_clip(
-        self, clip: vs.VideoNode, matrix: MatrixT | None, range_in: ColorRange | None, func: FuncExceptT
+        self, clip: vs.VideoNode, matrix: MatrixT | None, range_in: ColorRangeT | None, func: FuncExceptT
     ) -> vs.VideoNode:
         fmt = get_video_format(clip)
 
@@ -396,7 +396,7 @@ class BM3D(AbstractBM3D):
         :param rgb2yuv:             Kernel used for converting the clip back from RGB to YUV.
         """
         super().__init__(clip, sigma, radius, profile, ref, refine, matrix, range_in, yuv2rgb, rgb2yuv)
-        self.pre = self._check_clip(pre, matrix, range_in, self.__class__)
+        self.pre = pre and self._check_clip(pre, matrix, range_in, self.__class__)
 
     def rgb2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
         return clip.bm3d.RGB2OPP(self.fp32)
