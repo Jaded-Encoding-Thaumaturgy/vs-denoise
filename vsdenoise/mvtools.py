@@ -1134,6 +1134,8 @@ class MVTools:
                 '"limit" values should be between 0 and 255 (inclusive)!', self.__class__.degrain
             )
 
+        limitf, limitCf = scale_value(limit, 8, ref), scale_value(limitC, 8, ref)
+
         thSCD1, thSCD2 = thSCD
 
         thSCD1 = fallback(thSCD1, round(0.35 * thSAD + 260) if self.params_curve else thSAD // 2)
@@ -1151,9 +1153,9 @@ class MVTools:
         degrain_args = dict[str, Any](thscd1=thSCD1, thscd2=thSCD2, plane=self.mv_plane)
 
         if self.mvtools is MVToolsPlugin.INTEGER:
-            degrain_args.update(thsad=thSAD, thsadc=thSADC, limit=limit, limitc=limitC)
+            degrain_args.update(thsad=thSAD, thsadc=thSADC, limit=limitf, limitc=limitCf)
         else:
-            degrain_args.update(thsad=[thSAD, thSADC, thSADC], limit=[limit, limitC])
+            degrain_args.update(thsad=[thSAD, thSADC, thSADC], limit=[limitf, limitCf])
 
             if self.mvtools is MVToolsPlugin.FLOAT_NEW:
                 degrain_args.update(thsad2=[thSAD / 2, thSADC / 2])
