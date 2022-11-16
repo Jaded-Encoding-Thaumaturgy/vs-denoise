@@ -10,19 +10,89 @@ __all__ = [
 ]
 
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, NamedTuple, final
+from dataclasses import dataclass
+from typing import Any, NamedTuple, final
 
 from vskernels import Bicubic, Kernel, KernelT, Point
 from vstools import (
-    ColorRange, ColorRangeT, CustomStrEnum, CustomValueError, DitherType, FuncExceptT, Matrix, MatrixT, SingleOrArr,
-    check_variable, core, get_video_format, get_y, iterate, join, normalize_seq, vs
+    ColorRange, ColorRangeT, CustomStrEnum, CustomValueError, DitherType, FuncExceptT, KwargsT, Matrix, MatrixT,
+    SingleOrArr, check_variable, core, get_video_format, get_y, iterate, join, normalize_seq, vs
 )
 
 from .types import _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
 
 
+class ProfileBase:
+    @dataclass
+    class Config:
+        profile: Profile
+        kwargs: KwargsT
+        basic_kwargs: KwargsT
+        final_kwargs: KwargsT
+        overrides: KwargsT
+        overrides_basic: KwargsT
+        overrides_final: KwargsT
+
+        def as_dict(self, cuda: bool = False, basic: bool = False, aggregate: bool = False, **kwargs: Any) -> KwargsT:
+            kwargs |= self.kwargs
+
+            if basic:
+                kwargs |= self.basic_kwargs
+            else:
+                kwargs |= self.final_kwargs
+
+            if self.profile is Profile.CUSTOM:
+                values = KwargsT()
+            elif not cuda:
+                values = KwargsT(profile=self.profile.value)
+            elif self.profile is Profile.VERY_NOISY:
+                raise CustomValueError('Profile "VERY_NOISY" is not supported!', reason='BM3DCuda')
+            else:
+                if aggregate:
+                    if basic:
+                        PROFILES = {
+                            Profile.FAST: KwargsT(block_step=8, bm_range=7, ps_num=2, ps_range=4),
+                            Profile.LOW_COMPLEXITY: KwargsT(block_step=6, bm_range=9, ps_num=2, ps_range=4),
+                            Profile.NORMAL: KwargsT(block_step=4, bm_range=12, ps_num=2, ps_range=5),
+                            Profile.HIGH: KwargsT(block_step=3, bm_range=16, ps_num=2, ps_range=7),
+                        }
+                    else:
+                        PROFILES = {
+                            Profile.FAST: KwargsT(block_step=7, bm_range=7, ps_num=2, ps_range=5),
+                            Profile.LOW_COMPLEXITY: KwargsT(block_step=5, bm_range=9, ps_num=2, ps_range=5),
+                            Profile.NORMAL: KwargsT(block_step=3, bm_range=12, ps_num=2, ps_range=6),
+                            Profile.HIGH: KwargsT(block_step=2, bm_range=16, ps_num=2, ps_range=8),
+                        }
+                else:
+                    if basic:
+                        PROFILES = {
+                            Profile.FAST: KwargsT(block_step=8, bm_range=9),
+                            Profile.LOW_COMPLEXITY: KwargsT(block_step=6, bm_range=9),
+                            Profile.NORMAL: KwargsT(block_step=4, bm_range=16),
+                            Profile.HIGH: KwargsT(block_step=3, bm_range=16),
+                        }
+                    else:
+                        PROFILES = {
+                            Profile.FAST: KwargsT(block_step=7, bm_range=9),
+                            Profile.LOW_COMPLEXITY: KwargsT(block_step=5, bm_range=9),
+                            Profile.NORMAL: KwargsT(block_step=3, bm_range=16),
+                            Profile.HIGH: KwargsT(block_step=2, bm_range=16),
+                        }
+
+                values = PROFILES[self.profile]
+
+            values |= kwargs | self.overrides
+
+            if basic:
+                values |= self.overrides_basic
+            else:
+                values |= self.overrides_final
+
+            return values
+
+
 @final
-class Profile(CustomStrEnum):
+class Profile(ProfileBase, CustomStrEnum):
     """
     BM3D profiles that set default parameters for each of them.\n
     See the original documentation for more information:\n
@@ -44,6 +114,35 @@ class Profile(CustomStrEnum):
     VERY_NOISY = 'vn'
     """Profile for very noisy content."""
 
+    CUSTOM = 'custom'
+    """Customize your own profile."""
+
+    def __call__(
+        self,
+        block_step: int | None = None, bm_range: int | None = None,
+        block_size: int | None = None, group_size: int | None = None,
+        bm_step: int | None = None, th_mse: float | None = None, hard_thr: float | None = None,
+        ps_num: int | None = None, ps_range: int | None = None, ps_step: int | None = None,
+        basic_kwargs: KwargsT | None = None, final_kwargs: KwargsT | None = None, **kwargs: Any
+    ) -> Profile.Config:
+        return ProfileBase.Config(
+            self, kwargs, basic_kwargs or {}, final_kwargs or {},
+            {
+                key: value for key, value in KwargsT(
+                    block_step=block_step, bm_range=bm_range, block_size=block_size,
+                    group_size=group_size, bm_step=bm_step, th_mse=th_mse
+                ).items() if value is not None
+            },
+            {
+                key: value for key, value in KwargsT(hard_thr=hard_thr).items() if value is not None
+            },
+            {
+                key: value for key, value in KwargsT(
+                    ps_num=ps_num, ps_range=ps_range, ps_step=ps_step
+                ).items() if value is not None
+            }
+        )
+
 
 class AbstractBM3D(ABC):
     """Abstract BM3D based denoiser interface."""
@@ -52,7 +151,7 @@ class AbstractBM3D(ABC):
 
     sigma: _Sigma
     radius: _Radius
-    profile: Profile
+    profile: Profile.Config
 
     ref: vs.VideoNode | None
 
@@ -85,7 +184,7 @@ class AbstractBM3D(ABC):
     def __init__(
         self, clip: vs.VideoNode, /,
         sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
-        profile: Profile = Profile.FAST,
+        profile: Profile | Profile.Config = Profile.FAST,
         ref: vs.VideoNode | None = None, refine: int = 1,
         matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
         yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
@@ -116,7 +215,7 @@ class AbstractBM3D(ABC):
         self.sigma = self._Sigma(*normalize_seq(sigma, 3))
         self.radius = self._Radius(*normalize_seq(radius or 0, 2))
 
-        self.profile = profile
+        self.profile = profile if isinstance(profile, ProfileBase.Config) else profile()
         self.ref = ref and self._check_clip(ref, matrix, range_in, self.__class__)
         self.refine = refine
 
@@ -274,7 +373,7 @@ class BM3D(AbstractBM3D):
     def __init__(
         self, clip: vs.VideoNode, /,
         sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
-        profile: Profile = Profile.FAST,
+        profile: Profile | Profile.Config = Profile.FAST,
         pre: vs.VideoNode | None = None,
         ref: vs.VideoNode | None = None, refine: int = 1,
         matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
@@ -309,29 +408,27 @@ class BM3D(AbstractBM3D):
         return get_y(clip).resize.Point(format=vs.GRAYS if self.fp32 else vs.GRAY16)
 
     def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
-        kwargs = dict[str, Any](ref=self.pre, profile=self.profile, sigma=self.sigma, matrix=100) | self.basic_args
+        kwargs = self.profile.as_dict(
+            ref=self.pre, radius=self.radius.basic, sigma=self.sigma, matrix=100
+        ) | self.basic_args
+
+        clip = clip.bm3d.Basic(**kwargs)
 
         if self.radius.basic:
-            clip = core.bm3d.VBasic(
-                clip, radius=self.radius.basic, **kwargs
-            ).bm3d.VAggregate(self.radius.basic, self.fp32)
-        else:
-            clip = core.bm3d.Basic(clip, **kwargs)
+            clip = clip.bm3d.VAggregate(self.radius.basic, self.fp32)
 
         return clip
 
     def final(self, clip: vs.VideoNode, ref: vs.VideoNode | None = None) -> vs.VideoNode:
-        kwargs = dict[str, Any](profile=self.profile, sigma=self.sigma, matrix=100) | self.final_args
-
         if ref is None:
             ref = self.basic(self.wclip)
 
+        kwargs = self.profile.as_dict(ref=ref, radius=self.radius.final, sigma=self.sigma, matrix=100) | self.final_args
+
+        clip = clip.bm3d.Final(**kwargs)
+
         if self.radius.final:
-            clip = core.bm3d.VFinal(
-                clip, ref=ref, radius=self.radius.final, **kwargs
-            ).bm3d.VAggregate(self.radius.final, self.fp32)
-        else:
-            clip = core.bm3d.Final(clip, ref=ref, **kwargs)
+            clip = clip.bm3d.VAggregate(self.radius.final, self.fp32)
 
         return clip
 
@@ -357,64 +454,31 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
     def __init__(
         self, clip: vs.VideoNode, /,
         sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
-        profile: Profile = Profile.FAST,
+        profile: Profile | Profile.Config = Profile.FAST,
         ref: vs.VideoNode | None = None, refine: int = 1,
         matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
         yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
     ) -> None:
         super().__init__(clip, sigma, radius, profile, ref, refine, matrix, range_in, yuv2rgb, rgb2yuv)
-        if self.profile == Profile.VERY_NOISY:
-            raise CustomValueError('Profile "VERY_NOISY" is not supported!', self.__class__)
-
-    CUDA_BASIC_PROFILES: ClassVar[dict[str, dict[str, Any]]] = {
-        Profile.FAST: dict(block_step=8, bm_range=9),
-        Profile.LOW_COMPLEXITY: dict(block_step=6, bm_range=9),
-        Profile.NORMAL: dict(block_step=4, bm_range=16),
-        Profile.HIGH: dict(block_step=3, bm_range=16),
-    }
-    CUDA_FINAL_PROFILES: ClassVar[dict[str, dict[str, Any]]] = {
-        Profile.FAST: dict(block_step=7, bm_range=9),
-        Profile.LOW_COMPLEXITY: dict(block_step=5, bm_range=9),
-        Profile.NORMAL: dict(block_step=3, bm_range=16),
-        Profile.HIGH: dict(block_step=2, bm_range=16),
-    }
-    CUDA_VBASIC_PROFILES: ClassVar[dict[str, dict[str, Any]]] = {
-        Profile.FAST: dict(block_step=8, bm_range=7, ps_num=2, ps_range=4),
-        Profile.LOW_COMPLEXITY: dict(block_step=6, bm_range=9, ps_num=2, ps_range=4),
-        Profile.NORMAL: dict(block_step=4, bm_range=12, ps_num=2, ps_range=5),
-        Profile.HIGH: dict(block_step=3, bm_range=16, ps_num=2, ps_range=7),
-    }
-    CUDA_VFINAL_PROFILES: ClassVar[dict[str, dict[str, Any]]] = {
-        Profile.FAST: dict(block_step=7, bm_range=7, ps_num=2, ps_range=5),
-        Profile.LOW_COMPLEXITY: dict(block_step=5, bm_range=9, ps_num=2, ps_range=5),
-        Profile.NORMAL: dict(block_step=3, bm_range=12, ps_num=2, ps_range=6),
-        Profile.HIGH: dict(block_step=2, bm_range=16, ps_num=2, ps_range=8),
-    }
 
     def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
+        kwargs = self.profile.as_dict(True, True, sigma=self.sigma, radius=self.radius.basic) | self.basic_args
+
+        clip = self.plugin.BM3D(clip, **kwargs)
+
         if self.radius.basic:
-            clip = self.plugin.BM3D(
-                clip, sigma=self.sigma, radius=self.radius.basic,
-                **self.CUDA_VBASIC_PROFILES[self.profile] | self.basic_args
-            ).bm3d.VAggregate(self.radius.basic, 1)
-        else:
-            clip = self.plugin.BM3D(
-                clip, sigma=self.sigma, radius=0,
-                **self.CUDA_BASIC_PROFILES[self.profile] | self.basic_args
-            )
+            clip = clip.bm3d.VAggregate(self.radius.basic, 1)
+
         return clip
 
     def final(self, clip: vs.VideoNode, ref: vs.VideoNode | None = None) -> vs.VideoNode:
+        kwargs = self.profile.as_dict(True, False, True, sigma=self.sigma, radius=self.radius.final) | self.final_args
+
+        clip = self.plugin.BM3D(clip, ref, **kwargs)
+
         if self.radius.final:
-            clip = self.plugin.BM3D(
-                clip, ref, self.sigma, radius=self.radius.final,
-                **self.CUDA_VFINAL_PROFILES[self.profile] | self.final_args
-            ).bm3d.VAggregate(self.radius.final, 1)
-        else:
-            clip = self.plugin.BM3D(
-                clip, ref, self.sigma, radius=0,
-                **self.CUDA_FINAL_PROFILES[self.profile] | self.final_args
-            )
+            clip = clip.bm3d.VAggregate(self.radius.final, 1)
+
         return clip
 
 
