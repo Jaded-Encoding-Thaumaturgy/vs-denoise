@@ -387,13 +387,16 @@ class SearchModeBase:
         mode: SearchMode
         """SearchMode that decides which analysis mode to use for search of motion vectors."""
 
-        param: int
+        recalc_mode: SearchMode
+        """SearchMode that decides which analysis mode to use for recalculation of motion vectors."""
+
+        param: int | None
         """Parameter used by the search mode in analysis."""
 
-        param_recalc: int
+        param_recalc: int | None
         """Parameter used by the search mode in recalculation."""
 
-        pel: int
+        pel: int | None
         """Parameter used by search mode for subpixel accuracy."""
 
 
@@ -429,7 +432,8 @@ class SearchMode(SearchModeBase, CustomIntEnum):
 
     @overload
     def __call__(  # type: ignore
-        self: Literal[ONETIME], step: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
+        self: Literal[ONETIME], step: int | tuple[int, int] | None = ..., pel: int | None = ...,
+        recalc_mode: SearchMode = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
         """
         Get the :py:class:`SearchMode.Config` from this mode and params.
@@ -442,7 +446,8 @@ class SearchMode(SearchModeBase, CustomIntEnum):
 
     @overload
     def __call__(  # type: ignore
-        self: Literal[NSTEP], times: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
+        self: Literal[NSTEP], times: int | tuple[int, int] | None = ..., pel: int | None = ...,
+        recalc_mode: SearchMode = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
         """
         Get the :py:class:`SearchMode.Config` from this mode and params.
@@ -455,7 +460,8 @@ class SearchMode(SearchModeBase, CustomIntEnum):
 
     @overload
     def __call__(  # type: ignore
-        self: Literal[DIAMOND], init_step: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
+        self: Literal[DIAMOND], init_step: int | tuple[int, int] | None = ..., pel: int | None = ...,
+        recalc_mode: SearchMode = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
         """
         Get the :py:class:`SearchMode.Config` from this mode and params.
@@ -468,7 +474,8 @@ class SearchMode(SearchModeBase, CustomIntEnum):
 
     @overload
     def __call__(  # type: ignore
-        self: Literal[HEXAGON], range: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
+        self: Literal[HEXAGON], range: int | tuple[int, int] | None = ..., pel: int | None = ...,
+        recalc_mode: SearchMode = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
         """
         Get the :py:class:`SearchMode.Config` from this mode and params.
@@ -481,7 +488,8 @@ class SearchMode(SearchModeBase, CustomIntEnum):
 
     @overload
     def __call__(  # type: ignore
-        self: Literal[UMH], range: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
+        self: Literal[UMH], range: int | tuple[int, int] | None = ..., pel: int | None = ...,
+        recalc_mode: SearchMode = ..., /, **kwargs: Any
     ) -> SearchMode.Config:
         """
         Get the :py:class:`SearchMode.Config` from this mode and params.
@@ -495,7 +503,8 @@ class SearchMode(SearchModeBase, CustomIntEnum):
     @overload
     def __call__(  # type: ignore
         self: Literal[EXHAUSTIVE] | Literal[EXHAUSTIVE_H] | Literal[EXHAUSTIVE_V],
-        radius: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any
+        radius: int | tuple[int, int] | None = ..., pel: int | None = ..., recalc_mode: SearchMode = ...,
+        /, **kwargs: Any
     ) -> SearchMode.Config:
         """
         Get the :py:class:`SearchMode.Config` from this mode and params.
@@ -507,7 +516,10 @@ class SearchMode(SearchModeBase, CustomIntEnum):
         """
 
     @overload
-    def __call__(self, param: int | tuple[int, int] = ..., pel: int = ..., /, **kwargs: Any) -> SearchMode.Config:
+    def __call__(
+        self, param: int | tuple[int, int] | None = ..., pel: int | None = ..., recalc_mode: SearchMode = ...,
+        /, **kwargs: Any
+    ) -> SearchMode.Config:
         """
         Get the :py:class:`SearchMode.Config` from this mode and params.
 
@@ -518,7 +530,8 @@ class SearchMode(SearchModeBase, CustomIntEnum):
         """
 
     def __call__(
-        self, param: int | tuple[int, int] | MissingT = MISSING, pel: int | MissingT = MISSING, /, **kwargs: Any
+        self, param: int | tuple[int, int] | None | MissingT = MISSING, pel: int | None | MissingT = MISSING,
+        recalc_mode: SearchMode | MissingT = MISSING, /, **kwargs: Any
     ) -> SearchMode.Config:
         """
         Get the :py:class:`SearchMode.Config` from this mode and params.
@@ -536,25 +549,30 @@ class SearchMode(SearchModeBase, CustomIntEnum):
         if self is SearchMode.AUTO:
             self = SearchMode.DIAMOND
 
-        param_recalc: int | MissingT
+        if recalc_mode is MISSING:
+            recalc_mode = SearchMode.ONETIME
+
+        param_recalc: int | MissingT | None
 
         if isinstance(param, int):
             param, param_recalc = param, MISSING
         elif isinstance(param, tuple):
             param, param_recalc = param
         else:
-            param = param_recalc = MISSING
+            param = param_recalc = param
 
         if param is MISSING:
             param = (2 if is_uhd else 5) if (refine and truemotion) else (1 if is_uhd else 2)
 
+        param_c = fallback(param, 2)
+
         if param_recalc is MISSING:
-            param_recalc = max(0, round(exp(0.69 * param - 1.79) - 0.67))
+            param_recalc = max(0, round(exp(0.69 * param_c - 1.79) - 0.67))
 
         if pel is MISSING:
-            pel = min(8, max(0, param * 2 - 2))
+            pel = min(8, max(0, param_c * 2 - 2))
 
-        return SearchMode.Config(self, param, param_recalc, pel)  # type: ignore
+        return SearchMode.Config(self, recalc_mode, param, param_recalc, pel)  # type: ignore
 
 
 class MVTools:
