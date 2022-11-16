@@ -162,15 +162,15 @@ class AbstractBM3D(ABC):
 
     is_gray: bool
 
-    basic_args: dict[str, Any]
+    basic_args: KwargsT
     """Custom kwargs passed to bm3d for the :py:attr:`basic` clip."""
 
-    final_args: dict[str, Any]
+    final_args: KwargsT
     """Custom kwargs passed to bm3d for the :py:attr:`final` clip."""
 
     _clip: vs.VideoNode
     _format: vs.VideoFormat
-    _matrix: Matrix
+    _matrix: Matrix | None
 
     class _Sigma(NamedTuple):
         y: float

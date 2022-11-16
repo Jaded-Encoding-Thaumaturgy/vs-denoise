@@ -8,8 +8,8 @@ from vsexprtools import ExprOp, aka_expr_available, norm_expr
 from vskernels import Catrom, Kernel, KernelT, Mitchell, Scaler, ScalerT
 from vsrgtools import box_blur
 from vstools import (
-    P0, P1, InvalidSubsamplingError, P, check_variable, complex_hash, depth, expect_bits, get_subsampling, get_u, get_v,
-    get_y, join, split, vs
+    P1, InvalidSubsamplingError, P, VSFunction, check_variable, complex_hash, depth, expect_bits, get_subsampling,
+    get_u, get_v, get_y, join, split, vs
 )
 
 __all__ = [
@@ -126,9 +126,9 @@ class Regression:
 
                 key = complex_hash.hash(clip, args, ckwargs)
 
-                got_result = _cached_blurs.get(key, False)
+                got_result = _cached_blurs.get(key, None)
 
-                if isinstance(got_result, vs.VideoNode):
+                if got_result is not None:
                     return got_result
 
                 try:
@@ -139,9 +139,9 @@ class Regression:
             if not out:
                 key = complex_hash.hash(clip, args, kwargs)
 
-                got_result = _cached_blurs.get(key, False)
+                got_result = _cached_blurs.get(key, None)
 
-                if isinstance(got_result, vs.VideoNode):
+                if got_result is not None:
                     return got_result
 
                 out = self.func(clip, *args, **kwargs)
@@ -173,7 +173,7 @@ class Regression:
             :return:        Tuple containing the blurred clips, variations, and relation of the two.
             """
 
-            planes = split(clip) if isinstance(clip, vs.VideoNode) else clip
+            planes = clip if isinstance(clip, Sequence) else split(clip)
 
             blur = [self(shifted) for shifted in planes]
 
@@ -191,9 +191,7 @@ class Regression:
 
             return blur, variation, var_mul
 
-    blur_func: BlurConf | Callable[  # type: ignore[misc]
-        Concatenate[vs.VideoNode, P0], vs.VideoNode
-    ] = BlurConf(box_blur, radius=2)
+    blur_func: BlurConf | VSFunction = BlurConf(box_blur, radius=2)
     """Function used for blurring (averaging)."""
 
     eps: float = 1e-7
