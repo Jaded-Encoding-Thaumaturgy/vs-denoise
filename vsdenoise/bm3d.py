@@ -57,13 +57,17 @@ class ProfileBase:
         overrides_final: KwargsT
         """Overrides for profile defaults and kwargs for final calls."""
 
-        def as_dict(self, cuda: bool = False, basic: bool = False, aggregate: bool = False, **kwargs: Any) -> KwargsT:
+        def as_dict(
+            self, cuda: bool = False, basic: bool = False, aggregate: bool = False,
+            args: KwargsT | None = None, **kwargs: Any
+        ) -> KwargsT:
             """
             Get kwargs from this Config.
 
             :param cuda:        Whether the implementation is cuda or not.
             :param basic:       Whether the call is basic or final.
             :param aggregate:   Whether it's an aggregate (refining) call or not.
+            :param args:        Custom args that will take priority over everything else.
             :param kwargs:      Additional kwargs to add.
 
             :return:            Dictionary of keyword arguments for the call.
@@ -122,6 +126,9 @@ class ProfileBase:
                 values |= self.overrides_basic
             else:
                 values |= self.overrides_final
+
+            if args:
+                values |= args
 
             return values
 
@@ -443,11 +450,9 @@ class BM3D(AbstractBM3D):
         return get_y(clip).resize.Point(format=vs.GRAYS if self.fp32 else vs.GRAY16)
 
     def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
-        kwargs = self.profile.as_dict(
-            ref=self.pre, radius=self.radius.basic, sigma=self.sigma, matrix=100
-        ) | self.basic_args
-
-        clip = clip.bm3d.Basic(**kwargs)
+        clip = clip.bm3d.Basic(**self.profile.as_dict(
+            ref=self.pre, radius=self.radius.basic, sigma=self.sigma, matrix=100, args=self.basic_args
+        ))
 
         if self.radius.basic:
             clip = clip.bm3d.VAggregate(self.radius.basic, self.fp32)
@@ -458,9 +463,9 @@ class BM3D(AbstractBM3D):
         if ref is None:
             ref = self.basic(self.wclip)
 
-        kwargs = self.profile.as_dict(ref=ref, radius=self.radius.final, sigma=self.sigma, matrix=100) | self.final_args
-
-        clip = clip.bm3d.Final(**kwargs)
+        clip = clip.bm3d.Final(**self.profile.as_dict(
+            ref=ref, radius=self.radius.final, sigma=self.sigma, matrix=100, args=self.final_args
+        ))
 
         if self.radius.final:
             clip = clip.bm3d.VAggregate(self.radius.final, self.fp32)
@@ -497,9 +502,9 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
         super().__init__(clip, sigma, radius, profile, ref, refine, matrix, range_in, yuv2rgb, rgb2yuv)
 
     def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
-        kwargs = self.profile.as_dict(True, True, sigma=self.sigma, radius=self.radius.basic) | self.basic_args
-
-        clip = self.plugin.BM3D(clip, **kwargs)
+        clip = self.plugin.BM3D(clip, **self.profile.as_dict(
+            True, True, False, self.basic_args, sigma=self.sigma, radius=self.radius.basic
+        ))
 
         if self.radius.basic:
             clip = clip.bm3d.VAggregate(self.radius.basic, 1)
@@ -507,9 +512,9 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
         return clip
 
     def final(self, clip: vs.VideoNode, ref: vs.VideoNode | None = None) -> vs.VideoNode:
-        kwargs = self.profile.as_dict(True, False, True, sigma=self.sigma, radius=self.radius.final) | self.final_args
-
-        clip = self.plugin.BM3D(clip, ref, **kwargs)
+        clip = self.plugin.BM3D(clip, ref, **self.profile.as_dict(
+            True, False, True, self.final_args, sigma=self.sigma, radius=self.radius.final
+        ))
 
         if self.radius.final:
             clip = clip.bm3d.VAggregate(self.radius.final, 1)
