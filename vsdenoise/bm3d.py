@@ -130,6 +130,14 @@ class ProfileBase:
             if args:
                 values |= args
 
+            if cuda:
+                cuda_keys = set[str](core.bm3dcuda.BM3D.__signature__.parameters.keys())  # type: ignore
+
+                values = {
+                    key: value for key, value in values.items()
+                    if key in cuda_keys
+                }
+
             return values
 
 
