@@ -25,15 +25,50 @@ from .types import _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _P
 class ProfileBase:
     @dataclass
     class Config:
+        """Profile config for arguments passed to the bm3d implementation basic/final calls."""
+
         profile: Profile
+        """Which preset to use as a base."""
+
         kwargs: KwargsT
+        """
+        Base kwargs used for basic/final calls.\n
+        These can be overridden by ``overrides`` or Profile defaults.
+        """
+
         basic_kwargs: KwargsT
+        """
+        Kwargs used for basic calls.\n
+        These can be overridden by ``overrides``/``overrides_basic`` or Profile defaults.
+        """
+
         final_kwargs: KwargsT
+        """
+        Kwargs used for final calls.\n
+        These can be overridden by ``overrides``/``overrides_final`` or Profile defaults.
+        """
+
         overrides: KwargsT
+        """Overrides for profile defaults and kwargs."""
+
         overrides_basic: KwargsT
+        """Overrides for profile defaults and kwargs for basic calls."""
+
         overrides_final: KwargsT
+        """Overrides for profile defaults and kwargs for final calls."""
 
         def as_dict(self, cuda: bool = False, basic: bool = False, aggregate: bool = False, **kwargs: Any) -> KwargsT:
+            """
+            Get kwargs from this Config.
+
+            :param cuda:        Whether the implementation is cuda or not.
+            :param basic:       Whether the call is basic or final.
+            :param aggregate:   Whether it's an aggregate (refining) call or not.
+            :param kwargs:      Additional kwargs to add.
+
+            :return:            Dictionary of keyword arguments for the call.
+            """
+
             kwargs |= self.kwargs
 
             if basic:
@@ -115,7 +150,7 @@ class Profile(ProfileBase, CustomStrEnum):
     """Profile for very noisy content."""
 
     CUSTOM = 'custom'
-    """Customize your own profile."""
+    """Member for your own profile with no defaults."""
 
     def __call__(
         self,
