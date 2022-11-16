@@ -574,6 +574,10 @@ class SearchMode(SearchModeBase, CustomIntEnum):
 
         return SearchMode.Config(self, recalc_mode, param, param_recalc, pel)  # type: ignore
 
+    @property
+    def defaults(self) -> SearchMode.Config:
+        return self(None, None, self)
+
 
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
