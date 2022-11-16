@@ -899,8 +899,6 @@ class MVTools:
         vectors = MotionVectors() if inplace else self.vectors
 
         if isinstance(sad_mode, tuple):
-            if not sad_mode[1].is_satd:
-                raise CustomValueError('The SADMode for recalculation must use SATD!', self.__class__)
             sad_mode, recalc_sad_mode = sad_mode
         else:
             sad_mode, recalc_sad_mode = sad_mode, SADMode.SATD
