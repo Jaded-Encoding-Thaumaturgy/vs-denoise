@@ -945,12 +945,13 @@ class MVTools:
         analyze_args = dict[str, Any](
             dct=sad_mode, pelsearch=search.pel, blksize=blocksize, overlap=overlap, search=search.mode,
             truemotion=motion.truemotion, searchparam=search.param, chroma=self.chroma,
-            plevel=0, pglobal=11
+            plevel=motion.plevel, pglobal=motion.pglobal
         ) | self.analyze_args
 
         recalc_args = dict[str, Any](
-            search=0, dct=recalc_sad_mode, thsad=thSAD_recalc, blksize=halfblocksize, overlap=halfoverlap,
-            truemotion=motion.truemotion, searchparam=search.param_recalc, chroma=self.chroma
+            search=search.recalc_mode, dct=recalc_sad_mode, thsad=thSAD_recalc, blksize=halfblocksize,
+            overlap=halfoverlap, truemotion=motion.truemotion, searchparam=search.param_recalc,
+            chroma=self.chroma
         ) | self.recalculate_args
 
         if self.mvtools is MVToolsPlugin.FLOAT_NEW:
@@ -975,21 +976,14 @@ class MVTools:
                 _add_vector(i)
 
             if self.refine:
-                refblks = blocksize
-
                 for i in range(1, t2 + 1):
                     if not vectors.got_mv(MVDirection.BACK, i) or not vectors.got_mv(MVDirection.FWRD, i):
                         continue
 
-                    for j in range(1, self.refine):
-                        val = (refblks / 2 ** j)
+                    for j in range(0, self.refine):
+                        val = clamp(blocksize / 2 ** j, 4, 128)
 
-                        if val > 128:
-                            refblks = 128
-                        elif val < 4:
-                            refblks = blocksize
-
-                        recalc_args.update(blksize=refblks / 2 ** j, overlap=refblks / 2 ** (j + 1))
+                        recalc_args.update(blksize=val, overlap=val / 2)
 
                         _add_vector(i, False)
 
