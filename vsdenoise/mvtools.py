@@ -927,9 +927,6 @@ class MVTools:
         if self.mvtools is MVToolsPlugin.FLOAT_NEW:
             vmulti = self.mvtools.Analyse(super_search, radius=t2, **analyze_args)
 
-            if self.source_type.is_inter:
-                vmulti = vmulti.std.SelectEvery(4, 2, 3)
-
             vectors.vmulti = vmulti
 
             for i in range(self.refine):
@@ -945,7 +942,7 @@ class MVTools:
 
                     vectors.set_mv(direction, delta, vect)
 
-            for i in range(1, self.tr + 1):
+            for i in range(1, t2 + 1):
                 _add_vector(i)
 
             if self.refine:
@@ -1000,6 +997,7 @@ class MVTools:
                 vectors_forward.append(vmulti.std.SelectEvery(t2 * 2, i + 1))
         else:
             it = 1 + int(self.source_type.is_inter)
+
             for i in range(it, t2 + 1, it):
                 vectors_backward.append(vectors.get_mv(MVDirection.BACK, i))
                 vectors_forward.append(vectors.get_mv(MVDirection.FWRD, i))
