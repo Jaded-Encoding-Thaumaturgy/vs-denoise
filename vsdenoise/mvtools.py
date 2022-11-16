@@ -1125,7 +1125,7 @@ class MVTools:
         thSAD, thSADC = (thSAD if isinstance(thSAD, tuple) else (thSAD, None))
 
         thSAD = kwargs_fallback(thSAD, (self.vectors.kwargs, 'thSAD'), 300)
-        thSADC = fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)) if self.params_curve else thSAD)
+        thSADC = fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)) if self.params_curve else thSAD // 2)
 
         limit, limitC = normalize_seq(limit, 2)
 
