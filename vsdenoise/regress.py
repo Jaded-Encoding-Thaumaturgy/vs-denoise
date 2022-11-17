@@ -8,8 +8,8 @@ from vsexprtools import ExprOp, aka_expr_available, norm_expr
 from vskernels import Catrom, Kernel, KernelT, Mitchell, Scaler, ScalerT
 from vsrgtools import box_blur
 from vstools import (
-    P1, InvalidSubsamplingError, P, VSFunction, check_variable, complex_hash, depth, expect_bits, get_subsampling,
-    get_u, get_v, get_y, join, split, vs
+    P1, CustomOverflowError, InvalidSubsamplingError, P, VSFunction, check_variable, complex_hash, depth, expect_bits,
+    get_subsampling, get_u, get_v, get_y, join, split, vs
 )
 
 __all__ = [
@@ -257,7 +257,7 @@ class Regression:
         ]
 
     def sloped_corr(
-        self, clip: vs.VideoNode | Sequence[vs.VideoNode],
+        self, clip: vs.VideoNode | Sequence[vs.VideoNode], weight: float = 0.5,
         eps: float | None = None, avg: bool = False, *args: Any, **kwargs: Any
     ) -> list[vs.VideoNode]:
         """
@@ -277,13 +277,20 @@ class Regression:
 
         (blur_x, *blur_ys), (var_x, *var_ys), var_mul = blur_conf.get_bases(clip)
 
+        if 0.0 <= weight or weight >= 1.0:
+            raise CustomOverflowError(
+                '"weight" must be between 0.0 and 1.0 (exclusive)!', self.__class__.sloped_corr, weight
+            )
+
+        coeff_x, coeff_y = weight, 1.0 - weight
+
         corr_slopes = [
             norm_expr(
                 [Exys_y, blur_x, Ex_y, var_x, var_y],
-                f'x y z * - XYS! XYS@ a {eps} + / XYS@ dup * a b * {eps} + / sqrt 0.5 - 0.5 / 0 max *'
+                f'x y z * - XYS! XYS@ a {eps} + / XYS@ dup * a b * {eps} + / sqrt {coeff_x} - {coeff_y} / 0 max *'
             ) if aka_expr_available else norm_expr(
                 [norm_expr([Exys_y, blur_x, Ex_y], 'x y z * -'), var_x, var_y],
-                f'x y {eps} + / x dup * y z * {eps} + / sqrt 0.5 - 0.5 / 0 max *'
+                f'x y {eps} + / x dup * y z * {eps} + / sqrt {coeff_x} - {coeff_y} / 0 max *'
             )
             for Exys_y, Ex_y, var_y in zip(var_mul, blur_ys, var_ys)
         ]
@@ -298,7 +305,7 @@ class Regression:
 
 
 def chroma_reconstruct(
-    clip: vs.VideoNode, i444: bool = False,
+    clip: vs.VideoNode, i444: bool = False, weight: float = 0.5,
     kernel: KernelT = Catrom, scaler: ScalerT = Mitchell, downscaler: ScalerT | None = None,
     blur_conf: Callable[
         Concatenate[vs.VideoNode, P], vs.VideoNode
@@ -319,6 +326,7 @@ def chroma_reconstruct(
 
     :param clip:        Clip to process.
     :param i444:        Whether to return a 444 clip.
+    :param weight:      Weight for correlation of slopes calculation cutoff.
     :param kernel:      Kernel used for resampling and general scaling operations.
     :param scaler:      Scaler used to scale up chroma planes.
     :param downscaler:  Scaler used to downscale the luma plane. Defaults to :py:attr:`kernel`
@@ -353,7 +361,7 @@ def chroma_reconstruct(
         ]
     ]
 
-    corr_slopes = regression.sloped_corr(shifted_planes, avg=True)
+    corr_slopes = regression.sloped_corr(shifted_planes, weight, avg=True)
 
     y_dw = ExprOp.SUB.combine(y, shifted_planes[0])
 
