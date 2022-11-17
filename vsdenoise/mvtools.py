@@ -676,6 +676,14 @@ class MVToolsPresets:
     CUSTOM = MVToolsPreset
     """Create your own preset."""
 
+    SMDE = MVToolsPreset(
+        pel=2, prefilter=Prefilter.NONE, params_curve=False, sharp=2, rfilter=4,
+        block_size=8, overlap=2, thSAD=300, sad_mode=SADMode.SPATIAL.same_recalc,
+        motion=MotionMode.VECT_COHERENCE, search=SearchMode.HEXAGON.defaults,
+        hpad=property(fget=lambda x: x.block_size), vpad=property(fget=lambda x: x.block_size)
+    )
+    """SMDegrain by Caroliano & DogWay"""
+
     CMDE = MVToolsPreset(
         pel=1, prefilter=Prefilter.NONE, params_curve=False, sharp=1, rfilter=4,
         block_size=32, overlap=16, thSAD=200, sad_mode=SADMode.SPATIAL.same_recalc,
