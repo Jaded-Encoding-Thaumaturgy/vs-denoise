@@ -593,27 +593,27 @@ else:
 class MVToolsPreset(MVToolsPresetBase):
     """Base MVTools preset. Please refer to :py:class:`MVTools` documentation for members."""
 
-    tr: int | None = None
-    refine: int | None = None
-    pel: int | None = None
-    planes: int | Sequence[int] | None = None
-    range_in: ColorRange | None = None
-    source_type: FieldBasedT | None = None
-    high_precision: bool = False
-    hpad: int | None = None
-    vpad: int | None = None
-    params_curve: bool | None = None
-    block_size: int | None = None
-    overlap: int | None = None
-    thSAD: int | None = None
-    range_conversion: float | None = None
-    search: SearchMode | SearchMode.Config | None = None
-    sharp: int | None = None
-    rfilter: int | None = None
-    sad_mode: SADMode | tuple[SADMode, SADMode] | None = None
-    motion: MotionMode.Config | None = None
-    prefilter: Prefilter | vs.VideoNode | None = None
-    pel_type: PelType | tuple[PelType, PelType] | None = None
+    tr: property | int | None = None
+    refine: property | int | None = None
+    pel: property | int | None = None
+    planes: property | int | Sequence[int] | None = None
+    range_in: property | ColorRange | None = None
+    source_type: property | FieldBasedT | None = None
+    high_precision: property | bool = False
+    hpad: property | int | None = None
+    vpad: property | int | None = None
+    params_curve: property | bool | None = None
+    block_size: property | int | None = None
+    overlap: property | int | None = None
+    thSAD: property | int | None = None
+    range_conversion: property | float | None = None
+    search: property | SearchMode | SearchMode.Config | None = None
+    sharp: property | int | None = None
+    rfilter: property | int | None = None
+    sad_mode: property | SADMode | tuple[SADMode, SADMode] | None = None
+    motion: property | MotionMode.Config | None = None
+    prefilter: property | Prefilter | vs.VideoNode | None = None
+    pel_type: property | PelType | tuple[PelType, PelType] | None = None
 
     if TYPE_CHECKING:
         def __call__(
@@ -624,7 +624,7 @@ class MVToolsPreset(MVToolsPresetBase):
             overlap: int | None = None, thSAD: int | None = None, range_conversion: float | None = None,
             search: SearchMode | SearchMode.Config | None = None, motion: MotionMode.Config | None = None,
             sad_mode: SADMode | tuple[SADMode, SADMode] | None = None, rfilter: int | None = None,
-            sharp: int | None = None,  prefilter: Prefilter | vs.VideoNode | None = None,
+            sharp: int | None = None, prefilter: Prefilter | vs.VideoNode | None = None,
             pel_type: PelType | tuple[PelType, PelType] | None = None
         ) -> MVToolsPreset:
             ...
@@ -636,7 +636,7 @@ class MVToolsPreset(MVToolsPresetBase):
         return KwargsNotNone(**{
             key: value.__get__(self) if isinstance(value, property) else value
             for key, value in (self._value_ if isinstance(self, CustomEnum) else self).__dict__.items()
-        })  # type: ignore
+        })
 
     def __getitem__(self, key: str) -> Any:
         return self._get_dict()[key]
