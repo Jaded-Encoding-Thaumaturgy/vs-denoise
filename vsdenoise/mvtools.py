@@ -7,13 +7,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from itertools import chain
 from math import ceil, exp
-from typing import Any, Literal, Sequence, cast, overload, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, Sequence, TypeVar, cast, overload
 
+from _collections_abc import dict_items, dict_keys, dict_values
 from vstools import (
-    MISSING, ColorRange, ConstantFormatVideoNode, CustomIntEnum, CustomOverflowError, CustomStrEnum, CustomValueError,
-    FieldBased, FieldBasedT, FuncExceptT, GenericVSFunction, InvalidColorFamilyError, MissingT, VSFunction,
-    check_ref_clip, check_variable, core, depth, disallow_variable_format, disallow_variable_resolution, fallback,
-    kwargs_fallback, normalize_planes, normalize_seq, vs, scale_value, clamp
+    MISSING, ColorRange, ConstantFormatVideoNode, CustomEnum, CustomIntEnum, CustomOverflowError, CustomStrEnum,
+    CustomValueError, FieldBased, FieldBasedT, FuncExceptT, GenericVSFunction, InvalidColorFamilyError, KwargsNotNone,
+    KwargsT, MissingT, VSFunction, check_ref_clip, check_variable, clamp, core, depth, disallow_variable_format,
+    disallow_variable_resolution, fallback, inject_self, kwargs_fallback, normalize_planes, normalize_seq, scale_value,
+    vs
 )
 
 from .prefilters import PelType, Prefilter, prefilter_to_full_range
@@ -22,7 +24,8 @@ from .utils import planes_to_mvtools
 __all__ = [
     'MVTools', 'MVToolsPlugin',
     'SADMode', 'SearchMode', 'MotionMode',
-    'MVDirection', 'MotionVectors'
+    'MVDirection', 'MotionVectors',
+    'MVToolsPresets'
 ]
 
 
@@ -577,6 +580,109 @@ class SearchMode(SearchModeBase, CustomIntEnum):
     @property
     def defaults(self) -> SearchMode.Config:
         return self(None, None, self)
+
+
+if TYPE_CHECKING:
+    class MVToolsPresetBase(dict[str, Any]):
+        ...
+else:
+    MVToolsPresetBase = object
+
+
+@dataclass(kw_only=True)
+class MVToolsPreset(MVToolsPresetBase):
+    """Base MVTools preset. Please refer to :py:class:`MVTools` documentation for members."""
+
+    tr: int | None = None
+    refine: int | None = None
+    pel: int | None = None
+    planes: int | Sequence[int] | None = None
+    range_in: ColorRange | None = None
+    source_type: FieldBasedT | None = None
+    high_precision: bool = False
+    hpad: int | None = None
+    vpad: int | None = None
+    params_curve: bool | None = None
+    block_size: int | None = None
+    overlap: int | None = None
+    thSAD: int | None = None
+    range_conversion: float | None = None
+    search: SearchMode | SearchMode.Config | None = None
+    sharp: int | None = None
+    rfilter: int | None = None
+    sad_mode: SADMode | tuple[SADMode, SADMode] | None = None
+    motion: MotionMode.Config | None = None
+    prefilter: Prefilter | vs.VideoNode | None = None
+    pel_type: PelType | tuple[PelType, PelType] | None = None
+
+    if TYPE_CHECKING:
+        def __call__(
+            self, *, tr: int | None = None, refine: int | None = None, pel: int | None = None,
+            planes: int | Sequence[int] | None = None, range_in: ColorRange | None = None,
+            source_type: FieldBasedT | None = None, high_precision: bool = False, hpad: int | None = None,
+            vpad: int | None = None, params_curve: bool | None = None, block_size: int | None = None,
+            overlap: int | None = None, thSAD: int | None = None, range_conversion: float | None = None,
+            search: SearchMode | SearchMode.Config | None = None, motion: MotionMode.Config | None = None,
+            sad_mode: SADMode | tuple[SADMode, SADMode] | None = None, rfilter: int | None = None,
+            sharp: int | None = None,  prefilter: Prefilter | vs.VideoNode | None = None,
+            pel_type: PelType | tuple[PelType, PelType] | None = None
+        ) -> MVToolsPreset:
+            ...
+    else:
+        def __call__(self, **kwargs: Any) -> MVToolsPreset:
+            return MVToolsPreset(**(dict(**self) | kwargs))
+
+    def _get_dict(self) -> KwargsT:
+        return KwargsNotNone(**{
+            key: value.__get__(self) if isinstance(value, property) else value
+            for key, value in (self._value_ if isinstance(self, CustomEnum) else self).__dict__.items()
+        })  # type: ignore
+
+    def __getitem__(self, key: str) -> Any:
+        return self._get_dict()[key]
+
+    def __class_getitem__(cls, key: str) -> Any:
+        return cls()[key]
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._get_dict().get(key, default)
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._get_dict()
+
+    def copy(self) -> MVToolsPreset:
+        return MVToolsPreset(**self._get_dict())
+
+    def keys(self) -> dict_keys[str, Any]:
+        return self._get_dict().keys()
+
+    def values(self) -> dict_values[str, Any]:
+        return self._get_dict().values()
+
+    def items(self) -> dict_items[str, Any]:
+        return self._get_dict().items()
+
+    def __eq__(self, other: Any) -> bool:
+        return False
+
+    @inject_self
+    def as_dict(self) -> KwargsT:
+        return KwargsT(**self._get_dict())
+
+
+class MVToolsPresets:
+    """Presets for MVTools analyzing/refining."""
+
+    CUSTOM = MVToolsPreset
+    """Create your own preset."""
+
+    CMDE = MVToolsPreset(
+        pel=1, prefilter=Prefilter.NONE, params_curve=False, sharp=1, rfilter=4,
+        block_size=32, overlap=16, thSAD=200, sad_mode=SADMode.SPATIAL.same_recalc,
+        motion=MotionMode.HIGH_SAD, search=SearchMode.HEXAGON.defaults,
+        hpad=property(fget=lambda x: x.block_size), vpad=property(fget=lambda x: x.block_size)
+    )
+    """CMDegrain from EoE."""
 
 
 class MVTools:
