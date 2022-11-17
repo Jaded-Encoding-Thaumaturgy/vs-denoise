@@ -1122,6 +1122,8 @@ class MVTools:
 
         ref = self.get_ref_clip(ref, self.__class__.degrain)
 
+        vect_b, vect_f = self.get_vectors_bf()
+
         thSAD, thSADC = (thSAD if isinstance(thSAD, tuple) else (thSAD, None))
 
         thSAD = kwargs_fallback(thSAD, (self.vectors.kwargs, 'thSAD'), 300)
@@ -1147,8 +1149,6 @@ class MVTools:
             )
 
         thSCD2 = int(thSCD2 / 100 * 255)
-
-        vect_b, vect_f = self.get_vectors_bf()
 
         degrain_args = dict[str, Any](thscd1=thSCD1, thscd2=thSCD2, plane=self.mv_plane)
 
