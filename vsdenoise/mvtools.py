@@ -1192,7 +1192,7 @@ class MVTools:
         self,
         thSAD: int | tuple[int | None, int | None] | None = None,
         limit: int | tuple[int, int] = 255,
-        thSCD: tuple[int | None, int | None] = (None, 51),
+        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
         """
@@ -1252,9 +1252,9 @@ class MVTools:
 
         limitf, limitCf = scale_value(limit, 8, ref), scale_value(limitC, 8, ref)
 
-        thSCD1, thSCD2 = thSCD
+        thSCD1, thSCD2 = thSCD if isinstance(thSCD, tuple) else (thSCD, None)
 
-        thSCD1 = fallback(thSCD1, round(0.35 * thSAD + 260) if self.params_curve else thSAD // 2)
+        thSCD1 = fallback(thSCD1, round(0.35 * thSAD + 300) if self.params_curve else 400)
         thSCD2 = fallback(thSCD2, 51)
 
         if not 1 <= thSCD2 <= 100:
