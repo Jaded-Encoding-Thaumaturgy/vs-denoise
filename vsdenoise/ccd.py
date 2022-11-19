@@ -304,7 +304,7 @@ def ccd(
         u = SSIM(**ssim_kwargs).scale(plane(denoised, 1), yuvw, yuvh)
         v = SSIM(**ssim_kwargs).scale(plane(denoised, 2), yuvw, yuvh)
 
-        denoised = join(denoised, u, v, vs.YUV)
+        denoised = join(denoised if 0 in planes else src, u, v, vs.YUV)
     else:
         denoised = join(src, denoised, vs.YUV)
 
