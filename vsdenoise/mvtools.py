@@ -965,7 +965,7 @@ class MVTools:
         block_size = kwargs_fallback(block_size, (self.analyze_func_kwargs, 'block_size'), 16 if self.is_hd else 8)
         blocksize = max(self.refine and 2 ** (self.refine + 1), block_size)
 
-        halfblocksize = max(8, blocksize // 2)
+        halfblocksize = max(2, blocksize // 2)
         halfoverlap = max(2, halfblocksize // 2)
 
         overlap = kwargs_fallback(overlap, (self.analyze_func_kwargs, 'overlap'), halfblocksize)
