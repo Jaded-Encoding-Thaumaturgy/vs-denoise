@@ -685,7 +685,7 @@ class MVToolsPresets:
     """SMDegrain by Caroliano & DogWay"""
 
     CMDE = MVToolsPreset(
-        pel=1, prefilter=Prefilter.NONE, params_curve=False, sharp=1, rfilter=4,
+        pel=1, prefilter=Prefilter.NONE, params_curve=False, sharp=2, rfilter=4,
         block_size=32, overlap=16, thSAD=200, sad_mode=SADMode.SPATIAL.same_recalc,
         motion=MotionMode.HIGH_SAD, search=SearchMode.HEXAGON.defaults,
         hpad=property(fget=lambda x: x.block_size), vpad=property(fget=lambda x: x.block_size)
