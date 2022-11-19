@@ -277,7 +277,7 @@ class Regression:
 
         (blur_x, *blur_ys), (var_x, *var_ys), var_mul = blur_conf.get_bases(clip)
 
-        if 0.0 <= weight or weight >= 1.0:
+        if 0.0 >= weight or weight >= 1.0:
             raise CustomOverflowError(
                 '"weight" must be between 0.0 and 1.0 (exclusive)!', self.__class__.sloped_corr, weight
             )
