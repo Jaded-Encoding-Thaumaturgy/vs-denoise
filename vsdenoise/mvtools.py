@@ -680,7 +680,8 @@ class MVToolsPresets:
         pel=2, prefilter=Prefilter.NONE, params_curve=False, sharp=2, rfilter=4,
         block_size=8, overlap=2, thSAD=300, sad_mode=SADMode.SPATIAL.same_recalc,
         motion=MotionMode.VECT_COHERENCE, search=SearchMode.HEXAGON.defaults,
-        hpad=property(fget=lambda x: x.block_size), vpad=property(fget=lambda x: x.block_size)
+        hpad=property(fget=lambda x: x.block_size), vpad=property(fget=lambda x: x.block_size),
+        range_conversion=1.0
     )
     """SMDegrain by Caroliano & DogWay"""
 
@@ -688,7 +689,8 @@ class MVToolsPresets:
         pel=1, prefilter=Prefilter.NONE, params_curve=False, sharp=2, rfilter=4,
         block_size=32, overlap=16, thSAD=200, sad_mode=SADMode.SPATIAL.same_recalc,
         motion=MotionMode.HIGH_SAD, search=SearchMode.HEXAGON.defaults,
-        hpad=property(fget=lambda x: x.block_size), vpad=property(fget=lambda x: x.block_size)
+        hpad=property(fget=lambda x: x.block_size), vpad=property(fget=lambda x: x.block_size),
+        range_conversion=1.0
     )
     """CMDegrain from EoE."""
 
