@@ -8,7 +8,7 @@ from math import sin, sqrt
 from typing import Any
 
 from vsaa import Nnedi3
-from vsexprtools import EXPR_VARS, norm_expr
+from vsexprtools import EXPR_VARS, norm_expr, aka_expr_available
 from vskernels import Bicubic, Point
 from vsscale import SSIM
 from vstools import (
@@ -128,10 +128,13 @@ def ccd(
 
     InvalidColorFamilyError.check(src, (vs.YUV, vs.RGB), ccd)
 
-    if tr < 0 or tr > 3:
-        raise CustomIndexError('Temporal radius must be between 0 and 3 (inclusive)!', ccd)
-    elif tr > src.num_frames // 2:
-        raise CustomIndexError('Temporal radius must be less than half of the clip length!', ccd)
+    if aka_expr_available:
+        if tr < 0 or tr > 3:
+            raise CustomIndexError('Temporal radius must be between 0 and 3 (inclusive)!', ccd, tr)
+        elif tr > src.num_frames // 2:
+            raise CustomIndexError('Temporal radius must be less than half of the clip length!', ccd, tr)
+    elif tr < 0:
+        raise CustomIndexError('Temporal radius must be more than 0!', ccd, tr)
 
     is_yuv = src.format.color_family is vs.YUV
     is_subsampled = src.format.subsampling_h or src.format.subsampling_w
@@ -301,8 +304,8 @@ def ccd(
         return denoised
 
     if mode == CCDMode.NNEDI_SSIM and not i444:
-        u = SSIM(**ssim_kwargs).scale(plane(denoised, 1), yuvw, yuvh)
-        v = SSIM(**ssim_kwargs).scale(plane(denoised, 2), yuvw, yuvh)
+        u = SSIM.scale(plane(denoised, 1), yuvw, yuvh, **ssim_kwargs)
+        v = SSIM.scale(plane(denoised, 2), yuvw, yuvh, **ssim_kwargs)
 
         denoised = join(denoised if 0 in planes else src, u, v, vs.YUV)
     else:
