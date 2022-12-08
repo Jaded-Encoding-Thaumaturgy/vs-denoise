@@ -19,7 +19,7 @@ from vstools import (
     SingleOrArr, check_variable, core, get_video_format, get_y, iterate, join, normalize_seq, vs
 )
 
-from .types import _PluginBm3dcpuCoreUnbound, _PluginBm3dcuda_rtcCoreUnbound, _PluginBm3dcudaCoreUnbound
+from .types import _Plugin_bm3dcpu_Core_Bound, _Plugin_bm3dcuda_Core_Bound, _Plugin_bm3dcuda_rtc_Core_Bound
 
 
 class ProfileBase:
@@ -496,7 +496,7 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
 
     @property
     @abstractmethod
-    def plugin(self) -> _PluginBm3dcudaCoreUnbound | _PluginBm3dcuda_rtcCoreUnbound | _PluginBm3dcpuCoreUnbound:
+    def plugin(self) -> _Plugin_bm3dcuda_Core_Bound | _Plugin_bm3dcuda_rtc_Core_Bound | _Plugin_bm3dcpu_Core_Bound:
         ...
 
     def __init__(
@@ -532,17 +532,17 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
 
 class BM3DCuda(_AbstractBM3DCuda):
     @property
-    def plugin(self) -> _PluginBm3dcudaCoreUnbound:
+    def plugin(self) -> _Plugin_bm3dcuda_Core_Bound:
         return core.bm3dcuda
 
 
 class BM3DCudaRTC(_AbstractBM3DCuda):
     @property
-    def plugin(self) -> _PluginBm3dcuda_rtcCoreUnbound:
+    def plugin(self) -> _Plugin_bm3dcuda_rtc_Core_Bound:
         return core.bm3dcuda_rtc
 
 
 class BM3DCPU(_AbstractBM3DCuda):
     @property
-    def plugin(self) -> _PluginBm3dcpuCoreUnbound:
+    def plugin(self) -> _Plugin_bm3dcpu_Core_Bound:
         return core.bm3dcpu
