@@ -50,11 +50,7 @@ class PrefilterBase(CustomIntEnum):
             return min_blur(clip, 2, planes).flux.SmoothST(temp_thr, spat_thr, planes)
 
         if pref_type == Prefilter.DFTTEST:
-            dftt_args = dict[str, Any](
-                tbsize=1, sbsize=12, sosize=6, swin=2, slocation=[
-                    0.0, 4.0, 0.2, 9.0, 1.0, 15.0
-                ]
-            ) | kwargs
+            dftt_args = dict[str, Any](tbsize=1, slocation=[0.0, 4.0, 0.2, 9.0, 1.0, 15.0]) | kwargs
 
             dfft = clip.dfttest.DFTTest(**dftt_args)
 
