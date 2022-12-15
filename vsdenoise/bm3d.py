@@ -458,12 +458,13 @@ class BM3D(AbstractBM3D):
         return get_y(clip).resize.Point(format=vs.GRAYS if self.fp32 else vs.GRAY16)
 
     def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
-        clip = clip.bm3d.Basic(**self.profile.as_dict(
-            ref=self.pre, radius=self.radius.basic, sigma=self.sigma, matrix=100, args=self.basic_args
-        ))
+        kwargs = KwargsT(ref=self.pre, sigma=self.sigma, matrix=100, args=self.basic_args)
 
         if self.radius.basic:
+            clip = clip.bm3d.VBasic(**self.profile.as_dict(**kwargs, radius=self.radius.basic))
             clip = clip.bm3d.VAggregate(self.radius.basic, self.fp32)
+        else:
+            clip = clip.bm3d.Basic(**self.profile.as_dict(**kwargs))
 
         return clip
 
@@ -471,12 +472,13 @@ class BM3D(AbstractBM3D):
         if ref is None:
             ref = self.basic(self.wclip)
 
-        clip = clip.bm3d.Final(**self.profile.as_dict(
-            ref=ref, radius=self.radius.final, sigma=self.sigma, matrix=100, args=self.final_args
-        ))
+        kwargs = KwargsT(ref=ref, sigma=self.sigma, matrix=100, args=self.final_args)
 
         if self.radius.final:
+            clip = clip.bm3d.VFinal(**self.profile.as_dict(**kwargs, radius=self.radius.final))
             clip = clip.bm3d.VAggregate(self.radius.final, self.fp32)
+        else:
+            clip = clip.bm3d.Final(**self.profile.as_dict(**kwargs))
 
         return clip
 
