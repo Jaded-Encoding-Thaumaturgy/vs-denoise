@@ -4,5 +4,6 @@ from .ccd import *
 from .funcs import *
 from .knlm import *
 from .mvtools import *
+from .postprocess import *
 from .prefilters import *
 from .regress import *
