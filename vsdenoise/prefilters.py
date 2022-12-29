@@ -4,6 +4,7 @@ This module implements prefilters for denoisers
 
 from __future__ import annotations
 
+from enum import EnumMeta
 from math import ceil, sin
 from typing import TYPE_CHECKING, Any, Literal, overload
 
@@ -14,7 +15,8 @@ from vsrgtools import blur, gauss_blur, min_blur, replace_low_frequencies
 from vstools import (
     ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, DitherType, PlanesT, SingleOrArr,
     SingleOrArrOpt, check_variable, clamp, core, depth, disallow_variable_format, disallow_variable_resolution,
-    get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes, scale_8bit, scale_value, split, vs
+    fallback, get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes, scale_8bit, scale_value,
+    split, vs, MissingT, MISSING
 )
 
 from .bm3d import BM3D as BM3DM
@@ -27,10 +29,32 @@ __all__ = [
 ]
 
 
-class PrefilterBase(CustomIntEnum):
+class PrefilterMeta(EnumMeta):
+    def __instancecheck__(cls: EnumMeta, instance: Any) -> bool:
+        if isinstance(instance, PrefilterPartial):
+            return True
+        return super().__instancecheck__(instance)  # type: ignore
+
+
+class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
+    @overload
+    def __call__(  # type: ignore
+        self: Prefilter, *, planes: PlanesT = None, **kwargs: Any
+    ) -> PrefilterPartial:
+        ...
+
+    @overload
     def __call__(  # type: ignore
         self: Prefilter, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any
     ) -> vs.VideoNode:
+        ...
+
+    def __call__(  # type: ignore
+        self: Prefilter, clip: vs.VideoNode | MissingT = MISSING, /, planes: PlanesT = None, **kwargs: Any
+    ) -> vs.VideoNode | PrefilterPartial:
+        if clip is MISSING:
+            return PrefilterPartial(self, planes, **kwargs)
+
         assert check_variable(clip, self)
 
         pref_type = Prefilter.MINBLUR3 if self == Prefilter.AUTO else self
@@ -179,8 +203,8 @@ class Prefilter(PrefilterBase):
     if TYPE_CHECKING:
         from .prefilters import Prefilter
 
-        @overload
-        def __call__(  # type: ignore
+        @overload  # type: ignore
+        def __call__(
             self: Literal[Prefilter.MINBLURFLUX], clip: vs.VideoNode, /, planes: PlanesT = None,
             *, temp_thr: int = 2, spat_thr: int = 2
         ) -> vs.VideoNode:
@@ -364,10 +388,217 @@ class Prefilter(PrefilterBase):
             :return:            Preprocessed clip.
             """
 
+        @overload  # type: ignore
+        def __call__(
+            self: Literal[Prefilter.MINBLURFLUX], *, planes: PlanesT = None, temp_thr: int = 2, spat_thr: int = 2
+        ) -> PrefilterPartial:
+            """
+            :py:attr:`MINBLUR2` with temporal/spatial average.
+
+            :param planes:      Planes to be preprocessed.
+            :param temp_thr:    Temporal threshold for the temporal median function.
+            :param spat_thr:    Spatial threshold for the temporal median function.
+
+            :return:            Partial Prefilter.
+            """
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.DFTTEST], *, planes: PlanesT = None,
+            tbsize: int = 1, sbsize: int = 12, sosize: int = 6, swin: int = 2,
+            slocation: SingleOrArr[float] = [0.0, 4.0, 0.2, 9.0, 1.0, 15.0],
+            ftype: int | None = None, sigma: float | None = None, sigma2: float | None = None,
+            pmin: float | None = None, pmax: float | None = None, smode: int | None = None,
+            tmode: int | None = None, tosize: int | None = None, twin: int | None = None,
+            sbeta: float | None = None, tbeta: float | None = None, zmean: int | None = None,
+            f0beta: float | None = None, nlocation: SingleOrArrOpt[int] = None, alpha: float | None = None,
+            ssx: SingleOrArrOpt[float] = None, ssy: SingleOrArrOpt[float] = None, sst: SingleOrArrOpt[float] = None,
+            ssystem: int | None = None, opt: int | None = None
+        ) -> PrefilterPartial:
+            ...
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.KNLMEANSCL], *, planes: PlanesT = None,
+            strength: SingleOrArr[float] = 7.0, tr: SingleOrArr[int] = 1, sr: SingleOrArr[int] = 2,
+            simr: SingleOrArr[int] = 2, device_type: DEVICETYPE | DeviceType = DeviceType.AUTO, **kwargs: Any
+        ) -> PrefilterPartial:
+            """
+            Denoising with KNLMeansCL, then postprocessed to remove low frequencies.
+
+            :param planes:          Planes to be preprocessed.
+            :param strength:        Controls the strength of the filtering.\n
+                                    Larger values will remove more noise.
+            :param tr:              Temporal Radius. Temporal size = `(2 * tr + 1)`.\n
+                                    Sets the number of past and future frames to uses for denoising the current frame.\n
+                                    tr=0 uses 1 frame, while tr=1 uses 3 frames and so on.\n
+                                    Usually, larger values result in better denoising.
+            :param sr:              Search Radius. Spatial size = `(2 * sr + 1)^2`.\n
+                                    Sets the radius of the search window.\n
+                                    sr=1 uses 9 pixel, while sr=2 uses 25 pixels and so on.\n
+                                    Usually, larger values result in better denoising.
+            :param simr:            Similarity Radius. Similarity neighbourhood size = `(2 * simr + 1) ** 2`.\n
+                                    Sets the radius of the similarity neighbourhood window.\n
+                                    The impact on performance is low, therefore it depends on the nature of the noise.
+            :param device_type:     Set the OpenCL device to use for processing.
+            :param kwargs:          Additional arguments to pass to knlmeansCL.
+
+            :return:                Partial Prefilter.
+            """
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.BM3D], *, planes: PlanesT = None,
+            arch: type[AbstractBM3D] = ..., gpu: bool = False,
+            sigma: SingleOrArr[float] = ..., radius: SingleOrArr[int] = 1,
+            profile: Profile = ..., ref: vs.VideoNode | None = None, refine: int = 1,
+            yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
+        ) -> PrefilterPartial:
+            """
+            Normal spatio-temporal denoising using BM3D.
+
+            :param sigma:       Strength of denoising, valid range is [0, +inf].
+            :param radius:      Temporal radius, valid range is [1, 16].
+            :param profile:     See :py:attr:`vsdenoise.bm3d.Profile`.
+            :param ref:         Reference clip used in block-matching, replacing the basic estimation.
+                                If not specified, the input clip is used instead.
+            :param refine:      Times to refine the estimation.
+                                * 0 means basic estimate only.
+                                * 1 means basic estimate with one final estimate.
+                                * n means basic estimate refined with final estimate for n times.
+            :param yuv2rgb:     Kernel used for converting the clip from YUV to RGB.
+            :param rgb2yuv:     Kernel used for converting back the clip from RGB to YUV.
+
+            :return:            Partial Prefilter.
+            """
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.SCALEDBLUR], *, planes: PlanesT = None,
+            scale: int = 2, radius: int = 1, mode: ConvMode = ConvMode.SQUARE,
+            downscaler: ScalerT = Bilinear, upscaler: ScalerT | None = None
+        ) -> PrefilterPartial:
+            """
+            Perform blurring at a scaled-down resolution, then scale it back up.
+
+            :param planes:      Planes to be preprocessed.
+            :param scale:       Ratios for downscaling.
+                                A ratio of 2 will divide the resolution by 2, 4 by 4, etc.
+            :param radius:      :py:attr:`vsrgtools.blur` radius param.
+            :param mode:        Convolution mode for blurring.
+            :param downscaler:  Scaler to be used for downscaling.
+            :param upscaler:    Scaler to be used for reupscaling.\n
+                                If None, :py:attr:`downscaler` will be used.
+
+            :return:            Partial Prefilter.
+            """
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.GAUSSBLUR], *, planes: PlanesT = None,
+            sigma: float | None = 1.0, sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
+        ) -> PrefilterPartial:
+            """
+            Gaussian blurred, then postprocessed to remove low frequencies.
+
+            :param planes:      Planes to be preprocessed.
+            :param sigma:       Sigma param for :py:attr:`vsrgtools.gauss_blur`.
+            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.\n
+                                Either :py:attr:`sigma` or this should be specified.
+            :param mode:        Convolution mode for blurring.
+
+            :return:            Partial Prefilter.
+            """
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.GAUSSBLUR1], *, planes: PlanesT = None,
+            radius: int = 1, strength: int = 90, sigma: float | None = 1.75,
+            sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
+        ) -> PrefilterPartial:
+            """
+            Clamped gaussian/box blurring with edge preservation.
+
+            :param planes:      Planes to be preprocessed.
+            :param radius:      Radius param for the blurring.
+            :param strength:    Clamping strength between the two blurred clips.\n
+                                Must be between 1 and 99 (inclusive).
+            :param sigma:       Sigma param for :py:attr:`vsrgtools.gauss_blur`.
+            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.\n
+                                Either :py:attr:`sigma` or this should be specified.
+            :param mode:        Convolution mode for blurring.
+
+            :return:            Partial Prefilter.
+            """
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.GAUSSBLUR2], *, planes: PlanesT = None,
+            radius: int = 1, strength: int = 50, sigma: float | None = 1.75,
+            sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
+        ) -> PrefilterPartial:
+            """
+            Clamped gaussian/box blurring.
+
+            :param planes:      Planes to be preprocessed.
+            :param radius:      Radius param for the blurring.
+            :param strength:    Edge detection strength.\n
+                                Must be between 1 and 99 (inclusive).
+            :param sigma:       Sigma param for :py:attr:`vsrgtools.gauss_blur`.
+            :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.\n
+                                Either :py:attr:`sigma` or this should be specified.
+            :param mode:        Convolution mode for blurring.
+
+            :return:            Partial Prefilter.
+            """
+
+        @overload
+        def __call__(self, *, planes: PlanesT = None, **kwargs: Any) -> PrefilterPartial:
+            """
+            Run the selected filter.
+
+            :param planes:      Planes to be preprocessed.
+            :param kwargs:      Arguments for the specified filter.
+
+            :return:            Partial Prefilter.
+            """
+
+        @overload
+        def __call__(  # type: ignore
+            self, *, planes: PlanesT = None, **kwargs: Any
+        ) -> PrefilterPartial:
+            ...
+
+        @overload
         def __call__(  # type: ignore
             self, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any
         ) -> vs.VideoNode:
             ...
+
+        def __call__(  # type: ignore
+            self, clip: vs.VideoNode | MissingT = MISSING, /, planes: PlanesT = None, **kwargs: Any
+        ) -> vs.VideoNode | PrefilterPartial:
+            ...
+
+
+if TYPE_CHECKING:
+    class PrefBase(Prefilter):  # type: ignore
+        ...
+else:
+    class PrefBase:
+        ...
+
+
+class PrefilterPartial(PrefBase):  # type: ignore
+    def __init__(self, prefilter: Prefilter, planes: PlanesT, **kwargs: Any) -> None:
+        self.prefilter = prefilter
+        self.planes = planes
+        self.kwargs = kwargs
+
+    def __call__(  # type: ignore
+        self, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any
+    ) -> vs.VideoNode:
+        return self.prefilter(clip, planes=fallback(planes, self.planes), **kwargs | self.kwargs)  # type: ignore
 
 
 def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
