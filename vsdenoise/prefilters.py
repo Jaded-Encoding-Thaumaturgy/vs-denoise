@@ -6,17 +6,17 @@ from __future__ import annotations
 
 from enum import EnumMeta
 from math import ceil, sin
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 from vsaa import Nnedi3, Znedi3
 from vsexprtools import ExprOp, aka_expr_available, norm_expr
 from vskernels import Bicubic, BicubicZopti, Bilinear, KernelT, Scaler, ScalerT
-from vsrgtools import blur, gauss_blur, min_blur, replace_low_frequencies
+from vsrgtools import bilateral, blur, gauss_blur, min_blur, replace_low_frequencies
 from vstools import (
     ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, DitherType, PlanesT, SingleOrArr,
     SingleOrArrOpt, check_variable, clamp, core, depth, disallow_variable_format, disallow_variable_resolution,
     fallback, get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes, scale_8bit, scale_value,
-    split, vs, MissingT, MISSING
+    split, vs, MissingT, MISSING, normalize_seq
 )
 
 from .bm3d import BM3D as BM3DM
@@ -151,6 +151,32 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
             return norm_expr([gaussblur, clip], merge_expr, planes)
 
+        if pref_type is Prefilter.BILATERAL:
+            sigmaS = cast(float | list[float] | tuple[float | list[float], ...], kwargs.pop('sigmaS', 3.0))
+            sigmaR = cast(float | list[float] | tuple[float | list[float], ...], kwargs.pop('sigmaR', 0.02))
+
+            if isinstance(sigmaS, tuple):
+                baseS, *otherS = sigmaS
+            else:
+                baseS, otherS = sigmaS, []
+
+            if isinstance(sigmaR, tuple):
+                baseR, *otherR = sigmaR
+            else:
+                baseR, otherR = sigmaR, []
+
+            base, ref = clip, None
+            max_len = max(len(otherS), len(otherR))
+
+            if max_len:
+                otherS = list[float | list[float]](reversed(normalize_seq(otherS or baseS, max_len)))  # type: ignore
+                otherR = list[float | list[float]](reversed(normalize_seq(otherR or baseR, max_len)))  # type: ignore
+
+                for siS, siR in zip(otherS, otherR):
+                    base, ref = ref or clip, bilateral(base, siS, siR, ref, **kwargs)
+
+            return bilateral(clip, baseS, baseR, ref, **kwargs)
+
         return clip
 
 
@@ -199,6 +225,9 @@ class Prefilter(PrefilterBase):
 
     GAUSSBLUR2 = 10
     """Clamped gaussian/box blurring with edge preservation."""
+
+    BILATERAL = 11
+    """Classic bilateral filtering or edge-preserving bilateral multi pass filtering."""
 
     if TYPE_CHECKING:
         from .prefilters import Prefilter
@@ -377,6 +406,27 @@ class Prefilter(PrefilterBase):
             """
 
         @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.BILATERAL], clip: vs.VideoNode, /, planes: PlanesT = None,
+            *, sigmaS: float | list[float] | tuple[float | list[float], ...] = 3.0,
+            sigmaR: float | list[float] | tuple[float | list[float], ...] = 0.02,
+            gpu: bool | None = None, **kwargs: Any
+        ) -> vs.VideoNode:
+            """
+            Classic bilateral filtering or edge-preserving bilateral multi pass filtering.
+            If sigmaS or sigmaR are tuples, first values will be used as base,
+            other values as a recursive reference.
+
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
+            :param sigmaS:      Sigma of Gaussian function to calculate spatial weight.
+            :param sigmaR:      Sigma of Gaussian function to calculate range weight.
+            :param gpu:         Whether to use GPU processing if available or not.
+
+            :return:            Preprocessed clip.
+            """
+
+        @overload
         def __call__(self, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any) -> vs.VideoNode:
             """
             Run the selected filter.
@@ -548,6 +598,26 @@ class Prefilter(PrefilterBase):
             :param sharp:       Sharp param for :py:attr:`vsrgtools.gauss_blur`.\n
                                 Either :py:attr:`sigma` or this should be specified.
             :param mode:        Convolution mode for blurring.
+
+            :return:            Partial Prefilter.
+            """
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.BILATERAL], *, planes: PlanesT = None,
+            sigmaS: float | list[float] | tuple[float | list[float], ...] = 3.0,
+            sigmaR: float | list[float] | tuple[float | list[float], ...] = 0.02,
+            gpu: bool | None = None, **kwargs: Any
+        ) -> vs.VideoNode:
+            """
+            Classic bilateral filtering or edge-preserving bilateral multi pass filtering.
+            If sigmaS or sigmaR are tuples, first values will be used as base,
+            other values as a recursive reference.
+
+            :param planes:      Planes to be preprocessed.
+            :param sigmaS:      Sigma of Gaussian function to calculate spatial weight.
+            :param sigmaR:      Sigma of Gaussian function to calculate range weight.
+            :param gpu:         Whether to use GPU processing if available or not.
 
             :return:            Partial Prefilter.
             """
