@@ -7,3 +7,4 @@ from .mvtools import *
 from .postprocess import *
 from .prefilters import *
 from .regress import *
+from .wnnm import *
