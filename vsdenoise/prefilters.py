@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 from vsaa import Nnedi3, Znedi3
 from vsexprtools import ExprOp, aka_expr_available, norm_expr
+from vsmasktools import retinex
 from vskernels import Bicubic, BicubicZopti, Bilinear, KernelT, Scaler, ScalerT
 from vsrgtools import bilateral, blur, gauss_blur, min_blur, replace_low_frequencies
 from vstools import (
@@ -721,7 +722,7 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
 
         pref_full = norm_expr(work_clip, (luma_expr, f'x {neutral} - 128 * 112 / {neutral} +'), planes)
     elif range_conversion > 0.0:
-        pref_full = work_clip.retinex.MSRCP(None, range_conversion, None, False, True)
+        pref_full = retinex(work_clip, upper_thr=range_conversion, fast=False)
     else:
         pref_full = depth(
             work_clip, bits, range_out=ColorRange.FULL, range_in=ColorRange.LIMITED, dither_type=DitherType.NONE
