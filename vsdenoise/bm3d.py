@@ -4,22 +4,23 @@ This module implements wrappers for BM3D
 
 from __future__ import annotations
 
-__all__ = [
-    'Profile', 'AbstractBM3D',
-    'BM3D', 'BM3DCuda', 'BM3DCudaRTC', 'BM3DCPU'
-]
-
-from abc import ABC, abstractmethod
+import warnings
+from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Any, NamedTuple, final
 
-from vskernels import Bicubic, Kernel, KernelT, Point
+from vskernels import Catrom, Kernel, KernelT, Point
 from vstools import (
-    ColorRange, ColorRangeT, CustomStrEnum, CustomValueError, DitherType, FuncExceptT, KwargsT, Matrix, MatrixT,
-    SingleOrArr, check_variable, core, get_video_format, get_y, iterate, join, normalize_seq, vs
+    ColorRange, ColorRangeT, CustomStrEnum, CustomValueError, DitherType, FuncExceptT, KwargsT, Matrix, MatrixT, Self,
+    SingleOrArr, check_variable, check_variable_format, core, get_video_format, join, normalize_seq, vs, vs_object
 )
 
 from .types import _Plugin_bm3dcpu_Core_Bound, _Plugin_bm3dcuda_Core_Bound, _Plugin_bm3dcuda_rtc_Core_Bound
+
+__all__ = [
+    'Profile',
+    'BM3D', 'BM3DCuda', 'BM3DCudaRTC', 'BM3DCPU'
+]
 
 
 class ProfileBase:
@@ -118,7 +119,7 @@ class ProfileBase:
                             Profile.HIGH: KwargsT(block_step=2, bm_range=16),
                         }
 
-                values = PROFILES[self.profile]
+                values = PROFILES[self.profile]  # type: ignore[assignment]
 
             values |= kwargs | self.overrides
 
@@ -194,8 +195,86 @@ class Profile(ProfileBase, CustomStrEnum):
         )
 
 
-class AbstractBM3D(ABC):
+class AbstractBM3D(vs_object):
     """Abstract BM3D based denoiser interface."""
+
+    @dataclass
+    class ResampleConfig:
+        yuv2rgb: KernelT = Catrom
+        """Kernel used for yuv => rgb resampling."""
+
+        rgb2yuv: KernelT | None = None
+        """Kernel used for rgb => yuv resampling. Fallbacks to yuv2rgb if None."""
+
+        fp32: bool = True
+        """Whether to process in int16 or float32."""
+
+        def __post_init__(self) -> None:
+            self._yuv2rgb = Kernel.ensure_obj(self.yuv2rgb)
+            self._rgb2yuv = self._yuv2rgb.ensure_obj(self.rgb2yuv)
+
+        def clip2opp(self, clip: vs.VideoNode, is_gray: bool = False) -> vs.VideoNode:
+            """
+            Convert a clip to the OPP colorspace.
+
+            :param clip:    Clip to be processed.
+
+            :return:        OPP clip.
+            """
+            assert check_variable_format(clip, self.clip2opp)
+
+            return self.to_fullgray(clip) if is_gray else (
+                self.rgb2opp(clip) if clip.format.color_family is vs.RGB else self.yuv2opp(clip)
+            )
+
+        def yuv2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
+            """
+            Convert a YUV clip to the OPP colorspace.
+
+            :param clip:    YUV clip to be processed.
+
+            :return:        OPP clip.
+            """
+            return self.rgb2opp(self._yuv2rgb.resample(clip, vs.RGBS))
+
+        def rgb2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
+            """
+            Convert an RGB clip to the OPP colorspace.
+
+            :param clip:    RGB clip to be processed.
+
+            :return:        OPP clip.
+            """
+            return clip.bm3d.RGB2OPP(self.fp32)
+
+        def opp2rgb(self, clip: vs.VideoNode) -> vs.VideoNode:
+            """
+            Convert an OPP clip to the RGB colorspace.
+
+            :param clip:    OPP clip to be processed.
+
+            :return:        RGB clip.
+            """
+            return clip.bm3d.OPP2RGB(self.fp32)
+
+        def opp2yuv(
+            self, clip: vs.VideoNode, format: vs.VideoFormat, matrix: Matrix | None, dither: DitherType | None = None
+        ) -> vs.VideoNode:
+            dither = DitherType.from_param(self._rgb2yuv.kwargs.get('dither_type', None)) or dither
+
+            return self._rgb2yuv.resample(
+                self.opp2rgb(clip), format=format, matrix=matrix, dither_type=dither
+            )
+
+        def to_fullgray(self, clip: vs.VideoNode) -> vs.VideoNode:
+            """
+            Extract Y plane from GRAY/YUV clip and if not float32, upsample to it.
+
+            :param clip:    GRAY or YUV clip to be processed.
+
+            :return:        GRAYS clip.
+            """
+            return Point.resample(clip, vs.GRAYS if self.fp32 else vs.GRAY16)
 
     wclip: vs.VideoNode
 
@@ -207,20 +286,13 @@ class AbstractBM3D(ABC):
 
     refine: int
 
-    yuv2rgb: Kernel
-    rgb2yuv: Kernel
-
-    is_gray: bool
+    resampler = ResampleConfig()
 
     basic_args: KwargsT
     """Custom kwargs passed to bm3d for the :py:attr:`basic` clip."""
 
     final_args: KwargsT
     """Custom kwargs passed to bm3d for the :py:attr:`final` clip."""
-
-    _clip: vs.VideoNode
-    _format: vs.VideoFormat
-    _matrix: Matrix | None
 
     class _Sigma(NamedTuple):
         y: float
@@ -232,12 +304,9 @@ class AbstractBM3D(ABC):
         final: int
 
     def __init__(
-        self, clip: vs.VideoNode, /,
-        sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
-        profile: Profile | Profile.Config = Profile.FAST,
-        ref: vs.VideoNode | None = None, refine: int = 1,
-        matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
-        yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
+        self, clip: vs.VideoNode, sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
+        profile: Profile | Profile.Config = Profile.FAST, ref: vs.VideoNode | None = None, refine: int = 1,
+        matrix: MatrixT | None = None, range_in: ColorRangeT | None = None
     ) -> None:
         """
         :param clip:        Source clip.
@@ -250,17 +319,14 @@ class AbstractBM3D(ABC):
                              * 0 means basic estimate only.
                              * 1 means basic estimate with one final estimate.
                              * n means basic estimate refined with final estimate applied n times.
-        :param yuv2rgb:     Kernel used for converting the clip from YUV to RGB.
-        :param rgb2yuv:     Kernel used for converting back the clip from RGB to YUV.
         """
         assert check_variable(clip, self.__class__)
 
         self._format = clip.format
+        self._dither = DitherType.ERROR_DIFFUSION if DitherType.should_dither(self._format, clip) else DitherType.NONE
         self._clip = self._check_clip(clip, matrix, range_in, self.__class__)
 
         self._matrix = Matrix.from_video(self._clip, True) if self._format.color_family is vs.YUV else None
-
-        self.wclip = self._clip
 
         self.sigma = self._Sigma(*normalize_seq(sigma, 3))
         self.radius = self._Radius(*normalize_seq(radius or 0, 2))
@@ -269,61 +335,20 @@ class AbstractBM3D(ABC):
         self.ref = ref and self._check_clip(ref, matrix, range_in, self.__class__)
         self.refine = refine
 
-        self.yuv2rgb = Kernel.ensure_obj(yuv2rgb)
-        self.rgb2yuv = Kernel.ensure_obj(rgb2yuv)
-
-        self.is_gray = self._format.color_family == vs.GRAY
+        self._is_gray = self._format.color_family == vs.GRAY
 
         self.basic_args = {}
         self.final_args = {}
 
-        if self.is_gray:
+        if self._is_gray:
             self.sigma = self.sigma._replace(u=0, v=0)
         elif sum(self.sigma[1:]) == 0:
-            self.is_gray = True
+            self._is_gray = True
 
-    def yuv2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """
-        Convert a YUV clip to the OPP colorspace.
-
-        :param clip:    YUV clip to be processed.
-
-        :return:        OPP clip.
-        """
-        return self.rgb2opp(self.yuv2rgb.resample(clip, vs.RGBS))
-
-    def rgb2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """
-        Convert an RGB clip to the OPP colorspace.
-
-        :param clip:    RGB clip to be processed.
-
-        :return:        OPP clip.
-        """
-        return clip.bm3d.RGB2OPP(sample=1)
-
-    def opp2rgb(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """
-        Convert an OPP clip to the RGB colorspace.
-
-        :param clip:    OPP clip to be processed.
-
-        :return:        RGB clip.
-        """
-        return clip.bm3d.OPP2RGB(sample=1)
-
-    def to_fullgray(self, clip: vs.VideoNode) -> vs.VideoNode:
-        """
-        Extract Y plane from GRAY/YUV clip and if not float32, upsample to it.
-
-        :param clip:    GRAY or YUV clip to be processed.
-
-        :return:        GRAYS clip.
-        """
-        return get_y(clip).resize.Point(format=vs.GRAYS)
+        self.__post_init__()
 
     @abstractmethod
-    def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def basic(self, clip: vs.VideoNode, opp: bool = False) -> vs.VideoNode:
         """
         Retrieve the "basic" clip, typically used as a `ref` clip for :py:attr:`final`.
 
@@ -333,7 +358,9 @@ class AbstractBM3D(ABC):
         """
 
     @abstractmethod
-    def final(self, clip: vs.VideoNode, ref: vs.VideoNode | None = None) -> vs.VideoNode:
+    def final(
+        self, clip: vs.VideoNode | None = None, ref: vs.VideoNode | None = None, refine: int | None = None
+    ) -> vs.VideoNode:
         """
         Retrieve the "final" clip.
 
@@ -348,54 +375,33 @@ class AbstractBM3D(ABC):
         """
         Final denoised clip.
 
-        ``denoised_clip = BM3D(...).clip`` is the intended use in encoding scripts.
-
         :return:        Output clip.
         """
-        self._preprocessing()
+        from inspect import currentframe, getframeinfo
 
-        # Make basic estimation
-        if self.ref is None:
-            refv = self.basic(self.wclip)
-        else:
-            if self.is_gray:
-                refv = self.to_fullgray(self.ref)
-            else:
-                refv = self.yuv2opp(self.ref)
+        fi = getframeinfo(currentframe())  # type: ignore
 
-        # Make final estimation
-        self.wclip = iterate(self.wclip, self.final, self.refine, ref=refv)
+        print(warnings.formatwarning(
+            "The `clip` property is deprecated! Please use the .final() method!",
+            DeprecationWarning, fi.filename, fi.lineno - 8
+        ))
+        return self.final()
 
-        self._post_processing()
-
-        return self.wclip
-
-    def _preprocessing(self) -> None:
-        # Initialise the input clip
-        if self.is_gray:
-            self.wclip = self.to_fullgray(self.wclip)
-        else:
-            self.wclip = self.yuv2opp(self.wclip)
-
-    def _post_processing(self) -> None:
-        # Resize
-        dither = DitherType.ERROR_DIFFUSION if DitherType.should_dither(self._format, self.wclip) else DitherType.NONE
-
-        if self.is_gray:
-            self.wclip = Point.resample(
-                self.wclip, self._format.replace(color_family=vs.GRAY, subsampling_w=0, subsampling_h=0).id,
-                dither_type=dither
+    def _post_processing(self, clip: vs.VideoNode) -> vs.VideoNode:
+        if self._is_gray:
+            clip = Point.resample(
+                clip, self._format.replace(color_family=vs.GRAY, subsampling_w=0, subsampling_h=0).id,
+                dither_type=self._dither
             )
             if self._format.color_family == vs.YUV:
-                self.wclip = join(self.wclip, self._clip)
+                clip = join(clip, self._clip)
         else:
-            dither = DitherType.from_param(self.rgb2yuv.kwargs.get('dither_type', None)) or dither
-            self.wclip = self.rgb2yuv.resample(
-                self.opp2rgb(self.wclip), format=self._format, matrix=self._matrix, dither_type=dither
-            )
+            clip = self.resampler.opp2yuv(clip, self._format, self._matrix, self._dither)
 
         if self.sigma.y == 0:
-            self.wclip = join(self._clip, self.wclip)
+            clip = join(self._clip, clip)
+
+        return clip
 
     def _check_clip(
         self, clip: vs.VideoNode, matrix: MatrixT | None, range_in: ColorRangeT | None, func: FuncExceptT
@@ -410,24 +416,29 @@ class AbstractBM3D(ABC):
 
         return clip
 
+    def _get_clip(self, base: vs.VideoNode, pre: vs.VideoNode, ref: vs.VideoNode | None = None) -> vs.VideoNode:
+        return pre if ref is None or ref is base or ref is pre else self.resampler.clip2opp(ref)
+
+    def __post_init__(self) -> None:
+        self._pre_clip = self.resampler.clip2opp(self._clip, self._is_gray)
+        self._pre_ref = self.ref and self.resampler.clip2opp(self.ref, self._is_gray)
+
+        return super().__post_init__()
+
+    def __vs_del__(self, core_id: int) -> None:
+        del self._clip, self._format, self.ref
+        self.basic_args.clear()
+        self.final_args.clear()
+
 
 class BM3D(AbstractBM3D):
     """BM3D implementation by mawen1250."""
 
-    pre: vs.VideoNode | None
-    """Reference clip for :py:attr:`basic`."""
-
-    fp32: bool = True
-    """Whether to process in int16 or float32."""
-
     def __init__(
-        self, clip: vs.VideoNode, /,
-        sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
-        profile: Profile | Profile.Config = Profile.FAST,
-        pre: vs.VideoNode | None = None,
-        ref: vs.VideoNode | None = None, refine: int = 1,
-        matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
-        yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
+        self, clip: vs.VideoNode, sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
+        profile: Profile | Profile.Config = Profile.FAST, pre: vs.VideoNode | None = None,
+        ref: vs.VideoNode | None = None, refine: int = 1, matrix: MatrixT | None = None,
+        range_in: ColorRangeT | None = None
     ) -> None:
         """
         :param clip:                Source clip.
@@ -442,76 +453,69 @@ class BM3D(AbstractBM3D):
                                      * 0 means basic estimate only.
                                      * 1 means basic estimate with one final estimate.
                                      * n means basic estimate refined with final estimate for n times.
-        :param yuv2rgb:             Kernel used for converting the clip from YUV to RGB.
-        :param rgb2yuv:             Kernel used for converting the clip back from RGB to YUV.
         """
-        super().__init__(clip, sigma, radius, profile, ref, refine, matrix, range_in, yuv2rgb, rgb2yuv)
         self.pre = pre and self._check_clip(pre, matrix, range_in, self.__class__)
 
-    def rgb2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
-        return clip.bm3d.RGB2OPP(self.fp32)
+        super().__init__(clip, sigma, radius, profile, ref, refine, matrix, range_in)
 
-    def opp2rgb(self, clip: vs.VideoNode) -> vs.VideoNode:
-        return clip.bm3d.OPP2RGB(self.fp32)
+    def __post_init__(self) -> None:
+        self._pre_pre = self.pre and self.resampler.clip2opp(self.pre)
 
-    def to_fullgray(self, clip: vs.VideoNode) -> vs.VideoNode:
-        return get_y(clip).resize.Point(format=vs.GRAYS if self.fp32 else vs.GRAY16)
+        return super().__post_init__()
 
-    def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
+    def basic(self, clip: vs.VideoNode | None = None, opp: bool = False) -> vs.VideoNode:
+        clip = self._get_clip(self._clip, self._pre_clip, clip)
+
         kwargs = KwargsT(ref=self.pre, sigma=self.sigma, matrix=100, args=self.basic_args)
 
         if self.radius.basic:
-            clip = clip.bm3d.VBasic(**self.profile.as_dict(**kwargs, radius=self.radius.basic))
-            clip = clip.bm3d.VAggregate(self.radius.basic, self.fp32)
+            clip = clip.bm3d.VBasic(**self.profile.as_dict(**kwargs, radius=self.radius.basic))  # type: ignore
+
+            clip = clip.bm3d.VAggregate(self.radius.basic, self.resampler.fp32)
         else:
-            clip = clip.bm3d.Basic(**self.profile.as_dict(**kwargs))
+            clip = clip.bm3d.Basic(**self.profile.as_dict(**kwargs))  # type: ignore
 
-        return clip
+        return clip if opp else self._post_processing(clip)
 
-    def final(self, clip: vs.VideoNode, ref: vs.VideoNode | None = None) -> vs.VideoNode:
-        if ref is None:
-            ref = self.basic(self.wclip)
+    def final(
+        self, clip: vs.VideoNode | None = None, ref: vs.VideoNode | None = None, refine: int | None = None
+    ) -> vs.VideoNode:
+        clip = self._get_clip(self._clip, self._pre_clip, clip)
+
+        if self.ref and self._pre_ref:
+            ref = self._get_clip(self.ref, self._pre_ref, ref)
+        else:
+            ref = self.basic(clip, True)
 
         kwargs = KwargsT(ref=ref, sigma=self.sigma, matrix=100, args=self.final_args)
 
-        if self.radius.final:
-            clip = clip.bm3d.VFinal(**self.profile.as_dict(**kwargs, radius=self.radius.final))
-            clip = clip.bm3d.VAggregate(self.radius.final, self.fp32)
-        else:
-            clip = clip.bm3d.Final(**self.profile.as_dict(**kwargs))
-
-        return clip
-
-    def _preprocessing(self) -> None:
-        # Initialise pre
-        if self.pre is not None:
-            if self.is_gray:
-                self.pre = self.to_fullgray(self.pre)
+        for _ in range(refine or self.refine):
+            if self.radius.final:
+                clip = clip.bm3d.VFinal(**self.profile.as_dict(**kwargs, radius=self.radius.final))  # type: ignore
+                clip = clip.bm3d.VAggregate(self.radius.final, self.resampler.fp32)
             else:
-                self.pre = self.yuv2opp(self.pre)
+                clip = clip.bm3d.Final(**self.profile.as_dict(**kwargs))  # type: ignore
 
-        super()._preprocessing()
+        return self._post_processing(clip)
 
 
-class _AbstractBM3DCuda(AbstractBM3D, ABC):
+class AbstractBM3DCudaMeta(ABCMeta):
+    def __new__(
+        __mcls: type[Self], __name: str, __bases: tuple[type, ...], __namespace: dict[str, Any], **kwargs: Any
+    ) -> Self:
+        cls = super().__new__(__mcls, __name, __bases, __namespace)  # type: ignore
+        cls.plugin = kwargs.get('plugin')
+        return cls  # type: ignore
+
+
+class AbstractBM3DCuda(AbstractBM3D, metaclass=AbstractBM3DCudaMeta):
     """BM3D implementation by WolframRhodium."""
 
-    @property
-    @abstractmethod
-    def plugin(self) -> _Plugin_bm3dcuda_Core_Bound | _Plugin_bm3dcuda_rtc_Core_Bound | _Plugin_bm3dcpu_Core_Bound:
-        ...
+    plugin: _Plugin_bm3dcuda_Core_Bound | _Plugin_bm3dcuda_rtc_Core_Bound | _Plugin_bm3dcpu_Core_Bound
 
-    def __init__(
-        self, clip: vs.VideoNode, /,
-        sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
-        profile: Profile | Profile.Config = Profile.FAST,
-        ref: vs.VideoNode | None = None, refine: int = 1,
-        matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
-        yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
-    ) -> None:
-        super().__init__(clip, sigma, radius, profile, ref, refine, matrix, range_in, yuv2rgb, rgb2yuv)
+    def basic(self, clip: vs.VideoNode | None = None, opp: bool = False) -> vs.VideoNode:
+        clip = self._get_clip(self._clip, self._pre_clip, clip)
 
-    def basic(self, clip: vs.VideoNode) -> vs.VideoNode:
         clip = self.plugin.BM3D(clip, **self.profile.as_dict(
             True, True, False, self.basic_args, sigma=self.sigma, radius=self.radius.basic
         ))
@@ -519,32 +523,36 @@ class _AbstractBM3DCuda(AbstractBM3D, ABC):
         if self.radius.basic:
             clip = clip.bm3d.VAggregate(self.radius.basic, 1)
 
-        return clip
+        return clip if opp else self._post_processing(clip)
 
-    def final(self, clip: vs.VideoNode, ref: vs.VideoNode | None = None) -> vs.VideoNode:
-        clip = self.plugin.BM3D(clip, ref, **self.profile.as_dict(
-            True, False, True, self.final_args, sigma=self.sigma, radius=self.radius.final
-        ))
+    def final(
+        self, clip: vs.VideoNode | None = None, ref: vs.VideoNode | None = None, refine: int | None = None
+    ) -> vs.VideoNode:
+        clip = self._get_clip(self._clip, self._pre_clip, clip)
 
-        if self.radius.final:
-            clip = clip.bm3d.VAggregate(self.radius.final, 1)
+        if self.ref and self._pre_ref:
+            ref = self._get_clip(self.ref, self._pre_ref, ref)
+        else:
+            ref = self.basic(clip, True)
 
-        return clip
+        for _ in range(refine or self.refine):
+            clip = self.plugin.BM3D(clip, ref, **self.profile.as_dict(
+                True, False, True, self.final_args, sigma=self.sigma, radius=self.radius.final
+            ))
 
+            if self.radius.final:
+                clip = clip.bm3d.VAggregate(self.radius.final, 1)
 
-class BM3DCuda(_AbstractBM3DCuda):
-    @property
-    def plugin(self) -> _Plugin_bm3dcuda_Core_Bound:
-        return core.bm3dcuda
-
-
-class BM3DCudaRTC(_AbstractBM3DCuda):
-    @property
-    def plugin(self) -> _Plugin_bm3dcuda_rtc_Core_Bound:
-        return core.bm3dcuda_rtc
+        return self._post_processing(clip)
 
 
-class BM3DCPU(_AbstractBM3DCuda):
-    @property
-    def plugin(self) -> _Plugin_bm3dcpu_Core_Bound:
-        return core.bm3dcpu
+class BM3DCuda(AbstractBM3DCuda, plugin=core.lazy.bm3dcuda):
+    ...
+
+
+class BM3DCudaRTC(AbstractBM3DCuda, plugin=core.lazy.bm3dcuda_rtc):
+    ...
+
+
+class BM3DCPU(AbstractBM3DCuda, plugin=core.lazy.bm3dcpu):
+    ...

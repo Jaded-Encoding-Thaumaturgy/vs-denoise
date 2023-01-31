@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast, overload
 from vsaa import Nnedi3, Znedi3
 from vsexprtools import ExprOp, aka_expr_available, norm_expr
 from vsmasktools import retinex
-from vskernels import Bicubic, BicubicZopti, Bilinear, KernelT, Scaler, ScalerT
+from vskernels import Bicubic, BicubicZopti, Bilinear, Scaler, ScalerT
 from vsrgtools import bilateral, blur, gauss_blur, min_blur, replace_low_frequencies
 from vstools import (
     ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, DitherType, PlanesT, SingleOrArr,
@@ -112,7 +112,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
             bm3d_args = dict[str, Any](sigma=sigmas, radius=1, profile=profile) | kwargs
 
-            return bm3d_arch(clip, **bm3d_args).clip
+            return bm3d_arch(clip, **bm3d_args).final()
 
         if pref_type == Prefilter.SCALEDBLUR:
             scale = kwargs.pop('scale', 2)
@@ -300,8 +300,7 @@ class Prefilter(PrefilterBase):
             self: Literal[Prefilter.BM3D], clip: vs.VideoNode, /, planes: PlanesT = None,
             *, arch: type[AbstractBM3D] = ..., gpu: bool = False,
             sigma: SingleOrArr[float] = ..., radius: SingleOrArr[int] = 1,
-            profile: Profile = ..., ref: vs.VideoNode | None = None, refine: int = 1,
-            yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
+            profile: Profile = ..., ref: vs.VideoNode | None = None, refine: int = 1
         ) -> vs.VideoNode:
             """
             Normal spatio-temporal denoising using BM3D.
@@ -316,8 +315,6 @@ class Prefilter(PrefilterBase):
                                 * 0 means basic estimate only.
                                 * 1 means basic estimate with one final estimate.
                                 * n means basic estimate refined with final estimate for n times.
-            :param yuv2rgb:     Kernel used for converting the clip from YUV to RGB.
-            :param rgb2yuv:     Kernel used for converting back the clip from RGB to YUV.
 
             :return:            Preprocessed clip.
             """
@@ -502,8 +499,7 @@ class Prefilter(PrefilterBase):
             self: Literal[Prefilter.BM3D], *, planes: PlanesT = None,
             arch: type[AbstractBM3D] = ..., gpu: bool = False,
             sigma: SingleOrArr[float] = ..., radius: SingleOrArr[int] = 1,
-            profile: Profile = ..., ref: vs.VideoNode | None = None, refine: int = 1,
-            yuv2rgb: KernelT = Bicubic, rgb2yuv: KernelT = Bicubic
+            profile: Profile = ..., ref: vs.VideoNode | None = None, refine: int = 1
         ) -> PrefilterPartial:
             """
             Normal spatio-temporal denoising using BM3D.
@@ -517,8 +513,6 @@ class Prefilter(PrefilterBase):
                                 * 0 means basic estimate only.
                                 * 1 means basic estimate with one final estimate.
                                 * n means basic estimate refined with final estimate for n times.
-            :param yuv2rgb:     Kernel used for converting the clip from YUV to RGB.
-            :param rgb2yuv:     Kernel used for converting back the clip from RGB to YUV.
 
             :return:            Partial Prefilter.
             """

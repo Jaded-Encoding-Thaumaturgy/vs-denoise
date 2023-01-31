@@ -5,6 +5,12 @@ from typing import Protocol
 from vapoursynth import VideoNode
 from vstools import SimpleByteDataArray, SingleOrSeq, SingleOrSeqOpt
 
+__all__ = [
+    '_Plugin_bm3dcuda_Core_Bound',
+    '_Plugin_bm3dcuda_rtc_Core_Bound',
+    '_Plugin_bm3dcpu_Core_Bound'
+]
+
 
 class _Plugin_bm3dcuda_Core_Bound(Protocol):
     def BM3D(
