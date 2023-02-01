@@ -252,4 +252,7 @@ def knl_means_cl(
         warnings.warn('Passing a str to device_type is deprecated! Please use the DeviceType enum!')
         device_type = DeviceType(device_type)
 
+    if device_type in {DeviceType.CUDA, 'cuda'}:
+        raise CustomValueError('This function is deprecated! Use the nl_means function!', knl_means_cl)
+
     return nl_means(clip, strength, tr, sr, simr, device_type, channels.to_planes(), **kwargs)
