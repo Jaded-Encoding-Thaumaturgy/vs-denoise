@@ -22,7 +22,7 @@ from vstools import (
 
 from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
-from .knlm import DEVICETYPE, ChannelMode, DeviceType, knl_means_cl
+from .knlm import DEVICETYPE, ChannelMode, DeviceType, nl_means
 
 __all__ = [
     'Prefilter', 'prefilter_to_full_range',
@@ -88,9 +88,9 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
             return dfft.std.MaskedMerge(clip, pref_mask, planes)
 
-        if pref_type == Prefilter.KNLMEANSCL:
-            kwargs |= dict(strength=7.0, tr=1, sr=2, simr=2) | kwargs | dict(channels=ChannelMode.from_planes(planes))
-            knl = knl_means_cl(clip, **kwargs)
+        if pref_type == Prefilter.NLMEANSCL:
+            kwargs |= dict(strength=7.0, tr=1, sr=2, simr=2) | kwargs | dict(planes=planes)
+            knl = nl_means(clip, **kwargs)
 
             return replace_low_frequencies(knl, clip, 600 * (clip.width / 1920), False, planes)
 
@@ -209,8 +209,11 @@ class Prefilter(PrefilterBase):
     DFTTEST = 4
     """Denoising in frequency domain with dfttest and an adaptive mask for retaining lineart."""
 
-    KNLMEANSCL = 5
-    """Denoising with KNLMeansCL, then postprocessed to remove low frequencies."""
+    NLMEANS = 5
+    """Denoising with NLMeans, then postprocessed to remove low frequencies."""
+
+    KNLMEANSCL = NLMEANS
+    """Deprecated, use NLMEANS instead."""
 
     BM3D = 6
     """Normal spatio-temporal denoising using BM3D."""
@@ -267,15 +270,14 @@ class Prefilter(PrefilterBase):
 
         @overload
         def __call__(  # type: ignore
-            self: Literal[Prefilter.KNLMEANSCL], clip: vs.VideoNode, /, planes: PlanesT = None,
+            self: Literal[Prefilter.NLMEANS], clip: vs.VideoNode, /, planes: PlanesT = None,
             *, strength: SingleOrArr[float] = 7.0, tr: SingleOrArr[int] = 1, sr: SingleOrArr[int] = 2,
             simr: SingleOrArr[int] = 2, device_type: DEVICETYPE | DeviceType = DeviceType.AUTO, **kwargs: Any
         ) -> vs.VideoNode:
             """
-            Denoising with KNLMeansCL, then postprocessed to remove low frequencies.
+            Denoising with NLMeans, then postprocessed to remove low frequencies.
 
-            :param clip:            Clip to be preprocessed.
-            :param planes:          Planes to be preprocessed.
+            :param clip:            Source clip.
             :param strength:        Controls the strength of the filtering.\n
                                     Larger values will remove more noise.
             :param tr:              Temporal Radius. Temporal size = `(2 * tr + 1)`.\n
@@ -289,8 +291,9 @@ class Prefilter(PrefilterBase):
             :param simr:            Similarity Radius. Similarity neighbourhood size = `(2 * simr + 1) ** 2`.\n
                                     Sets the radius of the similarity neighbourhood window.\n
                                     The impact on performance is low, therefore it depends on the nature of the noise.
-            :param device_type:     Set the OpenCL device to use for processing.
-            :param kwargs:          Additional arguments to pass to knlmeansCL.
+            :param planes:          Set the clip planes to be processed.
+            :param device_type:     Set the device to use for processing. The fastest device will be used by default.
+            :param kwargs:          Additional arguments passed to the plugin.
 
             :return:                Denoised clip.
             """
@@ -467,14 +470,14 @@ class Prefilter(PrefilterBase):
 
         @overload
         def __call__(  # type: ignore
-            self: Literal[Prefilter.KNLMEANSCL], *, planes: PlanesT = None,
+            self: Literal[Prefilter.NLMEANS], *, planes: PlanesT = None,
             strength: SingleOrArr[float] = 7.0, tr: SingleOrArr[int] = 1, sr: SingleOrArr[int] = 2,
             simr: SingleOrArr[int] = 2, device_type: DEVICETYPE | DeviceType = DeviceType.AUTO, **kwargs: Any
         ) -> PrefilterPartial:
             """
-            Denoising with KNLMeansCL, then postprocessed to remove low frequencies.
+            Denoising with NLMeans, then postprocessed to remove low frequencies.
 
-            :param planes:          Planes to be preprocessed.
+            :param planes:          Set the clip planes to be processed.
             :param strength:        Controls the strength of the filtering.\n
                                     Larger values will remove more noise.
             :param tr:              Temporal Radius. Temporal size = `(2 * tr + 1)`.\n
@@ -488,8 +491,8 @@ class Prefilter(PrefilterBase):
             :param simr:            Similarity Radius. Similarity neighbourhood size = `(2 * simr + 1) ** 2`.\n
                                     Sets the radius of the similarity neighbourhood window.\n
                                     The impact on performance is low, therefore it depends on the nature of the noise.
-            :param device_type:     Set the OpenCL device to use for processing.
-            :param kwargs:          Additional arguments to pass to knlmeansCL.
+            :param device_type:     Set the device to use for processing. The fastest device will be used by default.
+            :param kwargs:          Additional arguments passed to the plugin.
 
             :return:                Partial Prefilter.
             """

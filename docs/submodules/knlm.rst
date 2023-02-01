@@ -6,7 +6,7 @@ KLNM
 
     vsdenoise.knlm.ChannelMode
     vsdenoise.knlm.DeviceType
-    vsdenoise.knlm.knl_means_cl
+    vsdenoise.knlm.nl_means
 
 .. automodule:: vsdenoise.knlm
     :members:
