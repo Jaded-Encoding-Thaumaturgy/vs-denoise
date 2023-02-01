@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal, Sequence, overload
 
 from vstools import (
     CustomEnum, CustomValueError, KwargsT, PlanesT, check_variable, core, disallow_variable_format, join,
-    normalize_planes, normalize_seq, plane, to_arr, vs
+    normalize_planes, normalize_seq, to_arr, vs
 )
 
 __all__ = [
@@ -227,16 +227,7 @@ def nl_means(
     luma = _nl_means(0, 'Y') if 0 in planes else None
     chroma = _nl_means(1, 'UV') if 1 in planes or 2 in planes else None
 
-    if chroma and luma:
-        if 1 not in planes:
-            return join(luma, plane(clip, 1), chroma, vs.YUV)
-
-        if 2 not in planes:
-            return join(luma, chroma, plane(clip, 2), vs.YUV)
-
-        return join(luma, chroma, vs.YUV)
-
-    return luma or chroma or clip
+    return join({None: clip, tuple(planes): chroma, 0: luma})
 
 
 @disallow_variable_format
