@@ -88,7 +88,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
             return dfft.std.MaskedMerge(clip, pref_mask, planes)
 
-        if pref_type == Prefilter.NLMEANSCL:
+        if pref_type == Prefilter.NLMEANS:
             kwargs |= dict(strength=7.0, tr=1, sr=2, simr=2) | kwargs | dict(planes=planes)
             knl = nl_means(clip, **kwargs)
 
