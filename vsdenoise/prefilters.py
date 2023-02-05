@@ -22,10 +22,11 @@ from vstools import (
 
 from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
-from .knlm import DEVICETYPE, ChannelMode, DeviceType, nl_means
+from .knlm import DEVICETYPE, DeviceType, nl_means
 
 __all__ = [
     'Prefilter', 'prefilter_to_full_range',
+    'MultiPrefilter',
     'PelType'
 ]
 
@@ -667,6 +668,17 @@ class PrefilterPartial(PrefBase):  # type: ignore
         self, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any
     ) -> vs.VideoNode:
         return self.prefilter(clip, planes=fallback(planes, self.planes), **kwargs | self.kwargs)  # type: ignore
+
+
+class MultiPrefilter(PrefBase):  # type: ignore
+    def __init__(self, *prefilters: Prefilter) -> None:
+        self.prefilters = prefilters
+
+    def __call__(self, clip: vs.VideoNode, /, **kwargs: Any) -> vs.VideoNode:  # type: ignore
+        for pref in self.prefilters:
+            clip = pref(clip)
+
+        return clip
 
 
 def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
