@@ -110,7 +110,17 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             return replace_low_frequencies(knl, clip, 600 * (clip.width / 1920), False, planes)
 
         if pref_type == Prefilter.BM3D:
-            bm3d_arch: type[AbstractBM3D] = kwargs.pop('arch', BM3DCuda if kwargs.pop('gpu', False) else BM3DM)
+            bm3d_arch: type[AbstractBM3D] = kwargs.pop('arch', None)
+            gpu: bool | None = kwargs.pop('gpu', None)
+
+            if gpu is None:
+                gpu = hasattr(core, 'bm3dcuda')
+
+            if bm3d_arch is None:
+                if gpu:
+                    bm3d_arch = BM3DCudaRTC if hasattr(core, 'bm3dcuda_rtc') else BM3DCuda
+                else:
+                    bm3d_arch = BM3DCPU if hasattr(core, 'bm3dcpu') else BM3DM
 
             if bm3d_arch is BM3DM:
                 sigma, profile = 10, Profile.FAST
