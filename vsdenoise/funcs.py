@@ -141,6 +141,8 @@ def mlm_degrain(
         for clip, nclip in zip(scaled_clips[:-1], scaled_clips[1:])
     ]
 
+    last_idx = len(diffed_clips)
+
     new_resolutions = [(c.width, c.height) for c in diffed_clips]
 
     base_denoise = _degrain(scaled_clips[0], None, 0)
@@ -149,8 +151,6 @@ def mlm_degrain(
         ref_den_clips.append(scaler.scale(ref_den_clips[-1], width, height))
 
     ref_denoise = ref_den_clips[1]
-
-    last_idx = len(diffed_clips)
 
     for i, diff, ref_den, ref_den_next in zip(
         count(1), diffed_clips, ref_den_clips[1:], ref_den_clips[2:] + ref_den_clips[-1:]
