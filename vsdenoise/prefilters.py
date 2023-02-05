@@ -75,6 +75,20 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             temp_thr, spat_thr = kwargs.get('temp_thr', 2), kwargs.get('spat_thr', 2)
             return min_blur(clip, 2, planes).flux.SmoothST(temp_thr, spat_thr, planes)
 
+        if pref_type == Prefilter.DFTTEST_SMOOTH:
+            sigma = kwargs.get('sigma', 128.0)
+            sigma2 = kwargs.get('sigma2', sigma / 16)
+            sbsize = kwargs.get('sbsize', 8 if clip.width > 1280 else 6)
+            sosize = kwargs.get('sosize', 6 if clip.width > 1280 else 4)
+
+            kwargs |= dict(
+                sbsize=sbsize, sosize=sosize, slocation=[
+                    0.0, sigma2, 0.05, sigma, 0.5, sigma, 0.75, sigma2, 1.0, 0.0
+                ]
+            )
+
+            pref_type = Prefilter.DFTTEST
+
         if pref_type == Prefilter.DFTTEST:
             dftt_args = dict[str, Any](tbsize=1, slocation=[0.0, 4.0, 0.2, 9.0, 1.0, 15.0]) | kwargs
 
@@ -171,8 +185,8 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             max_len = max(len(otherS), len(otherR))
 
             if max_len:
-                otherS = list[float | list[float]](reversed(normalize_seq(otherS or baseS, max_len)))  # type: ignore
-                otherR = list[float | list[float]](reversed(normalize_seq(otherR or baseR, max_len)))  # type: ignore
+                otherS = list[float | list[float]](reversed(normalize_seq(otherS or baseS, max_len)))
+                otherR = list[float | list[float]](reversed(normalize_seq(otherR or baseR, max_len)))
 
                 for siS, siR in zip(otherS, otherR):
                     base, ref = ref or clip, bilateral(base, siS, siR, ref, **kwargs)
@@ -209,6 +223,9 @@ class Prefilter(PrefilterBase):
 
     DFTTEST = 4
     """Denoising in frequency domain with dfttest and an adaptive mask for retaining lineart."""
+
+    DFTTEST_SMOOTH = 12
+    """Denoising like in DFTTEST but with high defaults for lower frequencies."""
 
     NLMEANS = 5
     """Denoising with NLMeans, then postprocessed to remove low frequencies."""
@@ -266,6 +283,14 @@ class Prefilter(PrefilterBase):
             f0beta: float | None = None, nlocation: SingleOrArrOpt[int] = None, alpha: float | None = None,
             ssx: SingleOrArrOpt[float] = None, ssy: SingleOrArrOpt[float] = None, sst: SingleOrArrOpt[float] = None,
             ssystem: int | None = None, opt: int | None = None
+        ) -> vs.VideoNode:
+            ...
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.DFTTEST_SMOOTH], clip: vs.VideoNode, /, planes: PlanesT = None, *,
+            sigma: float = 128.0, sigma2: float | None = None, sbsize: int | None = None, sosize: int | None = None,
+            **kwargs: Any
         ) -> vs.VideoNode:
             ...
 
@@ -466,6 +491,14 @@ class Prefilter(PrefilterBase):
             f0beta: float | None = None, nlocation: SingleOrArrOpt[int] = None, alpha: float | None = None,
             ssx: SingleOrArrOpt[float] = None, ssy: SingleOrArrOpt[float] = None, sst: SingleOrArrOpt[float] = None,
             ssystem: int | None = None, opt: int | None = None
+        ) -> PrefilterPartial:
+            ...
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.DFTTEST_SMOOTH], *, planes: PlanesT = None,
+            sigma: float = 128.0, sigma2: float | None = None, sbsize: int | None = None, sosize: int | None = None,
+            **kwargs: Any
         ) -> PrefilterPartial:
             ...
 
