@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from vstools import PlanesT, vs, core, FunctionUtil
 from vsexprtools import norm_expr
+from vstools import FunctionUtil, PlanesT, core, vs
 
 from .prefilters import Prefilter
-
 
 __all__ = [
     'wnnm'
