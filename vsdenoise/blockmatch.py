@@ -37,9 +37,9 @@ def _recursive_denoise(
 
 def wnnm(
     clip: vs.VideoNode, sigma: float | list[float] = 3.0,
-    refine: int = 0, rclip: vs.VideoNode | Prefilter | None = None,
+    refine: int = 0, radius: int = 0, rclip: vs.VideoNode | Prefilter | None = None,
     block_size: int = 8, block_step: int = 8, group_size: int = 8,
-    bm_range: int = 7, radius: int = 0, ps_num: int = 2, ps_range: int = 4,
+    bm_range: int = 7, ps_num: int = 2, ps_range: int = 4,
     residual: bool = False, adaptive_aggregation: bool = True,
     merge_factor: float = 0.1, self_refine: bool = False, planes: PlanesT = None
 ) -> vs.VideoNode:
