@@ -391,10 +391,10 @@ class BackendInfo(KwargsT):
             try:
                 from dfttest2 import __version__  # type: ignore  # noqa: F401
 
-                if hasattr(core, 'dfttest2_cuda'):
-                    backend = Backend.cuFFT
-                elif hasattr(core, 'dfttest2_nvrtc'):
+                if hasattr(core, 'dfttest2_nvrtc'):
                     backend = Backend.NVRTC
+                elif hasattr(core, 'dfttest2_cuda'):
+                    backend = Backend.cuFFT
                 elif hasattr(core, 'dfttest2_cpu'):
                     backend = Backend.CPU
                 elif hasattr(core, 'dfttest2_gcc'):
