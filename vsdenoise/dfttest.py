@@ -349,7 +349,7 @@ class BackendInfo(KwargsT):
         Backend = DFTTest.Backend
 
         kwargs: KwargsT = KwargsT(
-            ftype=ftype, swin=swin, sbsize=block_size, sosize=overlap, tbsize=tr,
+            ftype=ftype, swin=swin, sbsize=block_size, sosize=overlap, tbsize=((tr or 0) * 2) + 1,
             tosize=tr_overlap, twin=twin, zmean=zmean, alpha=alpha, ssystem=ssystem,
             planes=planes, smode=int(blockwise)
         )
@@ -529,7 +529,7 @@ class DFTTest:
     def denoise(
         cls, ref: vs.VideoNode, sloc: SLocT | None = None,
         ftype: FilterTypeT = FilterType.WIENER,
-        tr: int = 1, tr_overlap: int = 0,
+        tr: int = 0, tr_overlap: int = 0,
         swin: SynthesisTypeT = SynthesisType.HANNING,
         twin: SynthesisTypeT = SynthesisType.RECTANGULAR,
         block_size: int = 16, overlap: int = 12,
@@ -543,7 +543,7 @@ class DFTTest:
     def denoise(
         cls, sloc: SLocT, ref: vs.VideoNode | None = None,
         ftype: FilterTypeT = FilterType.WIENER,
-        tr: int = 1, tr_overlap: int = 0,
+        tr: int = 0, tr_overlap: int = 0,
         swin: SynthesisTypeT = SynthesisType.HANNING,
         twin: SynthesisTypeT = SynthesisType.RECTANGULAR,
         block_size: int = 16, overlap: int = 12,
@@ -557,7 +557,7 @@ class DFTTest:
         def denoise(
             self, ref: SLocT | vs.VideoNode | None = None, sloc: SLocT | vs.VideoNode | None = None,
             ftype: FilterTypeT = FilterType.WIENER,
-            tr: int = 1, tr_overlap: int = 0,
+            tr: int = 0, tr_overlap: int = 0,
             swin: SynthesisTypeT = SynthesisType.HANNING,
             twin: SynthesisTypeT = SynthesisType.RECTANGULAR,
             block_size: int = 16, overlap: int = 12,
