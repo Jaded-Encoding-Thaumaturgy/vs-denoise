@@ -131,7 +131,9 @@ class DeviceTypeWithInfo(str):
             raise CustomValueError("You can't use cuda device type, you are missing the nlm_cuda plugin!")
 
         if self == DeviceType.CUDA:
-            return core.nlm_cuda.NLMeans(clip, d, a, s, h, channels, wmode, wref, rclip, **(self.kwargs | kwargs))
+            return core.nlm_cuda.NLMeans(  # type: ignore
+                clip, d, a, s, h, channels, wmode, wref, rclip, **(self.kwargs | kwargs)
+            )
 
         return core.knlm.KNLMeansCL(clip, d, a, s, h, channels, wmode, wref, rclip, **(self.kwargs | kwargs))
 

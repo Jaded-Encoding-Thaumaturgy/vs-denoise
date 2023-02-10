@@ -117,7 +117,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
                 gpu = hasattr(core, 'bm3dcuda')
 
             if bm3d_arch is None:
-                if gpu:
+                if gpu:  # type: ignore
                     bm3d_arch = BM3DCudaRTC if hasattr(core, 'bm3dcuda_rtc') else BM3DCuda
                 else:
                     bm3d_arch = BM3DCPU if hasattr(core, 'bm3dcpu') else BM3DM
