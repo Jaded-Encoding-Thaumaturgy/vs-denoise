@@ -3,6 +3,7 @@ from .blockmatch import *
 from .bm3d import *
 from .ccd import *
 from .deblock import *
+from .degrain import *
 from .dfttest import *
 from .funcs import *
 from .knlm import *

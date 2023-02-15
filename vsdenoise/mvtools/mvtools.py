@@ -13,7 +13,7 @@ from vstools import (
 from ..prefilters import PelType, Prefilter, prefilter_to_full_range
 from .enums import MotionMode, MVDirection, MVToolsPlugin, SADMode, SearchMode
 from .motion import MotionVectors, SuperClips
-from .utils import planes_to_mvtools
+from .utils import normalize_thscd, planes_to_mvtools
 
 __all__ = [
     'MVTools'
@@ -503,6 +503,7 @@ class MVTools:
 
     def compensate(
         self, func: GenericVSFunction, thSAD: int = 150,
+        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None, **kwargs: Any
     ) -> vs.VideoNode:
         """
@@ -522,6 +523,22 @@ class MVTools:
         :param thSAD:       This is the SAD threshold for safe (dummy) compensation.\n
                             If block SAD is above thSAD, the block is bad, and we use source block
                             instead of the compensated block.
+        :param thSCD:       The first value is a threshold for whether a block has changed
+                            between the previous frame and the current one.\n
+                            When a block has changed, it means that motion estimation for it isn't relevant.
+                            It, for example, occurs at scene changes, and is one of the thresholds used to
+                            tweak the scene changes detection engine.\n
+                            Raising it will lower the number of blocks detected as changed.\n
+                            It may be useful for noisy or flickered video. This threshold is compared to the SAD value.\n
+                            For exactly identical blocks we have SAD = 0, but real blocks are always different
+                            because of objects complex movement (zoom, rotation, deformation),
+                            discrete pixels sampling, and noise.\n
+                            Suppose we have two compared 8×8 blocks with every pixel different by 5.\n
+                            It this case SAD will be 8×8×5 = 320 (block will not detected as changed for thSCD1 = 400).\n
+                            Actually this parameter is scaled internally in MVTools,
+                            and it is always relative to 8x8 block size.\n
+                            The second value is a threshold of the percentage of how many blocks have to change for
+                            the frame to be considered as a scene change. It ranges from 0 to 100 %.
         :param supers:      Custom super clips to be used for compensating.
         :param ref:         Reference clip to use instead of main clip.
         :param kwargs:      Keyword arguments passed to `func` to avoid using `partial`.
@@ -532,10 +549,12 @@ class MVTools:
         ref = self.get_ref_clip(ref, self.__class__.compensate)
 
         vect_b, vect_f = self.get_vectors_bf()
+        thSCD1, thSCD2 = normalize_thscd(thSCD, thSAD, self.params_curve, self.__class__.compensate)
         supers = supers or self.get_supers(ref)
 
         compensate_args = dict(
             super=supers.render, thsad=thSAD,
+            thscd1=thSCD1, thscd2=thSCD2,
             tff=self.source_type.is_inter and self.source_type.value or None
         ) | self.compensate_args
 
@@ -551,7 +570,7 @@ class MVTools:
 
         processed = func(interleaved, **kwargs)
 
-        return processed.std.SelectEvery(cycle=n_clips, offsets=ceil(n_clips / 2))
+        return processed.std.SelectEvery(cycle=n_clips, offsets=(n_clips - 1) / 2)
 
     def degrain(
         self,
@@ -620,17 +639,7 @@ class MVTools:
 
         limitf, limitCf = scale_value(limit, 8, ref), scale_value(limitC, 8, ref)
 
-        thSCD1, thSCD2 = thSCD if isinstance(thSCD, tuple) else (thSCD, None)
-
-        thSCD1 = fallback(thSCD1, round(0.35 * thSAD + 300) if self.params_curve else 400)
-        thSCD2 = fallback(thSCD2, 51)
-
-        if not 1 <= thSCD2 <= 100:
-            raise CustomOverflowError(
-                '"thSCD[1]" must be between 1 and 100 (inclusive)!', self.__class__.degrain
-            )
-
-        thSCD2 = int(thSCD2 / 100 * 255)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, thSAD, self.params_curve, self.__class__.degrain)
 
         degrain_args = dict[str, Any](thscd1=thSCD1, thscd2=thSCD2, plane=self.mv_plane)
 
