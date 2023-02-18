@@ -164,7 +164,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             if 'sharp' not in kwargs and 'sigma' not in kwargs:
                 kwargs |= dict(sigma=1.75)
 
-            strg = clamp(kwargs.pop('strenght', 50 if pref_type == Prefilter.GAUSSBLUR2 else 90), 0, 98) + 1
+            strg = clamp(kwargs.pop('strength', 50 if pref_type == Prefilter.GAUSSBLUR2 else 90), 0, 98) + 1
 
             gaussblur = gauss_blur(boxblur, **(kwargs | dict[str, Any](planes=planes)))
 

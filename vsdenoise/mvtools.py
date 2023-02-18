@@ -769,7 +769,8 @@ class MVTools:
         :param tr:                  Temporal radius of the processing.
         :param refine:              This represents the times the analyzed clip will be recalculated.\n
                                     With every recalculation step, the block size will be further refined.\n
-                                    i.e. `refine=4` it will analyze at `block_size=32`, then refine at 16, 8, 4.
+                                    i.e. `refine=3` it will analyze at `block_size=32`, then refine at 16, 8, 4.
+                                    Set `refine=0` to disable recalculation completely.
         :param pel:                 Pixel EnLargement value, a.k.a. subpixel accuracy of the motion estimation.\n
                                     Value can only be 1, 2 or 4.
                                      * 1 means a precision to the pixel.
