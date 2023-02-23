@@ -22,7 +22,8 @@ from vstools import (
 
 from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
-from .dfttest import DFTTest
+# from .dfttest import DFTTest
+from vsdenoise import DFTTest
 from .knlm import DEVICETYPE, DeviceType, nl_means
 
 __all__ = [
@@ -91,8 +92,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             pref_type = Prefilter.DFTTEST
 
         if pref_type == Prefilter.DFTTEST:
-            dftt_args = dict[str, Any](tr=0, sloc=[(0.0, 4.0), (0.2, 9.0), (1.0, 15.0)]) | kwargs
-            dftt = DFTTest.denoise(clip, **dftt_args)
+            dftt = DFTTest(sloc={0.0: 4, 0.2: 9, 1.0: 15}, tr=0).denoise(clip, **kwargs)
 
             i, j = (scale_value(x, 8, bits, range_out=ColorRange.FULL) for x in (16, 75))
 
