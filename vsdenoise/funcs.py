@@ -16,6 +16,11 @@ from .mvtools import MotionMode, MVTools
 from .prefilters import PelType
 
 
+__all__ = [
+    'mlm_degrain'
+]
+
+
 def mlm_degrain(
     clip: vs.VideoNode, tr: int = 3, refine: int = 3, thSAD: int = 200,
     factors: Iterable[float] | range = [1 / 3, 2 / 3],
