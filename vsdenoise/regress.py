@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable, Concatenate, Sequence
-from weakref import WeakValueDictionary
 
 from vsexprtools import ExprOp, aka_expr_available, norm_expr
 from vskernels import Catrom, Kernel, KernelT, Mitchell, Scaler, ScalerT
@@ -17,7 +16,10 @@ __all__ = [
     'chroma_reconstruct'
 ]
 
-_cached_blurs = WeakValueDictionary[int, vs.VideoNode]()
+
+_cached_blurs = dict[int, list[tuple[vs.VideoNode, vs.VideoNode]]]()
+
+vs.register_on_destroy(_cached_blurs.clear)
 
 
 @dataclass
@@ -124,12 +126,14 @@ class Regression:
             if chroma_only:
                 ckwargs = kwargs | dict(planes=[1, 2])
 
-                key = complex_hash.hash(clip, args, ckwargs)
+                key = complex_hash.hash(args, ckwargs)
 
                 got_result = _cached_blurs.get(key, None)
 
                 if got_result is not None:
-                    return got_result
+                    for inc, outc in got_result:
+                        if inc == clip:
+                            return outc
 
                 try:
                     out = self.func(clip, *args, **ckwargs)  # type: ignore[arg-type]
@@ -137,16 +141,23 @@ class Regression:
                     ...
 
             if not out:
-                key = complex_hash.hash(clip, args, kwargs)
+                key = complex_hash.hash(args, kwargs)
 
                 got_result = _cached_blurs.get(key, None)
 
                 if got_result is not None:
-                    return got_result
+                    for inc, outc in got_result:
+                        if inc == clip:
+                            return outc
 
                 out = self.func(clip, *args, **kwargs)
 
-            return _cached_blurs.setdefault(key, out)
+            if key not in _cached_blurs:
+                _cached_blurs[key] = []
+
+            _cached_blurs[key].append((clip, out))
+
+            return out
 
         def blur(self, clip: vs.VideoNode, chroma_only: bool = False, *args: Any, **kwargs: Any) -> Any:
             """
