@@ -22,6 +22,7 @@ from vstools import (
 
 from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
+from .dfttest import DFTTest
 from .knlm import DEVICETYPE, DeviceType, nl_means
 
 __all__ = [
@@ -90,9 +91,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             pref_type = Prefilter.DFTTEST
 
         if pref_type == Prefilter.DFTTEST:
-            dftt_args = dict[str, Any](tbsize=1, slocation=[0.0, 4.0, 0.2, 9.0, 1.0, 15.0]) | kwargs
-
-            dfft = clip.dfttest.DFTTest(**dftt_args)
+            dftt = DFTTest(sloc={0.0: 4, 0.2: 9, 1.0: 15}, tr=0).denoise(clip, **kwargs)
 
             i, j = (scale_value(x, 8, bits, range_out=ColorRange.FULL) for x in (16, 75))
 
@@ -101,7 +100,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
                 f'x {i} < {peak} x {j} > 0 {peak} x {i} - {peak} {j} {i} - / * - ? ?'
             )
 
-            return dfft.std.MaskedMerge(clip, pref_mask, planes)
+            return dftt.std.MaskedMerge(clip, pref_mask, planes)
 
         if pref_type == Prefilter.NLMEANS:
             kwargs |= dict(strength=7.0, tr=1, sr=2, simr=2) | kwargs | dict(planes=planes)
