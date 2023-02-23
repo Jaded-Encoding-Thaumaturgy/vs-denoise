@@ -22,8 +22,7 @@ from vstools import (
 
 from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
-# from .dfttest import DFTTest
-from vsdenoise import DFTTest
+from .dfttest import DFTTest
 from .knlm import DEVICETYPE, DeviceType, nl_means
 
 __all__ = [
