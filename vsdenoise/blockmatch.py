@@ -134,6 +134,7 @@ def bmdegrain(
     bm_range: int = 7, ps_num: int = 2, ps_range: int = 4,
     merge_factor: float = 0.1, self_refine: bool = False, planes: PlanesT = None
 ) -> vs.VideoNode:
+    """@PLACEHOLDER@"""
     func = FunctionUtil(clip, wnnm, planes, bitdepth=32)
 
     sigma = func.norm_seq(sigma)

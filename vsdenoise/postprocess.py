@@ -53,7 +53,7 @@ def decrease_size(
                         If you pass a float, a gauss blur will be used with the value determining its sigma.
                         If you pass a tuple of floats, a box blur will be used.
                         The first value is the radii, and the second is the number of passes.
-                        If you pass `True`, it defaults to box_blur(2, 4).
+                        If you pass `True`, it defaults to `box_blur(2, 4)`.
                         Set `False` to disable.
 
                         Default: True.

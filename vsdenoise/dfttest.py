@@ -28,6 +28,8 @@ Sigma: TypeAlias = float
 
 
 class SInterMode(CustomEnum):
+    """@PLACEHOLDER@"""
+
     LINEAR = 'linear'
     SPLINE = 1
     SPLINE_LINEAR = 'slinear'
@@ -62,6 +64,8 @@ class SInterMode(CustomEnum):
 
 
 class SLocation:
+    """Specify a range of frequencies to target."""
+
     frequencies: tuple[float, ...]
     sigmas: tuple[float, ...]
 
@@ -211,11 +215,22 @@ class FilterTypeWithInfo(KwargsT):
 
 
 class FilterType(CustomIntEnum):
+    """Filtering types for DFTTest."""
+
     WIENER = 0
+    """mult = max((psd - sigma) / psd, 0) ^ f0beta"""
+
     THR = 1
+    """mult = psd < sigma ? 0.0 : 1.0"""
+
     MULT = 2
+    """mult = sigma"""
+
     MULT_PSD = 3
+    """mult = (psd >= pmin && psd <= pmax) ? sigma : sigma2"""
+
     MULT_RANGE = 4
+    """mult = sigma * sqrt((psd * pmax) / ((psd + pmin) * (psd + pmax)))"""
 
     if TYPE_CHECKING:
         from .dfttest import FilterType
@@ -289,6 +304,8 @@ class SynthesisTypeWithInfo(KwargsT):
 
 
 class SynthesisType(CustomIntEnum):
+    """Synthesis type for spatial processing."""
+
     HANNING = 0
     HAMMING = 1
     NUTTALL = 10
@@ -467,6 +484,8 @@ class BackendInfo(KwargsT):
 
 
 class DFTTest:
+    """2D/3D frequency domain denoiser."""
+
     default_args: KwargsT
     default_slocation: SLocation | SLocation.MultiDim | None
 
