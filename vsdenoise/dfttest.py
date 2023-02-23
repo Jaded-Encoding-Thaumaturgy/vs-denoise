@@ -131,9 +131,13 @@ class SLocation:
             frequencies, sigmas = list(locations.keys()), list(locations.values())
         else:
             locations = list[float](flatten(locations))  # type: ignore [arg-type]
+
             if len(locations) % 2:
-                raise CustomValueError(("(s)locations must resolve to an even number of total items, "
-                                       "pairing frequency and sigma respectively"), self.__class__)
+                raise CustomValueError(
+                    "slocations must resolve to an even number of total items, pairing frequency and sigma respectively",
+                    self.__class__
+                )
+
             frequencies, sigmas = list(locations[0::2]), list(locations[1::2])
 
         frequencies = self.boundsCheck(frequencies, (0, 1), strict)
