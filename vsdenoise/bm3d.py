@@ -337,85 +337,7 @@ class Profile(ProfileBase, CustomStrEnum):
 
 
 class AbstractBM3D(vs_object):
-    """Abstract BM3D based denoiser interface."""
-
-    @dataclass
-    class ResampleConfig:
-        yuv2rgb: KernelT = Catrom
-        """Kernel used for yuv => rgb resampling."""
-
-        rgb2yuv: KernelT | None = None
-        """Kernel used for rgb => yuv resampling. Fallbacks to yuv2rgb if None."""
-
-        fp32: bool = True
-        """Whether to process in int16 or float32."""
-
-        def __post_init__(self) -> None:
-            self._yuv2rgb = Kernel.ensure_obj(self.yuv2rgb)
-            self._rgb2yuv = self._yuv2rgb.ensure_obj(self.rgb2yuv)
-
-        def clip2opp(self, clip: vs.VideoNode, is_gray: bool = False) -> vs.VideoNode:
-            """
-            Convert a clip to the OPP colorspace.
-
-            :param clip:    Clip to be processed.
-
-            :return:        OPP clip.
-            """
-            assert check_variable_format(clip, self.clip2opp)
-
-            return self.to_fullgray(clip) if is_gray else (
-                self.rgb2opp(clip) if clip.format.color_family is vs.RGB else self.yuv2opp(clip)
-            )
-
-        def yuv2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
-            """
-            Convert a YUV clip to the OPP colorspace.
-
-            :param clip:    YUV clip to be processed.
-
-            :return:        OPP clip.
-            """
-            return self.rgb2opp(self._yuv2rgb.resample(clip, vs.RGBS))
-
-        def rgb2opp(self, clip: vs.VideoNode) -> vs.VideoNode:
-            """
-            Convert an RGB clip to the OPP colorspace.
-
-            :param clip:    RGB clip to be processed.
-
-            :return:        OPP clip.
-            """
-            return clip.bm3d.RGB2OPP(self.fp32)
-
-        def opp2rgb(self, clip: vs.VideoNode) -> vs.VideoNode:
-            """
-            Convert an OPP clip to the RGB colorspace.
-
-            :param clip:    OPP clip to be processed.
-
-            :return:        RGB clip.
-            """
-            return clip.bm3d.OPP2RGB(self.fp32)
-
-        def opp2yuv(
-            self, clip: vs.VideoNode, format: vs.VideoFormat, matrix: Matrix | None, dither: DitherType | None = None
-        ) -> vs.VideoNode:
-            dither = DitherType.from_param(self._rgb2yuv.kwargs.get('dither_type', None)) or dither
-
-            return self._rgb2yuv.resample(
-                self.opp2rgb(clip), format=format, matrix=matrix, dither_type=dither
-            )
-
-        def to_fullgray(self, clip: vs.VideoNode) -> vs.VideoNode:
-            """
-            Extract Y plane from GRAY/YUV clip and if not float32, upsample to it.
-
-            :param clip:    GRAY or YUV clip to be processed.
-
-            :return:        GRAYS clip.
-            """
-            return Point.resample(clip, vs.GRAYS if self.fp32 else vs.GRAY16)
+    """Abstract BM3D-based denoiser interface."""
 
     wclip: vs.VideoNode
 
@@ -451,16 +373,29 @@ class AbstractBM3D(vs_object):
         colorspace: BM3DColorspace = BM3DColorspace.AUTO
     ) -> None:
         """
-        :param clip:        Source clip.
-        :param sigma:       Strength of denoising, valid range is [0, +inf].
-        :param radius:      Temporal radius, valid range is [1, 16].
-        :param profile:     Preset profile. See :py:attr:`vsdenoise.bm3d.Profile`.
-        :param ref:         Reference clip used in block-matching, replacing the basic estimation.
-                            If not specified, the input clip is used instead.
-        :param refine:      Times to refine the estimation.
-                             * 0 means basic estimate only.
-                             * 1 means basic estimate with one final estimate.
-                             * n means basic estimate refined with final estimate applied n times.
+        :param clip:            Source clip.
+        :param sigma:           Strength of denoising, valid range is [0, +inf].
+        :param radius:          Temporal radius, valid range is [1, 16].
+        :param profile:         Preset profile. See :py:attr:`vsdenoise.bm3d.Profile`.
+                                Default: Profile.FAST.
+        :param ref:             Reference clip used in block-matching, replacing the basic estimation.
+                                If not specified, the input clip is used instead.
+                                Default: None.
+        :param refine:          The number of times to refine the estimation.
+
+                                 * 0 means basic estimate only.
+                                 * 1 means basic estimate with one final estimate.
+                                 * n means basic estimate refined with final estimate applied n times.
+
+                                Default: 1.
+        :param matrix:          Enum for the matrix of the input clip.
+                                See :py:attr:`vstools.enums.Matrix` for more info.
+                                If not specified, gets the matrix from the "_Matrix" prop of the clip
+                                unless it's an RGB clip, in which case it stays as `None`.
+        :param range_in:        Enum for the color range of the input clip.
+                                See :py:attr:`vstools.enums.ColorRange` for more info.
+                                If not specified, gets the color from the "_ColorRange" prop of the clip.
+                                This check is not performed if the input clip is float.
         """
         assert check_variable(clip, self.__class__)
 
@@ -547,21 +482,7 @@ class BM3D(AbstractBM3D):
         ref: vs.VideoNode | None = None, refine: int = 1, matrix: MatrixT | None = None,
         range_in: ColorRangeT | None = None, colorspace: BM3DColorspace = BM3DColorspace.AUTO
     ) -> None:
-        """
-        :param clip:                Source clip.
-        :param sigma:               Strength of denoising, valid range is [0, +inf].
-        :param radius:              Temporal radius, valid range is [1, 16].
-        :param profile:             Preset profiles.
-        :param pre:                 Pre-filtered clip for basic estimate.
-                                    Should be a clip better suited for block-matching than the input clip.
-        :param ref:                 Reference clip used in block-matching, replacing the basic estimation.
-                                    If not specified, the input clip is used instead.
-        :param refine:              Times to refine the estimation.
-                                     * 0 means basic estimate only.
-                                     * 1 means basic estimate with one final estimate.
-                                     * n means basic estimate refined with final estimate for n times.
-        """
-        self.pre = pre and self._check_clip(pre, matrix, range_in, self.__class__)
+        self.pre = pre and self.cspconfig.check_clip(pre, matrix, range_in, self.__class__)
 
         super().__init__(clip, sigma, radius, profile, ref, refine, matrix, range_in, colorspace)
 
