@@ -623,12 +623,17 @@ class AbstractBM3DCuda(AbstractBM3D, metaclass=AbstractBM3DCudaMeta):
     def basic(self, clip: vs.VideoNode | None = None, opp: bool = False) -> vs.VideoNode:
         clip = self.cspconfig.get_clip(self.cspconfig.clip, self._pre_clip, clip)
 
-        clip = self.plugin.BM3D(clip, **self.profile.as_dict(
+        kwargs = self.profile.as_dict(
             True, True, False, self.basic_args, sigma=self.sigma, radius=self.radius.basic
-        ))
+        )
 
-        if self.radius.basic:
-            clip = clip.bm3d.VAggregate(self.radius.basic, self.cspconfig.resampler.fp32)
+        if hasattr(self.plugin, 'BM3Dv2'):
+            clip = self.plugin.BM3Dv2(clip, **kwargs)
+        else:
+            clip = self.plugin.BM3D(clip, **kwargs)
+
+            if self.radius.basic:
+                clip = clip.bm3d.VAggregate(self.radius.basic, self.cspconfig.resampler.fp32)
 
         return clip if opp else self.cspconfig.post_processing(clip)
 
@@ -642,13 +647,19 @@ class AbstractBM3DCuda(AbstractBM3D, metaclass=AbstractBM3DCudaMeta):
         else:
             ref = self.basic(clip, True)
 
-        for _ in range(refine or self.refine):
-            clip = self.plugin.BM3D(clip, ref, **self.profile.as_dict(
-                True, False, True, self.final_args, sigma=self.sigma, radius=self.radius.final
-            ))
+        kwargs = self.profile.as_dict(
+            True, False, True, self.final_args, sigma=self.sigma, radius=self.radius.final
+        )
 
-            if self.radius.final:
-                clip = clip.bm3d.VAggregate(self.radius.final, self.cspconfig.resampler.fp32)
+        if hasattr(self.plugin, 'BM3Dv2'):
+            for _ in range(refine or self.refine):
+                clip = self.plugin.BM3Dv2(clip, ref, **kwargs)
+        else:
+            for _ in range(refine or self.refine):
+                clip = self.plugin.BM3D(clip, ref, **kwargs)
+
+                if self.radius.final:
+                    clip = clip.bm3d.VAggregate(self.radius.final, self.cspconfig.resampler.fp32)
 
         return self.cspconfig.post_processing(clip)
 
