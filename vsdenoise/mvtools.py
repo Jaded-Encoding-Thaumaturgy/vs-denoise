@@ -1402,7 +1402,7 @@ class MVTools:
         tr: int = 2, refine: int = 3, block_size: int | None = None, overlap: int | None = None,
         prefilter: Prefilter | vs.VideoNode | None = None, pel: int | None = None,
         sad_mode: SADMode | tuple[SADMode, SADMode] | None = None,
-        search: SearchMode | SearchMode.Config | None = None,
+        search: SearchMode | SearchMode.Config | None = None, motion: MotionMode.Config | None = None,
         pel_type: PelType | tuple[PelType, PelType] | None = None,
         planes: PlanesT = None, range_in: ColorRange | None = None,
         source_type: FieldBasedT | None = None, high_precision: bool = False,
@@ -1411,8 +1411,7 @@ class MVTools:
         recalculate_args: dict[str, Any] | None = None, compensate_args: dict[str, Any] | None = None,
         range_conversion: float | None = None, sharp: int | None = None,
         hpad: int | None = None, vpad: int | None = None, params_curve: bool = True,
-        rfilter: int | None = None, vectors: MotionVectors | MVTools | None = None,
-        motion: MotionMode.Config | None = None, supers: SuperClips | None = None
+        rfilter: int | None = None, vectors: MotionVectors | MVTools | None = None, supers: SuperClips | None = None
     ) -> vs.VideoNode:
         mvtools = cls(
             clip, tr, refine, pel, planes, range_in, source_type, high_precision, hpad, vpad,
