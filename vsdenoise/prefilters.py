@@ -206,7 +206,17 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
             return bilateral(clip, baseS, baseR, ref, **kwargs)
 
-        return clip
+        if pref_type is Prefilter.BMLATERAL:
+            sigma = kwargs.pop('sigma', 1.5)
+            tr = kwargs.pop('tr', 2)
+            radius = kwargs.pop('radius', 7)
+            cuda = kwargs.pop('gpu', hasattr(core, 'bm3dcuda'))
+
+            den = Prefilter.BM3D(
+                clip, planes, sigma=[10.0, 8.0] if cuda else [8.0, 6.4], radius=tr, gpu=cuda, **kwargs
+            )
+
+            return Prefilter.BILATERAL(den, planes, sigmaS=[sigma, sigma / 3], sigmaR=radius / 255)
 
 
 class Prefilter(PrefilterBase):
@@ -266,6 +276,9 @@ class Prefilter(PrefilterBase):
 
     BILATERAL = 11
     """Classic bilateral filtering or edge-preserving bilateral multi pass filtering."""
+
+    BMLATERAL = 14
+    """BM3D + BILATERAL blurring."""
 
     if TYPE_CHECKING:
         from .prefilters import Prefilter
@@ -470,6 +483,25 @@ class Prefilter(PrefilterBase):
             """
 
         @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.BMLATERAL], clip: vs.VideoNode, /, planes: PlanesT = None,
+            sigma: float = 1.5, radius: float = 7, tr: int = 2, gpu: bool | None = None, **kwargs: Any
+        ) -> vs.VideoNode:
+            """
+            BM3D + BILATERAL smoothing.
+
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
+            :param sigma:       ``Bilateral`` spatial weight sigma.
+            :param radius:      ``Bilateral`` radius weight sigma.
+            :param tr:          Temporal radius for BM3D.
+            :param gpu:         Whether to process with GPU or not. None is auto.
+            :param **kwargs:    Kwargs passed to BM3D.
+
+            :return:            Partial Prefilter.
+            """
+
+        @overload
         def __call__(self, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any) -> vs.VideoNode:
             """
             Run the selected filter.
@@ -666,6 +698,24 @@ class Prefilter(PrefilterBase):
             :param sigmaS:      Sigma of Gaussian function to calculate spatial weight.
             :param sigmaR:      Sigma of Gaussian function to calculate range weight.
             :param gpu:         Whether to use GPU processing if available or not.
+
+            :return:            Partial Prefilter.
+            """
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.BMLATERAL], *, planes: PlanesT = None,
+            sigma: float = 1.5, radius: float = 7, tr: int = 2, gpu: bool | None = None, **kwargs: Any
+        ) -> vs.VideoNode:
+            """
+            BM3D + BILATERAL smoothing.
+
+            :param planes:      Planes to be preprocessed.
+            :param sigma:       ``Bilateral`` spatial weight sigma.
+            :param radius:      ``Bilateral`` radius weight sigma.
+            :param tr:          Temporal radius for BM3D.
+            :param gpu:         Whether to process with GPU or not. None is auto.
+            :param **kwargs:    Kwargs passed to BM3D.
 
             :return:            Partial Prefilter.
             """
