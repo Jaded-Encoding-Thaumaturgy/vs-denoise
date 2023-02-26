@@ -11,9 +11,10 @@ from typing import Any, NamedTuple, final, overload
 
 from vskernels import Point
 from vstools import (
-    ColorRange, ColorRangeT, CustomIntEnum, CustomStrEnum, CustomValueError, DitherType, FuncExceptT, KwargsT, Matrix,
-    MatrixT, ResampleUtil, Self, SingleOrArr, check_variable, core, depth, get_video_format, inject_self, join,
-    normalize_seq, vs, vs_object)
+    ColorRange, ColorRangeT, CustomIndexError, CustomIntEnum, CustomStrEnum, CustomValueError, DitherType, FuncExceptT,
+    KwargsT, Matrix, MatrixT, ResampleUtil, Self, SingleOrArr, check_variable, core, depth, get_video_format,
+    inject_self, join, normalize_seq, vs, vs_object
+)
 
 from .types import _Plugin_bm3dcpu_Core_Bound, _Plugin_bm3dcuda_Core_Bound, _Plugin_bm3dcuda_rtc_Core_Bound
 
@@ -381,8 +382,6 @@ class AbstractBM3D(vs_object):
                                 If not specified, the input clip is used instead.
                                 Default: None.
         :param refine:          The number of times to refine the estimation.
-
-                                 * 0 means basic estimate only.
                                  * 1 means basic estimate with one final estimate.
                                  * n means basic estimate refined with final estimate applied n times.
 
@@ -413,6 +412,9 @@ class AbstractBM3D(vs_object):
 
         self.profile = profile if isinstance(profile, ProfileBase.Config) else profile()
         self.ref = self.cspconfig.check_clip(ref, matrix, range_in, self.__class__)
+        if refine < 1:
+            raise CustomIndexError('"refine" must be >= 1!', self.__class__)
+
         self.refine = refine
 
         self.basic_args = {}
