@@ -67,10 +67,10 @@ class BM3DColorspaceConfig:
         fmt = get_video_format(clip)
 
         if fmt.sample_type != vs.FLOAT or fmt.bits_per_sample != 32 and self.resampler.fp32:
-            clip = ColorRange.ensure_presence(clip, range_in, func)
+            clip = ColorRange.ensure_presence(clip, range_in or ColorRange.from_video(clip), func)
 
         if fmt.color_family == vs.YUV and (self.csp_type.is_rgb or self.csp_type.is_opp):
-            clip = Matrix.ensure_presence(clip, matrix, func)
+            clip = Matrix.ensure_presence(clip, matrix or Matrix.from_video(clip), func)
 
         return clip
 
