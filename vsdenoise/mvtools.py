@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from itertools import chain
 from math import ceil, exp
-from typing import TYPE_CHECKING, Any, Literal, Sequence, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Sequence, TypeVar, cast, overload
 
 from _collections_abc import dict_items, dict_keys, dict_values
 from vstools import (
@@ -25,7 +25,8 @@ __all__ = [
     'MVTools', 'MVToolsPlugin',
     'SADMode', 'SearchMode', 'MotionMode',
     'MVDirection', 'MotionVectors',
-    'MVToolsPresets'
+    'MVToolsPresets',
+    'SuperClips'
 ]
 
 
@@ -691,6 +692,13 @@ class MVToolsPresets:
     """CMDegrain from EoE."""
 
 
+class SuperClips(NamedTuple):
+    base: vs.VideoNode
+    render: vs.VideoNode
+    search: vs.VideoNode
+    recalculate: vs.VideoNode
+
+
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
 
@@ -894,7 +902,8 @@ class MVTools:
             rfilter=rfilter, range_conversion=range_conversion, sharp=sharp,
             prefilter=prefilter, pel_type=pel_type
         )
-        self.super_render = self.super_search = self.super_recalc = None
+
+        self.supers: SuperClips | None = None
 
         self.analyze_func_kwargs = dict(
             overlap=overlap, search=search, block_size=block_size, sad_mode=sad_mode,
@@ -902,13 +911,13 @@ class MVTools:
         )
 
     def super(
-            self, *,
-            range_conversion: float | None = None,
-            sharp: int | None = None, rfilter: int | None = None,
-            prefilter: Prefilter | vs.VideoNode | None = None,
-            pel_type: PelType | tuple[PelType, PelType] | None = None,
-            ref: vs.VideoNode | None = None,
-    ) -> tuple[vs.VideoNode, vs.VideoNode, vs.VideoNode]:
+        self,
+        range_conversion: float | None = None,
+        sharp: int | None = None, rfilter: int | None = None,
+        prefilter: Prefilter | vs.VideoNode | None = None,
+        pel_type: PelType | tuple[PelType, PelType] | None = None,
+        *, ref: vs.VideoNode | None = None, inplace: bool = False
+    ) -> SuperClips:
         """
         Calculates Super clips for rendering, searching, and recalculating.
 
@@ -935,7 +944,8 @@ class MVTools:
                                     temporal instability or dynamic grain, but retains most of the detail.
         :param pel_type:            Type of interpolation to use for upscaling the pel clip.
         :param ref:                 Reference clip to use for analyzes over the main clip.
-        :return:                    Tuple containing the render, search, and recalc super clips, in that order.
+
+        :return:                    SuperClips yuple containing the render, search, and recalculate super clips.
         """
         ref = self.get_ref_clip(ref, self.__class__.super)
         rfilter = kwargs_fallback(rfilter, (self.super_func_kwargs, 'rfilter'), 3)
@@ -979,27 +989,23 @@ class MVTools:
 
         super_render = self.mvtools.Super(self.workclip, **super_render_args)
         super_search = self.mvtools.Super(ref, **(dict(rfilter=rfilter) | common_args))
-        super_recalc = self.mvtools.Super(
-            prefilter, **(dict(levels=1) | common_args)
-        ) if self.refine else super_render
+        super_recalc = self.refine and self.mvtools.Super(prefilter, **(dict(levels=1) | common_args)) or super_render
 
-        # Reuse existing supers if possible, generate new supers as necessary.
-        self.super_render = fallback(self.super_render, super_render)
-        self.super_search = fallback(self.super_search, super_search)
-        self.super_recalc = fallback(self.super_recalc, super_recalc)
+        supers = SuperClips(ref, super_render, super_search, super_recalc)
 
-        return (self.super_render, self.super_search, self.super_recalc)
+        if not inplace:
+            self.supers = supers
+
+        return supers
 
     def analyze(
         self,
         block_size: int | None = None, overlap: int | None = None,
-        thSAD: int | None = None, range_conversion: float | None = None,
+        thSAD: int | None = None,
         search: SearchMode | SearchMode.Config | None = None,
-        sharp: int | None = None, rfilter: int | None = None,
         sad_mode: SADMode | tuple[SADMode, SADMode] | None = None,
         motion: MotionMode.Config | None = None,
-        prefilter: Prefilter | vs.VideoNode | None = None,
-        pel_type: PelType | tuple[PelType, PelType] | None = None,
+        supers: SuperClips | None = None,
         *, ref: vs.VideoNode | None = None, inplace: bool = False
     ) -> MotionVectors:
         """
@@ -1093,9 +1099,7 @@ class MVTools:
         else:
             sad_mode, recalc_sad_mode = sad_mode, SADMode.SATD
 
-        super_search, super_recalc = self.super(
-            range_conversion=range_conversion, sharp=sharp,
-            rfilter=rfilter, prefilter=prefilter, pel_type=pel_type, ref=ref)[1:]
+        supers = supers or self.get_supers(ref)
 
         if self.params_curve:
             thSAD_recalc = round(exp(-101. / (thSAD * 0.83)) * 360)
@@ -1117,20 +1121,24 @@ class MVTools:
         ) | self.recalculate_args
 
         if self.mvtools is MVToolsPlugin.FLOAT_NEW:
-            vmulti = self.mvtools.Analyse(super_search, radius=t2, **analyze_args)
+            vmulti = self.mvtools.Analyse(supers.search, radius=t2, **analyze_args)
 
             vectors.vmulti = vmulti
 
             for i in range(self.refine):
                 recalc_args.update(blksize=blocksize / 2 ** i, overlap=blocksize / 2 ** (i + 1))
-                vectors.vmulti = self.mvtools.Recalculate(super_recalc, vectors.vmulti, **recalc_args)
+                vectors.vmulti = self.mvtools.Recalculate(supers.recalculate, vectors.vmulti, **recalc_args)
         else:
             def _add_vector(delta: int, analyze: bool = True) -> None:
+                assert supers
+
                 for direction in MVDirection:
                     if analyze:
-                        vect = self.mvtools.Analyse(super_search, isb=direction.isb, delta=delta, **analyze_args)
+                        vect = self.mvtools.Analyse(supers.search, isb=direction.isb, delta=delta, **analyze_args)
                     else:
-                        vect = self.mvtools.Recalculate(super_recalc, vectors.get_mv(direction, delta), **recalc_args)
+                        vect = self.mvtools.Recalculate(
+                            supers.recalculate, vectors.get_mv(direction, delta), **recalc_args
+                        )
 
                     vectors.set_mv(direction, delta, vect)
 
@@ -1152,6 +1160,28 @@ class MVTools:
         vectors.kwargs.update(thSAD=thSAD)
 
         return vectors
+
+    def get_supers(self, ref: vs.VideoNode, *, inplace: bool = False) -> SuperClips:
+        """
+        Get the super clips for the specified ref clip.
+
+        If :py:attr:`analyze` wasn't previously called,
+        it will do so here with default values or kwargs specified in the constructor.
+
+        :param inplace:     Only return the SuperClips object, not modifying the internal state.
+
+        :return:            SuperClips tuple.
+        """
+
+        if self.supers and self.supers.base == ref:
+            return self.supers
+
+        supers = self.super(ref=ref)
+
+        if not inplace:
+            self.supers = supers
+
+        return supers
 
     def get_vectors_bf(self, *, inplace: bool = False) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
         """
@@ -1189,7 +1219,8 @@ class MVTools:
         return (vectors_backward, vectors_forward)
 
     def compensate(
-        self, func: GenericVSFunction, thSAD: int = 150, *, ref: vs.VideoNode | None = None, **kwargs: Any
+        self, func: GenericVSFunction, thSAD: int = 150,
+        supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None, **kwargs: Any
     ) -> vs.VideoNode:
         """
         At compensation stage, the plugin client functions read the motion vectors and use them to move blocks
@@ -1217,11 +1248,10 @@ class MVTools:
         ref = self.get_ref_clip(ref, self.__class__.compensate)
 
         vect_b, vect_f = self.get_vectors_bf()
-
-        super_render = self.super()[0]
+        supers = supers or self.get_supers(ref)
 
         compensate_args = dict(
-            super=super_render, thsad=thSAD,
+            super=supers.render, thsad=thSAD,
             tff=self.source_type.is_inter and self.source_type.value or None
         ) | self.compensate_args
 
@@ -1244,6 +1274,7 @@ class MVTools:
         thSAD: int | tuple[int | None, int | None] | None = None,
         limit: int | tuple[int, int] = 255,
         thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        supers: SuperClips | None = None,
         *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
         """
@@ -1288,6 +1319,7 @@ class MVTools:
         ref = self.get_ref_clip(ref, self.__class__.degrain)
 
         vect_b, vect_f = self.get_vectors_bf()
+        supers = supers or self.get_supers(ref)
 
         thSAD, thSADC = (thSAD if isinstance(thSAD, tuple) else (thSAD, None))
 
@@ -1317,8 +1349,6 @@ class MVTools:
 
         degrain_args = dict[str, Any](thscd1=thSCD1, thscd2=thSCD2, plane=self.mv_plane)
 
-        super_render = self.super()[0]
-
         if self.mvtools is MVToolsPlugin.INTEGER:
             degrain_args.update(thsad=thSAD, thsadc=thSADC, limit=limitf, limitc=limitCf)
         else:
@@ -1328,10 +1358,10 @@ class MVTools:
                 degrain_args.update(thsad2=[thSAD / 2, thSADC / 2])
 
         if self.mvtools is MVToolsPlugin.FLOAT_NEW:
-            output = self.mvtools.Degrain()(ref, super_render, self.vectors.vmulti, **degrain_args)
+            output = self.mvtools.Degrain()(ref, supers.render, self.vectors.vmulti, **degrain_args)
         else:
             output = self.mvtools.Degrain(self.tr)(
-                ref, super_render, *chain.from_iterable(zip(vect_b, vect_f)), **degrain_args
+                ref, supers.render, *chain.from_iterable(zip(vect_b, vect_f)), **degrain_args
             )
 
         return output.std.DoubleWeave(self.source_type.value) if self.source_type.is_inter else output
