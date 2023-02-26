@@ -119,7 +119,6 @@ class BM3DColorspaceConfig:
             if self.format.color_family == vs.YUV:
                 clip = join(clip, self.clip)
         elif self.csp_type.is_opp:
-            self.resampler.opp2yuv(clip, self.format, self.matrix, dither).set_output(3)
             if self.format.color_family == vs.YUV:
                 clip = self.resampler.opp2yuv(clip, self.format, self.matrix, dither)
             else:
