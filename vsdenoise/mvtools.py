@@ -734,7 +734,7 @@ class MVTools:
         self, clip: vs.VideoNode,
         tr: int = 2, refine: int = 3, pel: int | None = None,
         planes: int | Sequence[int] | None = None,
-        range_in: ColorRange = ColorRange.LIMITED,
+        range_in: ColorRange | None = None,
         source_type: FieldBasedT | None = None,
         high_precision: bool = False,
         hpad: int | None = None, vpad: int | None = None,
@@ -862,7 +862,7 @@ class MVTools:
             raise CustomOverflowError(f'Refine > 6 is not supported! ({refine})', self.__class__)
 
         self.source_type = FieldBased.from_param(source_type, MVTools) or FieldBased.from_video(self.clip)
-        self.range_in = range_in
+        self.range_in = range_in or ColorRange.from_video(self.clip, False, self.__class__)
 
         self.pel = fallback(pel, 1 + int(not self.is_hd))
 
