@@ -130,9 +130,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             else:
                 raise ValueError
 
-            sigma = kwargs.pop('sigma', sigma)
-
-            sigmas = [sigma if 0 in planes else 0, sigma if (1 in planes or 2 in planes) else 0]
+            sigmas = kwargs.pop('sigma', [sigma if 0 in planes else 0, sigma if (1 in planes or 2 in planes) else 0])
 
             bm3d_args = dict[str, Any](sigma=sigmas, radius=1, profile=profile) | kwargs
 
