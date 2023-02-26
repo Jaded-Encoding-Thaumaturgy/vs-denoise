@@ -949,10 +949,11 @@ class MVTools:
                                     The ideal prefiltered clip will be one that has little to not
                                     temporal instability or dynamic grain, but retains most of the detail.
         :param pel_type:            Type of interpolation to use for upscaling the pel clip.
-        :param ref:                 Reference clip to use for analyzes over the main clip.
+        :param ref:                 Reference clip to use for creating super clips.
 
         :return:                    SuperClips yuple containing the render, search, and recalculate super clips.
         """
+
         ref = self.get_ref_clip(ref, self.__class__.super)
         rfilter = kwargs_fallback(rfilter, (self.super_func_kwargs, 'rfilter'), 3)
         range_conversion = kwargs_fallback(range_conversion, (self.super_func_kwargs, 'range_conversion'), 5.0)
@@ -1030,32 +1031,11 @@ class MVTools:
         :param thSAD:               During the recalculation, only bad quality new vectors with SAD above this thSAD
                                     will be re-estimated by search. thSAD value is scaled to 8x8 block size.
                                     Good vectors are not changed, but their SAD will be re-calculated and updated.
-        :param range_conversion:    If the input is limited, it will be converted to full range
-                                    to allow the motion analysis to use a wider array of information.\n
-                                    This is for deciding what range conversion method to use.
-                                     * >= 1.0 - Expansion with expr based on this coefficient.
-                                     * >  0.0 - Expansion with retinex.
-                                     * <= 0.0 - Simple conversion with resize plugin.
         :param search:              Decides the type of search at every level of the hierarchial
                                     analysis made while searching for motion vectors.
-        :param sharp:               Subpixel interpolation method for pel = 2 or 4. Possible values are 0, 1, 2.\n
-                                     * 0 - for soft interpolation (bilinear).
-                                     * 1 - for bicubic interpolation (4 tap Catmull-Rom).
-                                     * 2 - for sharper Wiener interpolation (6 tap, similar to Lanczos).
-                                    This parameter controls the calculation of the first level only.
-                                    When pel = 4, bilinear interpolation is always used to compute the second level.
-        :param rfilter:             Hierarchical levels smoothing and reducing (halving) filter.\n
-                                     * 0 - Simple 4 pixels averaging.
-                                     * 1 - Triangle (shifted) for more smoothing (decrease aliasing).
-                                     * 2 - Triangle filter like Bilinear for even more smoothing.
-                                     * 3 - Quadratic filter for even more smoothing.
-                                     * 4 - Cubic filter like Bicubic(b=1, c=0) for even more smoothing.
         :param sad_mode:            SAD Calculation mode.
         :param motion:              A preset or custom parameters values for truemotion/motion analysis mode.
-        :param prefilter:           Prefilter to use for motion estimation. Can be a prefiltered clip instead.
-                                    The ideal prefiltered clip will be one that has little to not
-                                    temporal instability or dynamic grain, but retains most of the detail.
-        :param pel_type:            Type of interpolation to use for upscaling the pel clip.
+        :param supers:              Custom super clips to be used for analyze.
         :param ref:                 Reference clip to use for analyzes over the main clip.
         :param inplace:             Whether to save the analysis in the MVTools instance or not.
 
@@ -1246,6 +1226,7 @@ class MVTools:
         :param thSAD:       This is the SAD threshold for safe (dummy) compensation.\n
                             If block SAD is above thSAD, the block is bad, and we use source block
                             instead of the compensated block.
+        :param supers:      Custom super clips to be used for compensating.
         :param ref:         Reference clip to use instead of main clip.
         :param kwargs:      Keyword arguments passed to `func` to avoid using `partial`.
 
@@ -1319,6 +1300,7 @@ class MVTools:
                         the frame to be considered as a scene change. It ranges from 0 to 100 %.
         :param ref:     Reference clip to use rather than the main clip. If passed,
                         the degraining will be applied to the ref clip rather than the original input clip.
+        :param supers:  Custom super clips to be used for degraining.
 
         :return:        Degrained clip.
         """
