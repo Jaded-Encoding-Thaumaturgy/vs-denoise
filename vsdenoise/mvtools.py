@@ -746,15 +746,15 @@ class MVTools:
         analyze_args: dict[str, Any] | None = None,
         recalculate_args: dict[str, Any] | None = None,
         compensate_args: dict[str, Any] | None = None,
+        # super kwargs
+        range_conversion: float | None = None, sharp: int | None = None,
+        rfilter: int | None = None, prefilter: Prefilter | vs.VideoNode | None = None,
+        pel_type: PelType | tuple[PelType, PelType] | None = None,
         # analyze kwargs
         block_size: int | None = None, overlap: int | None = None,
-        thSAD: int | None = None, range_conversion: float | None = None,
-        search: SearchMode | SearchMode.Config | None = None,
-        sharp: int | None = None, rfilter: int | None = None,
+        thSAD: int | None = None, search: SearchMode | SearchMode.Config | None = None,
         sad_mode: SADMode | tuple[SADMode, SADMode] | None = None,
         motion: MotionMode.Config | None = None,
-        prefilter: Prefilter | vs.VideoNode | None = None,
-        pel_type: PelType | tuple[PelType, PelType] | None = None
     ) -> None:
         """
         MVTools is a wrapper around the Motion Vector Tools plugin for VapourSynth,
@@ -919,10 +919,8 @@ class MVTools:
         )
 
     def super(
-        self,
-        range_conversion: float | None = None,
-        sharp: int | None = None, rfilter: int | None = None,
-        prefilter: Prefilter | vs.VideoNode | None = None,
+        self, range_conversion: float | None = None, sharp: int | None = None,
+        rfilter: int | None = None, prefilter: Prefilter | vs.VideoNode | None = None,
         pel_type: PelType | tuple[PelType, PelType] | None = None,
         *, ref: vs.VideoNode | None = None, inplace: bool = False
     ) -> SuperClips:
@@ -1007,13 +1005,10 @@ class MVTools:
         return supers
 
     def analyze(
-        self,
-        block_size: int | None = None, overlap: int | None = None,
-        thSAD: int | None = None,
+        self, block_size: int | None = None, overlap: int | None = None, thSAD: int | None = None,
         search: SearchMode | SearchMode.Config | None = None,
         sad_mode: SADMode | tuple[SADMode, SADMode] | None = None,
-        motion: MotionMode.Config | None = None,
-        supers: SuperClips | None = None,
+        motion: MotionMode.Config | None = None, supers: SuperClips | None = None,
         *, ref: vs.VideoNode | None = None, inplace: bool = False
     ) -> MotionVectors:
         """
