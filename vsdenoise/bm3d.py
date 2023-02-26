@@ -11,9 +11,10 @@ from typing import Any, NamedTuple, final, overload
 
 from vskernels import Point
 from vstools import (
-    ColorRange, ColorRangeT, CustomIntEnum, CustomStrEnum, CustomValueError, DitherType, FuncExceptT, KwargsT, Matrix,
-    MatrixT, ResampleUtil, Self, SingleOrArr, check_variable, core, depth, get_video_format, inject_self, join,
-    normalize_seq, vs, vs_object)
+    ColorRange, ColorRangeT, CustomIndexError, CustomIntEnum, CustomStrEnum, CustomValueError, DitherType, FuncExceptT,
+    KwargsT, Matrix, MatrixT, ResampleUtil, Self, SingleOrArr, check_variable, core, depth, get_video_format,
+    inject_self, join, normalize_seq, vs, vs_object
+)
 
 from .types import _Plugin_bm3dcpu_Core_Bound, _Plugin_bm3dcuda_Core_Bound, _Plugin_bm3dcuda_rtc_Core_Bound
 
@@ -66,10 +67,10 @@ class BM3DColorspaceConfig:
         fmt = get_video_format(clip)
 
         if fmt.sample_type != vs.FLOAT or fmt.bits_per_sample != 32 and self.resampler.fp32:
-            clip = ColorRange.ensure_presence(clip, range_in, func)
+            clip = ColorRange.ensure_presence(clip, range_in or ColorRange.from_video(clip), func)
 
         if fmt.color_family == vs.YUV and (self.csp_type.is_rgb or self.csp_type.is_opp):
-            clip = Matrix.ensure_presence(clip, matrix, func)
+            clip = Matrix.ensure_presence(clip, matrix or Matrix.from_video(clip), func)
 
         return clip
 
@@ -119,7 +120,6 @@ class BM3DColorspaceConfig:
             if self.format.color_family == vs.YUV:
                 clip = join(clip, self.clip)
         elif self.csp_type.is_opp:
-            self.resampler.opp2yuv(clip, self.format, self.matrix, dither).set_output(3)
             if self.format.color_family == vs.YUV:
                 clip = self.resampler.opp2yuv(clip, self.format, self.matrix, dither)
             else:
@@ -382,8 +382,6 @@ class AbstractBM3D(vs_object):
                                 If not specified, the input clip is used instead.
                                 Default: None.
         :param refine:          The number of times to refine the estimation.
-
-                                 * 0 means basic estimate only.
                                  * 1 means basic estimate with one final estimate.
                                  * n means basic estimate refined with final estimate applied n times.
 
@@ -414,6 +412,9 @@ class AbstractBM3D(vs_object):
 
         self.profile = profile if isinstance(profile, ProfileBase.Config) else profile()
         self.ref = self.cspconfig.check_clip(ref, matrix, range_in, self.__class__)
+        if refine < 1:
+            raise CustomIndexError('"refine" must be >= 1!', self.__class__)
+
         self.refine = refine
 
         self.basic_args = {}
@@ -460,6 +461,15 @@ class AbstractBM3D(vs_object):
             DeprecationWarning, fi.filename, fi.lineno - 8
         ))
         return self.final()
+
+    @classmethod
+    def denoise(
+        cls, clip: vs.VideoNode, sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
+        refine: int = 1, profile: Profile | Profile.Config = Profile.FAST, ref: vs.VideoNode | None = None,
+        matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
+        colorspace: BM3DColorspace = BM3DColorspace.OPP
+    ) -> vs.VideoNode:
+        return cls(clip, sigma, radius, profile, ref, refine, matrix, range_in, colorspace).final()
 
     def __post_init__(self) -> None:
         self._pre_clip = self.cspconfig.prepare_clip(self.cspconfig.clip)
