@@ -13,9 +13,9 @@ from _collections_abc import dict_items, dict_keys, dict_values
 from vstools import (
     MISSING, ColorRange, ConstantFormatVideoNode, CustomEnum, CustomIntEnum, CustomOverflowError, CustomStrEnum,
     CustomValueError, FieldBased, FieldBasedT, FuncExceptT, GenericVSFunction, InvalidColorFamilyError, KwargsNotNone,
-    KwargsT, MissingT, VSFunction, check_ref_clip, check_variable, clamp, core, depth, disallow_variable_format,
-    disallow_variable_resolution, fallback, inject_self, kwargs_fallback, normalize_planes, normalize_seq, scale_value,
-    vs
+    KwargsT, MissingT, PlanesT, VSFunction, check_ref_clip, check_variable, clamp, core, depth,
+    disallow_variable_format, disallow_variable_resolution, fallback, inject_self, kwargs_fallback, normalize_planes,
+    normalize_seq, scale_value, vs
 )
 
 from .prefilters import PelType, Prefilter, prefilter_to_full_range
@@ -1395,3 +1395,38 @@ class MVTools:
                 clip, self.pel, PelType.WIENER if is_ref else PelType.BICUBIC
             ) for is_ref, ptype, clip in zip((False, True), pel_type, (pref, ref))
         )
+
+    @classmethod
+    def denoise(
+        cls, clip: vs.VideoNode, thSAD: int | tuple[int, int | tuple[int, int]] | None = None,
+        tr: int = 2, refine: int = 3, block_size: int | None = None, overlap: int | None = None,
+        prefilter: Prefilter | vs.VideoNode | None = None, pel: int | None = None,
+        sad_mode: SADMode | tuple[SADMode, SADMode] | None = None,
+        search: SearchMode | SearchMode.Config | None = None,
+        pel_type: PelType | tuple[PelType, PelType] | None = None,
+        planes: PlanesT = None, range_in: ColorRange | None = None,
+        source_type: FieldBasedT | None = None, high_precision: bool = False,
+        limit: int | tuple[int, int] = 255, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        *, super_args: dict[str, Any] | None = None, analyze_args: dict[str, Any] | None = None,
+        recalculate_args: dict[str, Any] | None = None, compensate_args: dict[str, Any] | None = None,
+        range_conversion: float | None = None, sharp: int | None = None,
+        hpad: int | None = None, vpad: int | None = None, params_curve: bool = True,
+        rfilter: int | None = None, vectors: MotionVectors | MVTools | None = None,
+        motion: MotionMode.Config | None = None, supers: SuperClips | None = None
+    ) -> vs.VideoNode:
+        mvtools = cls(
+            clip, tr, refine, pel, planes, range_in, source_type, high_precision, hpad, vpad,
+            vectors, params_curve, super_args=super_args, analyze_args=analyze_args,
+            recalculate_args=recalculate_args, compensate_args=compensate_args
+        )
+
+        if isinstance(thSAD, Sequence):
+            thSADA, thSADD = thSAD  # type: ignore
+        else:
+            thSADA = thSADD = thSAD
+
+        supers = supers or mvtools.super(range_conversion, sharp, rfilter, prefilter, pel_type)
+
+        vectors = vectors or mvtools.analyze(block_size, overlap, thSADA, search, sad_mode, motion, supers)
+
+        return mvtools.degrain(thSADD, limit, thSCD, supers)
