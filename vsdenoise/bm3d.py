@@ -460,6 +460,15 @@ class AbstractBM3D(vs_object):
         ))
         return self.final()
 
+    @classmethod
+    def denoise(
+        cls, clip: vs.VideoNode, sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
+        refine: int = 1, profile: Profile | Profile.Config = Profile.FAST, ref: vs.VideoNode | None = None,
+        matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
+        colorspace: BM3DColorspace = BM3DColorspace.OPP
+    ) -> vs.VideoNode:
+        return cls(clip, sigma, radius, profile, ref, refine, matrix, range_in, colorspace).final()
+
     def __post_init__(self) -> None:
         self._pre_clip = self.cspconfig.prepare_clip(self.cspconfig.clip)
         self._pre_ref = self.cspconfig.prepare_clip(self.ref)
