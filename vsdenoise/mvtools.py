@@ -874,13 +874,6 @@ class MVTools:
 
         self.chroma = self.mv_plane != 0
 
-        if isinstance(vectors, MVTools):
-            self.vectors = vectors.vectors
-        elif isinstance(vectors, MotionVectors):
-            self.vectors = vectors
-        else:
-            self.vectors = MotionVectors()
-
         self.params_curve = params_curve
 
         self.super_args = fallback(super_args, dict[str, Any]())
@@ -917,6 +910,13 @@ class MVTools:
             overlap=overlap, search=search, block_size=block_size, sad_mode=sad_mode,
             motion=motion, thSAD=thSAD
         )
+
+        if isinstance(vectors, MVTools):
+            self.vectors = vectors.vectors
+        elif isinstance(vectors, MotionVectors):
+            self.vectors = vectors
+        else:
+            self.vectors = MotionVectors()
 
     def super(
         self, range_conversion: float | None = None, sharp: int | None = None,
