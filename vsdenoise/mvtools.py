@@ -291,6 +291,8 @@ class MotionMode:
 
         Internally it is coefficient for SAD penalty of vector squared
         difference from predictors (neighbors), scaled by 256.
+
+        This is the "lambda" parameter of MVTools.
         """
 
         sad_limit: int
@@ -301,6 +303,8 @@ class MotionMode:
         is greater than the limit. It prevents bad predictors using but decreases the motion coherence.
 
         Values above 1000 (for block size=8) are recommended for true motion.
+
+        This is the "lsad" parameter of MVTools.
         """
 
         pnew: int
@@ -329,6 +333,10 @@ class MotionMode:
         Relative penalty (scaled to 8 bit) to SAD cost for global predictor vector.\n
         Coherence is not used for global vector.
         """
+
+        def block_coherence(self, block_size: int) -> int:
+            """Method to calculate coherence (lambda) based on blocksize."""
+            return (self.coherence * block_size ** 2) // 64
 
     HIGH_SAD = Config(False, 0, 400, 0, 0, False)
     """Use to search motion vectors with best SAD."""
@@ -1111,13 +1119,14 @@ class MVTools:
         analyze_args = dict[str, Any](
             dct=sad_mode, pelsearch=search.pel, blksize=blocksize, overlap=overlap, search=search.mode,
             truemotion=motion.truemotion, searchparam=search.param, chroma=self.chroma,
-            plevel=motion.plevel, pglobal=motion.pglobal
+            plevel=motion.plevel, pglobal=motion.pglobal, pnew=motion.pnew,
+            lambda_=motion.block_coherence(blocksize), lsad=motion.sad_limit,
         ) | self.analyze_args
 
         recalc_args = dict[str, Any](
             search=search.recalc_mode, dct=recalc_sad_mode, thsad=thSAD_recalc, blksize=halfblocksize,
             overlap=halfoverlap, truemotion=motion.truemotion, searchparam=search.param_recalc,
-            chroma=self.chroma
+            chroma=self.chroma, pnew=motion.pnew, lambda_=motion.block_coherence(halfblocksize)
         ) | self.recalculate_args
 
         if self.mvtools is MVToolsPlugin.FLOAT_NEW:
@@ -1126,7 +1135,8 @@ class MVTools:
             vectors.vmulti = vmulti
 
             for i in range(self.refine):
-                recalc_args.update(blksize=blocksize / 2 ** i, overlap=blocksize / 2 ** (i + 1))
+                val = clamp(blocksize / 2 ** i, 4, 128)
+                recalc_args.update(blksize=val, overlap=val / 2, lambda_=motion.block_coherence(val))
                 vectors.vmulti = self.mvtools.Recalculate(supers.recalculate, vectors.vmulti, **recalc_args)
         else:
             def _add_vector(delta: int, analyze: bool = True) -> None:
@@ -1151,9 +1161,11 @@ class MVTools:
                         continue
 
                     for j in range(0, self.refine):
-                        val = clamp(blocksize / 2 ** j, 4, 128)
+                        recalc_blksize = clamp(blocksize / 2 ** j, 4, 128)
 
-                        recalc_args.update(blksize=val, overlap=val / 2)
+                        recalc_args.update(
+                            blksize=recalc_blksize, overlap=recalc_blksize // 2, lambda_=motion.block_coherence(val)
+                        )
 
                         _add_vector(i, False)
 
