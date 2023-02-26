@@ -149,6 +149,12 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
             return upscaler.scale(boxblur, clip.width, clip.height)
 
+        if pref_type == Prefilter.GAUSS:
+            if 'sharp' not in kwargs and 'sigma' not in kwargs:
+                kwargs |= dict(sigma=1.5)
+
+            return gauss_blur(clip, **(kwargs | dict[str, Any](planes=planes)))
+
         if pref_type == Prefilter.GAUSSBLUR:
             if 'sharp' not in kwargs and 'sigma' not in kwargs:
                 kwargs |= dict(sigma=1.0)
@@ -247,6 +253,9 @@ class Prefilter(PrefilterBase):
 
     SCALEDBLUR = 7
     """Perform blurring at a scaled-down resolution, then scale it back up."""
+
+    GAUSS = 13
+    """Simply Gaussian blur."""
 
     GAUSSBLUR = 8
     """Gaussian blurred, then postprocessed to remove low frequencies."""
