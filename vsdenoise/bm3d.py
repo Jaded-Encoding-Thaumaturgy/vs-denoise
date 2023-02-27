@@ -11,7 +11,7 @@ from typing import Any, NamedTuple, final, overload
 
 from vstools import (
     ColorRange, ColorRangeT, Colorspace, CustomIndexError, CustomStrEnum, CustomValueError, DitherType, FuncExceptT,
-    KwargsT, Matrix, MatrixT, Self, SingleOrArr, check_variable, core, get_video_format, join, normalize_seq, vs,
+    KwargsT, Matrix, MatrixT, Self, SingleOrArr, check_variable, core, depth, get_video_format, join, normalize_seq, vs,
     vs_object, ConstantFormatVideoNode
 )
 
@@ -83,7 +83,7 @@ class BM3DColorspaceConfig:
 
         if self.clip.format.color_family is vs.YUV:
             if clip.format.color_family is vs.GRAY:
-                clip = join(clip, self.clip)
+                clip = join(depth(clip, self.clip), self.clip)
             else:
                 clip = self.csp.to_yuv(clip, self.fp32, format=self.clip.format, matrix=self.matrix, dither_type=dither)
         elif self.clip.format.color_family is vs.RGB:
@@ -92,7 +92,7 @@ class BM3DColorspaceConfig:
         if self.chroma_only:
             clip = join(self.clip, clip)
 
-        return clip
+        return depth(clip, self.clip)
 
 
 class ProfileBase:
