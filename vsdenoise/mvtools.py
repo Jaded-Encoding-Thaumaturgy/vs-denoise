@@ -1110,8 +1110,11 @@ class MVTools:
             vectors.vmulti = vmulti
 
             for i in range(self.refine):
-                val = clamp(blocksize / 2 ** i, 4, 128)
-                recalc_args.update(blksize=val, overlap=val / 2, lambda_=motion.block_coherence(val))
+                recalc_blksize = clamp(blocksize / 2 ** i, 4, 128)
+                recalc_args.update(
+                    blksize=recalc_blksize, overlap=recalc_blksize / 2,
+                    lambda_=motion.block_coherence(recalc_blksize)
+                )
                 vectors.vmulti = self.mvtools.Recalculate(supers.recalculate, vectors.vmulti, **recalc_args)
         else:
             def _add_vector(delta: int, analyze: bool = True) -> None:
@@ -1139,7 +1142,8 @@ class MVTools:
                         recalc_blksize = clamp(blocksize / 2 ** j, 4, 128)
 
                         recalc_args.update(
-                            blksize=recalc_blksize, overlap=recalc_blksize // 2, lambda_=motion.block_coherence(val)
+                            blksize=recalc_blksize, overlap=recalc_blksize // 2,
+                            lambda_=motion.block_coherence(recalc_blksize)
                         )
 
                         _add_vector(i, False)
