@@ -951,7 +951,7 @@ class MVTools:
         :param pel_type:            Type of interpolation to use for upscaling the pel clip.
         :param ref:                 Reference clip to use for creating super clips.
 
-        :return:                    SuperClips yuple containing the render, search, and recalculate super clips.
+        :return:                    SuperClips tuple containing the render, search, and recalculate super clips.
         """
 
         ref = self.get_ref_clip(ref, self.__class__.super)
