@@ -9,11 +9,10 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Any, NamedTuple, final, overload
 
-from vskernels import Point
 from vstools import (
     ColorRange, ColorRangeT, Colorspace, CustomIndexError, CustomStrEnum, CustomValueError, DitherType, FuncExceptT,
-    KwargsT, Matrix, MatrixT, Self, SingleOrArr, check_variable, core, depth, get_video_format, join, normalize_seq, vs,
-    vs_object
+    KwargsT, Matrix, MatrixT, Self, SingleOrArr, check_variable, core, get_video_format, join, normalize_seq, vs,
+    vs_object, ConstantFormatVideoNode
 )
 
 from .types import _Plugin_bm3dcpu_Core_Bound, _Plugin_bm3dcuda_Core_Bound, _Plugin_bm3dcuda_rtc_Core_Bound
@@ -27,10 +26,8 @@ __all__ = [
 @dataclass
 class BM3DColorspaceConfig:
     csp: Colorspace
-    clip: vs.VideoNode
+    clip: ConstantFormatVideoNode
     matrix: Matrix | None
-    format: vs.VideoFormat
-    is_gray: bool
     chroma_only: bool
 
     fp32: bool
@@ -38,7 +35,7 @@ class BM3DColorspaceConfig:
     @overload
     def check_clip(
         self, clip: vs.VideoNode, matrix: MatrixT | None, range_in: ColorRangeT | None, func: FuncExceptT
-    ) -> vs.VideoNode:
+    ) -> ConstantFormatVideoNode:
         ...
 
     @overload
@@ -49,7 +46,7 @@ class BM3DColorspaceConfig:
 
     def check_clip(
         self, clip: vs.VideoNode | None, matrix: MatrixT | None, range_in: ColorRangeT | None, func: FuncExceptT
-    ) -> vs.VideoNode | None:
+    ) -> ConstantFormatVideoNode | None:
         if clip is None:
             return None
 
@@ -60,6 +57,8 @@ class BM3DColorspaceConfig:
 
         if fmt.color_family == vs.YUV and (self.csp.is_rgb or self.csp.is_opp):
             clip = Matrix.ensure_presence(clip, matrix or Matrix.from_video(clip), func)
+
+        assert check_variable(clip, func)
 
         return clip
 
@@ -75,49 +74,20 @@ class BM3DColorspaceConfig:
         ...
 
     def prepare_clip(self, clip: vs.VideoNode | None) -> vs.VideoNode | None:
-        if clip is None:
-            return None
-
-        assert clip.format
-
-        if self.csp.is_rgb:
-            if clip.format.color_family != vs.RGB:
-                clip = clip.resize.Bicubic(format=vs.RGBS)
-        elif self.csp.is_yuv:
-            if clip.format.color_family != vs.YUV:  # type: ignore
-                clip = clip.resize.Bicubic(
-                    format=self.format.replace(
-                        color_family=vs.YUV, sample_type=vs.FLOAT, bits_per_sample=32, subsampling_h=0, subsampling_w=0
-                    ).id, matrix=self.matrix
-                )
-        elif self.csp.is_opp:
-            if self.is_gray:
-                clip = Colorspace.GRAY.from_clip(clip, self.fp32)
-            else:
-                clip = self.csp.from_clip(clip, self.fp32)
-
-        return depth(
-            clip, self.format.bits_per_sample if self.fp32 is None else (32 if self.fp32 else 16)
-        )
+        return clip and self.csp.from_clip(clip, self.fp32, self.prepare_clip)
 
     def post_processing(self, clip: vs.VideoNode) -> vs.VideoNode:
-        dither = DitherType.ERROR_DIFFUSION if DitherType.should_dither(self.format, clip) else DitherType.NONE
+        assert clip.format
 
-        if self.is_gray:
-            clip = Point.resample(
-                clip, self.format.replace(color_family=vs.GRAY, subsampling_w=0, subsampling_h=0).id,
-                dither_type=dither
-            )
+        dither = DitherType.ERROR_DIFFUSION if DitherType.should_dither(self.clip.format, clip) else DitherType.NONE
 
-            if self.format.color_family == vs.YUV:
+        if self.clip.format.color_family is vs.YUV:
+            if clip.format.color_family is vs.GRAY:
                 clip = join(clip, self.clip)
-        elif self.csp.is_opp:
-            if self.format.color_family == vs.YUV:
-                clip = self.csp.resampler.csp2yuv(
-                    clip, self.fp32, format=self.format, matrix=self.matrix, dither_type=dither
-                )
             else:
-                clip = self.csp.resampler.csp2rgb(clip, self.fp32)
+                clip = self.csp.to_yuv(clip, self.fp32, format=self.clip.format, matrix=self.matrix, dither_type=dither)
+        elif self.clip.format.color_family is vs.RGB:
+            clip = self.csp.to_rgb(clip, self.fp32)
 
         if self.chroma_only:
             clip = join(self.clip, clip)
@@ -369,11 +339,14 @@ class AbstractBM3D(vs_object):
             _is_gray = True
 
         if colorspace is None:
-            colorspace = Colorspace.OPP_JOY if hasattr(core, 'bm3d') else Colorspace.OPP
+            colorspace = Colorspace.OPP_BM3D if hasattr(core, 'bm3d') else Colorspace.OPP
+
+        if _is_gray:
+            colorspace = Colorspace.GRAY
 
         self.cspconfig = BM3DColorspaceConfig(
             colorspace, clip, Matrix.from_video(clip) if clip.format.color_family == vs.YUV else None,
-            clip.format, _is_gray, self.sigma.y == 0, fp32
+            self.sigma.y == 0, fp32
         )
 
         self.cspconfig.clip = self.cspconfig.check_clip(clip, matrix, range_in, self.__class__)
