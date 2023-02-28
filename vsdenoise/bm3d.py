@@ -338,11 +338,10 @@ class AbstractBM3D(vs_object):
         elif sum(self.sigma[1:]) == 0:
             _is_gray = True
 
-        if colorspace is None:
-            colorspace = Colorspace.OPP_BM3D if hasattr(core, 'bm3d') else Colorspace.OPP
-
         if _is_gray:
             colorspace = Colorspace.GRAY
+        elif colorspace is None:
+            colorspace = Colorspace.OPP_BM3D
 
         self.cspconfig = BM3DColorspaceConfig(
             colorspace, clip, Matrix.from_video(clip) if clip.format.color_family == vs.YUV else None,
@@ -408,7 +407,7 @@ class AbstractBM3D(vs_object):
         cls, clip: vs.VideoNode, sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
         refine: int = 1, profile: Profile | Profile.Config = Profile.FAST, ref: vs.VideoNode | None = None,
         matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
-        colorspace: Colorspace = Colorspace.OPP, fp32: bool = True
+        colorspace: Colorspace | None = None, fp32: bool = True
     ) -> vs.VideoNode:
         return cls(clip, sigma, radius, profile, ref, refine, matrix, range_in, colorspace, fp32).final()
 
