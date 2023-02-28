@@ -56,7 +56,7 @@ class BM3DColorspaceConfig:
             clip = ColorRange.ensure_presence(clip, range_in or ColorRange.from_video(clip), func)
 
         if fmt.color_family == vs.YUV and (self.csp.is_rgb or self.csp.is_opp):
-            clip = Matrix.ensure_presence(clip, matrix or Matrix.from_video(clip), func)
+            clip = Matrix.ensure_presence(clip, matrix, func)
 
         assert check_variable(clip, func)
 
@@ -74,7 +74,15 @@ class BM3DColorspaceConfig:
         ...
 
     def prepare_clip(self, clip: vs.VideoNode | None) -> vs.VideoNode | None:
-        return clip and self.csp.from_clip(clip, self.fp32, self.prepare_clip)
+        if clip is None:
+            return None
+
+        assert check_variable(clip, self.prepare_clip)
+
+        if clip.format.color_family is vs.RGB:
+            return self.csp.resampler.rgb2csp(clip, self.fp32, self.prepare_clip, matrix=self.matrix)
+
+        return self.csp.resampler.yuv2csp(clip, self.fp32, self.prepare_clip, matrix_in=self.matrix)
 
     def post_processing(self, clip: vs.VideoNode) -> vs.VideoNode:
         assert clip.format
@@ -343,8 +351,10 @@ class AbstractBM3D(vs_object):
         elif colorspace is None:
             colorspace = Colorspace.OPP_BM3D
 
+        matrix = Matrix.from_param(matrix)
+
         self.cspconfig = BM3DColorspaceConfig(
-            colorspace, clip, Matrix.from_video(clip) if clip.format.color_family == vs.YUV else None,
+            colorspace, clip, matrix or (Matrix.from_video(clip) if clip.format.color_family is vs.YUV else None),
             self.sigma.y == 0, fp32
         )
 
