@@ -209,7 +209,7 @@ class SADMode(CustomIntEnum):
     Transform both the current blocks and the reference block to frequency domain,
     then calculate the sum of the absolute difference between each pair of transformed samples in that domain.
 
-    SATD => Sum of HAdamard Transformed Differences.\n
+    SATD => Sum of Hadamard Transformed Differences.\n
     Get the difference block between the current blocks and the reference block,
     and transform that difference block to frequency domain and calculate the sum of the absolute value
     of each sample in that transformed difference block.
@@ -551,7 +551,7 @@ class SearchMode(SearchModeBase, CustomIntEnum):
         """
 
         is_uhd = kwargs.get('is_uhd', False)
-        refine = kwargs.get('refine', 3)
+        refine = kwargs.get('refine', 0)
         truemotion = kwargs.get('truemotion', False)
 
         if self is SearchMode.AUTO:
@@ -732,7 +732,7 @@ class MVTools:
     @disallow_variable_resolution
     def __init__(
         self, clip: vs.VideoNode,
-        tr: int = 2, refine: int = 3, pel: int | None = None,
+        tr: int = 2, refine: int = 0, pel: int | None = None,
         planes: int | Sequence[int] | None = None,
         range_in: ColorRange | None = None,
         source_type: FieldBasedT | None = None,
@@ -782,7 +782,7 @@ class MVTools:
         :param refine:              This represents the times the analyzed clip will be recalculated.\n
                                     With every recalculation step, the block size will be further refined.\n
                                     i.e. `refine=3` it will analyze at `block_size=32`, then refine at 16, 8, 4.
-                                    Set `refine=0` to disable recalculation completely.
+                                    Set `refine=0` (default) to disable recalculation completely.
         :param pel:                 Pixel EnLargement value, a.k.a. subpixel accuracy of the motion estimation.\n
                                     Value can only be 1, 2 or 4.
                                      * 1 means a precision to the pixel.
@@ -1072,7 +1072,7 @@ class MVTools:
         assert search
 
         sad_mode = kwargs_fallback(  # type: ignore[assignment]
-            sad_mode, (self.analyze_func_kwargs, 'sad_mode'), SADMode.SATD
+            sad_mode, (self.analyze_func_kwargs, 'sad_mode'), SADMode.SPATIAL
         )
 
         vectors = MotionVectors() if inplace else self.vectors
@@ -1080,7 +1080,7 @@ class MVTools:
         if isinstance(sad_mode, tuple):
             sad_mode, recalc_sad_mode = sad_mode
         else:
-            sad_mode, recalc_sad_mode = sad_mode, SADMode.SATD
+            sad_mode = recalc_sad_mode = sad_mode
 
         supers = supers or self.get_supers(ref)
 
@@ -1403,7 +1403,7 @@ class MVTools:
     @classmethod
     def denoise(
         cls, clip: vs.VideoNode, thSAD: int | tuple[int, int | tuple[int, int]] | None = None,
-        tr: int = 2, refine: int = 3, block_size: int | None = None, overlap: int | None = None,
+        tr: int = 2, refine: int = 0, block_size: int | None = None, overlap: int | None = None,
         prefilter: Prefilter | vs.VideoNode | None = None, pel: int | None = None,
         sad_mode: SADMode | tuple[SADMode, SADMode] | None = None,
         search: SearchMode | SearchMode.Config | None = None, motion: MotionMode.Config | None = None,
