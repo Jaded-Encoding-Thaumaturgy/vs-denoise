@@ -5,11 +5,10 @@ from math import ceil, exp
 from typing import Any, Sequence
 
 from vstools import (
-    ColorRange, ConstantFormatVideoNode, CustomOverflowError, FieldBased, FieldBasedT, FuncExceptT, GenericVSFunction,
-    InvalidColorFamilyError, KwargsT, PlanesT, check_ref_clip, check_variable, clamp, core, depth,
+    ColorRange, ConstantFormatVideoNode, CustomOverflowError, CustomRuntimeError, FieldBased, FieldBasedT, FuncExceptT,
+    GenericVSFunction, InvalidColorFamilyError, KwargsT, PlanesT, check_ref_clip, check_variable, clamp, core, depth,
     disallow_variable_format, disallow_variable_resolution, fallback, kwargs_fallback, normalize_planes, normalize_seq,
-    scale_value, vs
-)
+    scale_value, vs)
 
 from ..prefilters import PelType, Prefilter, prefilter_to_full_range
 from .enums import MotionMode, MVDirection, MVToolsPlugin, SADMode, SearchMode
@@ -412,59 +411,95 @@ class MVTools:
             lambda_=motion.block_coherence(blocksize), lsad=motion.sad_limit,
         ) | self.analyze_args
 
-        recalc_args = KwargsT(
-            search=search.recalc_mode, dct=recalc_sad_mode, thsad=thSAD_recalc, blksize=halfblocksize,
-            overlap=halfoverlap, truemotion=motion.truemotion, searchparam=search.param_recalc,
-            chroma=self.chroma, pnew=motion.pnew, lambda_=motion.block_coherence(halfblocksize)
-        ) | self.recalculate_args
-
         if self.mvtools is MVToolsPlugin.FLOAT_NEW:
-            vmulti = self.mvtools.Analyse(supers.search, radius=t2, **analyze_args)
-
-            vectors.vmulti = vmulti
-
-            for i in range(self.refine):
-                recalc_blksize = clamp(blocksize / 2 ** i, 4, 128)
-                recalc_args.update(
-                    blksize=recalc_blksize, overlap=recalc_blksize / 2,
-                    lambda_=motion.block_coherence(recalc_blksize)
-                )
-                vectors.vmulti = self.mvtools.Recalculate(supers.recalculate, vectors.vmulti, **recalc_args)
+            vectors.vmulti = self.mvtools.Analyse(supers.search, radius=t2, **analyze_args)
         else:
-            def _add_vector(delta: int, analyze: bool = True) -> None:
-                assert supers
-
-                for direction in MVDirection:
-                    if analyze:
-                        vect = self.mvtools.Analyse(supers.search, isb=direction.isb, delta=delta, **analyze_args)
-                    else:
-                        vect = self.mvtools.Recalculate(
-                            supers.recalculate, vectors.get_mv(direction, delta), **recalc_args
-                        )
-
-                    vectors.set_mv(direction, delta, vect)
-
             for i in range(1, t2 + 1):
-                _add_vector(i)
+                vectors.calculate_vectors(i, self.mvtools, supers, False, **analyze_args)
 
-            if self.refine:
-                for i in range(1, t2 + 1):
-                    if not vectors.got_mv(MVDirection.BACK, i) or not vectors.got_mv(MVDirection.FWRD, i):
-                        continue
-
-                    for j in range(0, self.refine):
-                        recalc_blksize = clamp(blocksize / 2 ** j, 4, 128)
-
-                        recalc_args.update(
-                            blksize=recalc_blksize, overlap=recalc_blksize // 2,
-                            lambda_=motion.block_coherence(recalc_blksize)
-                        )
-
-                        _add_vector(i, False)
+        if self.refine:
+            self.recalculate(
+                self.refine, self.tr, blocksize, halfoverlap, thSAD_recalc,
+                search, recalc_sad_mode, motion, supers, ref=ref
+            )
 
         vectors.kwargs.update(thSAD=thSAD)
 
         return vectors
+
+    def recalculate(
+        self, refine: int = 3, tr: int | None = None, block_size: int | None = None,
+        overlap: int | None = None, thSAD: int | None = None,
+        search: SearchMode | SearchMode.Config | None = None, sad_mode: SADMode = SADMode.SATD,
+        motion: MotionMode.Config | None = None, supers: SuperClips | None = None,
+        *, ref: vs.VideoNode | None = None
+    ) -> None:
+        ref = self.get_ref_clip(ref, self.__class__.analyze)
+
+        if not self.vectors.got_vectors:
+            raise CustomRuntimeError('You need to first run analyze before recalculating!', self.recalculate)
+
+        tr = fallback(tr, self.tr)
+
+        if tr > self.tr:
+            raise CustomOverflowError('Recalculate tr can\'t be greater than the MVTools tr!')
+
+        t2 = (tr * 2 if tr > 1 else tr) if self.source_type.is_inter else tr
+
+        blocksize = max(refine and 2 ** (refine + 1), fallback(block_size, 16 if self.is_hd else 8))
+        halfblocksize = max(2, blocksize // 2)
+
+        overlap = fallback(overlap, max(2, max(2, blocksize // 2) // 2))
+
+        search = kwargs_fallback(  # type: ignore[assignment]
+            search, (self.analyze_func_kwargs, 'search'),
+            SearchMode.HEXAGON if self.refine else SearchMode.DIAMOND
+        )
+
+        motion = kwargs_fallback(
+            motion, (self.analyze_func_kwargs, 'motion'),
+            MotionMode.VECT_NOSCALING if (
+                ref.format.bits_per_sample == 32
+            ) else MotionMode.from_param(not self.is_hd)
+        )
+
+        if isinstance(search, SearchMode):
+            search = search(is_uhd=self.is_uhd, refine=self.refine, truemotion=motion.truemotion)
+
+        assert search
+
+        recalc_args = KwargsT(
+            search=search.recalc_mode, dct=sad_mode, thsad=thSAD, blksize=halfblocksize,
+            overlap=overlap, truemotion=motion.truemotion, searchparam=search.param_recalc,
+            chroma=self.chroma, pnew=motion.pnew, lambda_=motion.block_coherence(halfblocksize)
+        ) | self.recalculate_args
+
+        supers = supers or self.get_supers(ref)
+
+        if self.mvtools is MVToolsPlugin.FLOAT_NEW:
+            for i in range(refine):
+                recalc_blksize = clamp(blocksize / 2 ** i, 4, 128)
+
+                self.vectors.vmulti = self.mvtools.Recalculate(
+                    supers.recalculate, self.vectors.vmulti, **(recalc_args | dict(
+                        blksize=recalc_blksize, overlap=recalc_blksize / 2,
+                        lambda_=motion.block_coherence(recalc_blksize)
+                    ))
+                )
+        else:
+            for i in range(1, t2 + 1):
+                if not self.vectors.got_mv(MVDirection.BACK, i) or not self.vectors.got_mv(MVDirection.FWRD, i):
+                    continue
+
+                for j in range(0, refine):
+                    recalc_blksize = clamp(blocksize / 2 ** j, 4, 128)
+
+                    self.vectors.calculate_vectors(
+                        i, self.mvtools, supers, True, **(recalc_args | dict(
+                            blksize=recalc_blksize, overlap=recalc_blksize // 2,
+                            lambda_=motion.block_coherence(recalc_blksize)
+                        ))
+                    )
 
     def get_supers(self, ref: vs.VideoNode, *, inplace: bool = False) -> SuperClips:
         """
