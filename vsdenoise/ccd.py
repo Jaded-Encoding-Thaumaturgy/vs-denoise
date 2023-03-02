@@ -8,7 +8,7 @@ from math import sin, sqrt
 from typing import Any
 
 from vsaa import Nnedi3
-from vsexprtools import EXPR_VARS, norm_expr, aka_expr_available
+from vsexprtools import EXPR_VARS, aka_expr_available, norm_expr
 from vskernels import Bicubic, Point
 from vsscale import SSIM
 from vstools import (

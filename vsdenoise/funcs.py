@@ -15,7 +15,6 @@ from vstools import KwargsT, PlanesT, depth, expect_bits, get_h, get_w, normaliz
 from .mvtools import MotionMode, MVTools
 from .prefilters import PelType
 
-
 __all__ = [
     'mlm_degrain'
 ]

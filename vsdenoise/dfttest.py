@@ -134,7 +134,7 @@ class SLocation:
 
             if len(locations) % 2:
                 raise CustomValueError(
-                    "slocations must resolve to an even number of total items, pairing frequency and sigma respectively",
+                    "slocations must resolve to an even number of items, pairing frequency and sigma respectively",
                     self.__class__
                 )
 
