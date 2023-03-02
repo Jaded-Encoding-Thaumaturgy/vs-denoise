@@ -953,15 +953,12 @@ class PelType(int, PelTypeBase):
                     pel_type = PelType.NNEDI3
 
         if pel_type == PelType.NNEDI3:
-            nnedicl, nnedi, znedi = (hasattr(core, ns) for ns in ('nnedi3cl', 'nnedi3', 'znedi3'))
-            do_nnedi = (nnedicl or nnedi) and not znedi
-
-            if not any((nnedi, znedi, nnedicl)):
+            if not any((hasattr(core, ns) for ns in ('nnedi3cl', 'nnedi3'))):
                 raise CustomRuntimeError('Missing any nnedi3 implementation!', PelType.NNEDI3)
 
             kwargs |= {'nsize': 0, 'nns': clamp(((pel - 1) // 2) + 1, 0, 4), 'qual': clamp(pel - 1, 1, 3)} | kwargs
 
-            pel_type = Nnedi3(**kwargs, opencl=nnedicl) if do_nnedi else Znedi3(**kwargs)
+            pel_type = Nnedi3(**kwargs)
 
         assert isinstance(pel_type, Scaler)
 
