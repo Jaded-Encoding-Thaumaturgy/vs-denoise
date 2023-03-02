@@ -6,8 +6,9 @@ from typing import Any, Sequence
 
 from vstools import (
     ColorRange, ConstantFormatVideoNode, CustomOverflowError, FieldBased, FieldBasedT, FuncExceptT, GenericVSFunction,
-    InvalidColorFamilyError, PlanesT, check_ref_clip, check_variable, clamp, core, depth, disallow_variable_format,
-    disallow_variable_resolution, fallback, kwargs_fallback, normalize_planes, normalize_seq, scale_value, vs
+    InvalidColorFamilyError, KwargsT, PlanesT, check_ref_clip, check_variable, clamp, core, depth,
+    disallow_variable_format, disallow_variable_resolution, fallback, kwargs_fallback, normalize_planes, normalize_seq,
+    scale_value, vs
 )
 
 from ..prefilters import PelType, Prefilter, prefilter_to_full_range
@@ -23,16 +24,16 @@ __all__ = [
 class MVTools:
     """MVTools wrapper for motion analysis / degrain / compensation"""
 
-    super_args: dict[str, Any]
+    super_args: KwargsT
     """Arguments passed to all the :py:attr:`MVToolsPlugin.Super` calls."""
 
-    analyze_args: dict[str, Any]
+    analyze_args: KwargsT
     """Arguments passed to all the :py:attr:`MVToolsPlugin.Analyze` calls."""
 
-    recalculate_args: dict[str, Any]
+    recalculate_args: KwargsT
     """Arguments passed to all the :py:attr:`MVToolsPlugin.Recalculate` calls."""
 
-    compensate_args: dict[str, Any]
+    compensate_args: KwargsT
     """Arguments passed to all the :py:attr:`MVToolsPlugin.Compensate` calls."""
 
     vectors: MotionVectors
@@ -55,10 +56,10 @@ class MVTools:
         params_curve: bool = True,
         *,
         # kwargs for mvtools calls
-        super_args: dict[str, Any] | None = None,
-        analyze_args: dict[str, Any] | None = None,
-        recalculate_args: dict[str, Any] | None = None,
-        compensate_args: dict[str, Any] | None = None,
+        super_args: KwargsT | None = None,
+        analyze_args: KwargsT | None = None,
+        recalculate_args: KwargsT | None = None,
+        compensate_args: KwargsT | None = None,
         # super kwargs
         range_conversion: float | None = None, sharp: int | None = None,
         rfilter: int | None = None, prefilter: Prefilter | vs.VideoNode | None = None,
@@ -189,10 +190,10 @@ class MVTools:
 
         self.params_curve = params_curve
 
-        self.super_args = fallback(super_args, dict[str, Any]())
-        self.analyze_args = fallback(analyze_args, dict[str, Any]())
-        self.recalculate_args = fallback(recalculate_args, dict[str, Any]())
-        self.compensate_args = fallback(compensate_args, dict[str, Any]())
+        self.super_args = fallback(super_args, KwargsT())
+        self.analyze_args = fallback(analyze_args, KwargsT())
+        self.recalculate_args = fallback(recalculate_args, KwargsT())
+        self.compensate_args = fallback(compensate_args, KwargsT())
 
         self.hpad = fallback(hpad, 8 if self.is_hd else 16)
         self.hpad_uhd = self.hpad // 2 if self.is_uhd else self.hpad
@@ -298,7 +299,7 @@ class MVTools:
         check_ref_clip(ref, prefilter)
         pelclip, pelclip2 = self.get_subpel_clips(prefilter, ref, pel_type)  # type: ignore[arg-type]
 
-        common_args = dict[str, Any](
+        common_args = KwargsT(
             sharp=sharp, pel=self.pel, vpad=self.vpad_half, hpad=self.hpad_uhd, chroma=self.chroma
         ) | self.super_args
         super_render_args = common_args | dict(levels=1, hpad=self.hpad, vpad=self.vpad, chroma=not self.is_gray)
@@ -404,14 +405,14 @@ class MVTools:
 
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
-        analyze_args = dict[str, Any](
+        analyze_args = KwargsT(
             dct=sad_mode, pelsearch=search.pel, blksize=blocksize, overlap=overlap, search=search.mode,
             truemotion=motion.truemotion, searchparam=search.param, chroma=self.chroma,
             plevel=motion.plevel, pglobal=motion.pglobal, pnew=motion.pnew,
             lambda_=motion.block_coherence(blocksize), lsad=motion.sad_limit,
         ) | self.analyze_args
 
-        recalc_args = dict[str, Any](
+        recalc_args = KwargsT(
             search=search.recalc_mode, dct=recalc_sad_mode, thsad=thSAD_recalc, blksize=halfblocksize,
             overlap=halfoverlap, truemotion=motion.truemotion, searchparam=search.param_recalc,
             chroma=self.chroma, pnew=motion.pnew, lambda_=motion.block_coherence(halfblocksize)
@@ -724,8 +725,8 @@ class MVTools:
         planes: PlanesT = None, range_in: ColorRange | None = None,
         source_type: FieldBasedT | None = None, high_precision: bool = False,
         limit: int | tuple[int, int] = 255, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
-        *, super_args: dict[str, Any] | None = None, analyze_args: dict[str, Any] | None = None,
-        recalculate_args: dict[str, Any] | None = None, compensate_args: dict[str, Any] | None = None,
+        *, super_args: KwargsT | None = None, analyze_args: KwargsT | None = None,
+        recalculate_args: KwargsT | None = None, compensate_args: KwargsT | None = None,
         range_conversion: float | None = None, sharp: int | None = None,
         hpad: int | None = None, vpad: int | None = None, params_curve: bool = True,
         rfilter: int | None = None, vectors: MotionVectors | MVTools | None = None, supers: SuperClips | None = None
