@@ -501,63 +501,6 @@ class MVTools:
                         ))
                     )
 
-    def get_supers(self, ref: vs.VideoNode, *, inplace: bool = False) -> SuperClips:
-        """
-        Get the super clips for the specified ref clip.
-
-        If :py:attr:`analyze` wasn't previously called,
-        it will do so here with default values or kwargs specified in the constructor.
-
-        :param inplace:     Only return the SuperClips object, not modifying the internal state.
-
-        :return:            SuperClips tuple.
-        """
-
-        if self.supers and self.supers.base == ref:
-            return self.supers
-
-        supers = self.super(ref=ref)
-
-        if not inplace:
-            self.supers = supers
-
-        return supers
-
-    def get_vectors_bf(self, *, inplace: bool = False) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
-        """
-        Get the backwards and forward vectors.\n
-
-        If :py:attr:`analyze` wasn't previously called,
-        it will do so here with default values or kwargs specified in the constructor.
-
-        :param inplace:     Only return the list, not modifying the internal state.\n
-                            (Useful if you haven't called :py:attr:`analyze` previously)
-
-        :return:            Two lists, respectively for backward and forwards, containing motion vectors.
-        """
-
-        vectors = self.vectors if self.vectors.got_vectors else self.analyze(inplace=inplace)
-
-        t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
-
-        vectors_backward = list[vs.VideoNode]()
-        vectors_forward = list[vs.VideoNode]()
-
-        if self.mvtools is MVToolsPlugin.FLOAT_NEW:
-            vmulti = vectors.vmulti
-
-            for i in range(0, t2 * 2, 2):
-                vectors_backward.append(vmulti.std.SelectEvery(t2 * 2, i))
-                vectors_forward.append(vmulti.std.SelectEvery(t2 * 2, i + 1))
-        else:
-            it = 1 + int(self.source_type.is_inter)
-
-            for i in range(it, t2 + 1, it):
-                vectors_backward.append(vectors.get_mv(MVDirection.BACK, i))
-                vectors_forward.append(vectors.get_mv(MVDirection.FWRD, i))
-
-        return (vectors_backward, vectors_forward)
-
     def compensate(
         self, func: GenericVSFunction, thSAD: int = 150,
         supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None, **kwargs: Any
@@ -707,6 +650,63 @@ class MVTools:
             )
 
         return output.std.DoubleWeave(self.source_type.value) if self.source_type.is_inter else output
+
+    def get_supers(self, ref: vs.VideoNode, *, inplace: bool = False) -> SuperClips:
+        """
+        Get the super clips for the specified ref clip.
+
+        If :py:attr:`analyze` wasn't previously called,
+        it will do so here with default values or kwargs specified in the constructor.
+
+        :param inplace:     Only return the SuperClips object, not modifying the internal state.
+
+        :return:            SuperClips tuple.
+        """
+
+        if self.supers and self.supers.base == ref:
+            return self.supers
+
+        supers = self.super(ref=ref)
+
+        if not inplace:
+            self.supers = supers
+
+        return supers
+
+    def get_vectors_bf(self, *, inplace: bool = False) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
+        """
+        Get the backwards and forward vectors.\n
+
+        If :py:attr:`analyze` wasn't previously called,
+        it will do so here with default values or kwargs specified in the constructor.
+
+        :param inplace:     Only return the list, not modifying the internal state.\n
+                            (Useful if you haven't called :py:attr:`analyze` previously)
+
+        :return:            Two lists, respectively for backward and forwards, containing motion vectors.
+        """
+
+        vectors = self.vectors if self.vectors.got_vectors else self.analyze(inplace=inplace)
+
+        t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
+
+        vectors_backward = list[vs.VideoNode]()
+        vectors_forward = list[vs.VideoNode]()
+
+        if self.mvtools is MVToolsPlugin.FLOAT_NEW:
+            vmulti = vectors.vmulti
+
+            for i in range(0, t2 * 2, 2):
+                vectors_backward.append(vmulti.std.SelectEvery(t2 * 2, i))
+                vectors_forward.append(vmulti.std.SelectEvery(t2 * 2, i + 1))
+        else:
+            it = 1 + int(self.source_type.is_inter)
+
+            for i in range(it, t2 + 1, it):
+                vectors_backward.append(vectors.get_mv(MVDirection.BACK, i))
+                vectors_forward.append(vectors.get_mv(MVDirection.FWRD, i))
+
+        return (vectors_backward, vectors_forward)
 
     def get_ref_clip(self, ref: vs.VideoNode | None, func: FuncExceptT) -> ConstantFormatVideoNode:
         """
