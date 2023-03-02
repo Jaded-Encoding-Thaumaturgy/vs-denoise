@@ -209,7 +209,7 @@ class SADMode(CustomIntEnum):
     Transform both the current blocks and the reference block to frequency domain,
     then calculate the sum of the absolute difference between each pair of transformed samples in that domain.
 
-    SATD => Sum of HAdamard Transformed Differences.\n
+    SATD => Sum of Hadamard Transformed Differences.\n
     Get the difference block between the current blocks and the reference block,
     and transform that difference block to frequency domain and calculate the sum of the absolute value
     of each sample in that transformed difference block.
