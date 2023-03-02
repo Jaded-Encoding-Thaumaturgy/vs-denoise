@@ -21,7 +21,7 @@ __all__ = [
 
 
 def mlm_degrain(
-    clip: vs.VideoNode, tr: int = 3, refine: int = 3, thSAD: int = 200,
+    clip: vs.VideoNode, tr: int = 3, refine: int = 3, thSAD: int | tuple[int, int] = 200,
     factors: Iterable[float] | range = [1 / 3, 2 / 3],
     scaler: ScalerT = Bilinear, downscaler: ScalerT = Catrom,
     mv_kwargs: KwargsT | list[KwargsT] | None = None,
@@ -42,7 +42,7 @@ def mlm_degrain(
     :param clip:                Clip to be denoised.
     :param tr:                  Temporal radius of the denoising.
     :param refine:              Refine param of :py:class:`MVTools`.
-    :param thSAD:               Refine param of :py:attr:`MVTools.analyze`.
+    :param thSAD:               thSAD param of :py:attr:`MVTools.analyze`/:py:attr:`MVTools.degrain`.
     :param factors:             Scaling factors.
                                  * If floats, they will be interpreted as size * factor.
                                  * If a range, it will first be normalized as a list of float with 1 / factor.
@@ -64,9 +64,14 @@ def mlm_degrain(
 
     do_soft = bool(soften)
 
+    if isinstance(thSAD, tuple):
+        thSADA, thSADD = thSAD
+    else:
+        thSADA = thSADD = thSAD
+
     mkwargs_def = dict[str, Any](tr=tr, refine=refine, planes=planes)
-    akwargs_def = dict[str, Any](motion=MotionMode.HIGH_SAD, thSAD=thSAD, pel_type=PelType.WIENER)
-    dkwargs_def = dict[str, Any](thSAD=thSAD)
+    akwargs_def = dict[str, Any](motion=MotionMode.HIGH_SAD, thSAD=thSADA, pel_type=PelType.WIENER)
+    dkwargs_def = dict[str, Any](thSAD=thSADD)
 
     mkwargs, akwargs, dkwargs = [
         [default] if kwargs is None else [
