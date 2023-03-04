@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from itertools import count, zip_longest
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Literal, cast, overload
 
+from vsexprtools import norm_expr
 from vskernels import Bilinear, Catrom, Scaler, ScalerT
 from vsrgtools import RemoveGrainMode, contrasharpening, removegrain
 from vsrgtools.util import norm_rmode_planes
@@ -439,12 +440,7 @@ def temporal_degrain(
     if tr > 0:
         spat = limiter(clip) if callable(limiter) else limiter
 
-        spatD = core.std.MakeDiff(clip, spat)
-
-        NR1D = core.std.MakeDiff(clip, NR1)
-        expr = 'x abs y abs < x y ?' if isFLOAT else f'x {neutral} - abs y {neutral} - abs < x y ?'
-        DD = core.std.Expr([spatD, NR1D], [expr])
-        NR1x = core.std.MakeDiff(clip, DD, [0])
+        NR1x = norm_expr([clip, spat, NR1], 'x y - abs x z - abs < y z ?', 0)
 
         NR2 = MVTools(NR1x, vectors=maxMV, **preset).degrain(thSAD=thSAD2, thSCD=(thSCD1, thSCD2))
     else:
@@ -459,9 +455,6 @@ def temporal_degrain(
     sharpened = contrasharpening(dnWindow, clip, sharpenRadius)
 
     if postConf.tr > 0:
-        sharpened = core.std.Expr(
-            [clip, sharpened],
-            f"x {postConf.merge_strength} * y {100 - postConf.merge_strength} * + 100 /"
-        )
+        sharpened = clip.std.Merge(sharpened, postConf.merge_strength / 100)
 
     return [NR1x, NR2, sharpened][outputStage]
