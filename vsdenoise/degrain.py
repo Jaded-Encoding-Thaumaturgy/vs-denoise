@@ -18,49 +18,6 @@ __all__ = [
 
 @dataclass
 class TemporalDegrain2:
-    """
-    TemporalDegrain2
-
-    Changes from previous implementations:
-        1. `degrainTr` was renamed to just `tr` to better align with vsdenoise standards.
-            * `postTr` still remains to differentiate between the two.
-        1. `degrainPlane` was renamed to `planes` to better align with vsdenoise standards.
-            * It was also updated to be an int or a list.
-        2. `rec` was renamed to `refine` to better align with vsdenoise standards.
-            * It was also updated to be an int or boolean, enabling multiple levels of refinement if desired.
-        3. `thSCD2` is now a percentage, with range 0-100, to match vsstandards. For instance thSCD2=128 (old behavior)
-            is now thSCD2=50 (new behavior).
-        4. `knlDevId` was renamed to `gpuId`, since the underlying NLMeans implementation is not strictly tied to
-            KNLMeansCL any more. And other filters may use this value in the future.
-        5. `extraSharp` can now be a bool or an int, with an int directly specifying the sharpening radius.
-        6. `SrchClipPP` now accepts custom Prefilters, or prefiltered clips directly.
-        7. `limiter` is a new parameter which accepts a custom denoising function (or Prefilter, or clip) to replace
-            the internal use of fft3dfilter as the limiter reference.
-            * Using a custom limiter can lead to signifcant speed or quality gains (or both), as fft3dfilter is rather
-            both slow and lower quality these days.
-        8. `fft3dfilter` is preferred over `neo_fft3dfilter`. The latest version of fft3dfilter from AmusementClub
-            (https://github.com/AmusementClub/VapourSynth-FFT3DFilter) is significantly faster.
-
-    Example usages:
-        # Default denoising
-        denoised = TemporalDegrain2().denoise(clip)
-
-        # Reusable instance with custom overrides
-        td = TemporalDegrain2()
-        denoised1 = td.denoised(clip, degrainTr=1, grainLevel=1)
-        denoised2 = td.denoised(clip, degrainTr=2, grainLevel=2)
-
-        # Reusable instance with custom defaults
-        td = TemporalDegrain2(grainLevel=3)
-        denoised1 = td.denoise()
-        denoised2 = td.denoise(grainLevel=1)
-
-        # Fully custom denoisers
-        denoised = TemporalDegrain2().denoise(
-                prefilter=Prefilter.NLMEANS,
-                limiter=DFTTest.denoise(clip, tr=0, sigma=10))
-
-    """
     # Main tunables
     tr: int = 1
     grainLevel: int = 2
@@ -121,79 +78,6 @@ class TemporalDegrain2:
         postTR: int | None = None, postMix: int | None = None, postBlkSize: int | None = None,
         extraSharp: bool | int | None = None, fftThreads: int | None = None
     ) -> vs.VideoNode:
-        """
-        Temporal Degrain Updated by ErazorTT, ported to vsdenoise by adworacz (Adub)
-
-        Based on function by Sagekilla, idea + original script created by Didee
-        Works as a simple temporal degraining function that'll remove
-        MOST or even ALL grain and noise from video sources,
-        including dancing grain, like the grain found on 300.
-        Also note, the parameters don't need to be tweaked much.
-
-        Required plugins:
-        FFT3DFilter: https://github.com/myrsloik/VapourSynth-FFT3DFilter
-        MVtools(sf): https://github.com/dubhater/vapoursynth-mvtools
-                     https://github.com/IFeelBloated/vapoursynth-mvtools-sf
-
-        Optional plugins:
-        dfttest: https://github.com/HomeOfVapourSynthEvolution/VapourSynth-DFTTest
-        KNLMeansCL: https://github.com/Khanattila/KNLMeansCL
-
-        recommendations to be followed for each new movie:
-          1. start with default settings
-          2. if less denoising is needed set grainLevel to 0, if you need more degraining start over
-            reading at next paragraph
-          3. if you need even less denoising:
-             - EITHER: set outputStage to 1 or even 0 (faster)
-             - OR: use the postMix setting and increase the value from 0 to as much as 100 (slower)
-
-        recommendations for strong degraining:
-          1. start with default settings
-          2. search the noisiest* patch of the entire movie, enable grainLevelSetup (=true), zoom in as much as you
-            can and prepare yourself for pixel peeping. (*it really MUST be the noisiest region where you want this
-            filter to be effective)
-          3. compare the output on this noisy* patch of your movie with different settings of grainLevel (0 to 3) and
-            use the setting where the noise level is lowest (irrespectable of whether you find this to be too
-            much filtering).
-
-            If multiple grainLevel settings yield comparable results while grainLevelSetup=true and observing at
-            maximal zoom be sure to use the lowest setting! If you're unsure leave it at the default (2), your
-            result might no be optimal, but it will still be great.
-          4. disable grainLevelSetup (=false), or just remove this argument from the function call. Now revert the
-            zoom and look from a normal distance at different scenes of the movie and decide if you like what you see.
-          5. if more denoising is needed try postFFT=1 with postSigma=1, then tune postSigma (obvious blocking and
-            banding of regions in the sky are indications of a value which is at least a factor 2 too high)
-          6. if you would need a postSigma of more than 2, try first to increase degrainTR to 2. The goal is to
-            balance the numerical values of postSigma and degrainTR, some prefer more simga and others more TR, it's
-            up to you. However, do not increase degrainTR above 1/8th of the fps (at 24fps up to 3).
-          7. if you cranked up postSigma higher than 3 then try postFFT=3 instead. Also if there are any issues with
-            banding then try postFFT=3.
-          8. if the luma is clean but you still have visible chroma noise then you can adjust postSigmaC which will
-            separately clean the chroma planes (at a considerable amount of processing speed).
-
-        use only the following knobs (all other settings should already be where they need to be):
-          - degrainTR (1), temporal radius of degrain, usefull range: min=default=1, max=fps/8. Higher values do clean
-            the video more, but also increase probability of wrongly identified motion vectors which leads to
-            washed out regions
-          - grainLevel (2), if input noise level is relatively low set this to 0, if its unusually high you might need
-            to increase it to 3. The right setting must be found using grainLevelSetup=true while all other settings
-            are at default. Set this setting such that the noise level is lowest.
-          - grainLevelSetup (false), only to be used while finding the right setting for grainLevel. This will skip
-            all your other settings!
-          - postFFT (0), if you want to remove absolutely all remaining noise suggestion is to use 1 or 2 (ff3dfilter)
-            or for slightly higher quality at the expense of potentially worse speed 3 (dfttest).
-            4 is KNLMeansCL. 0 is simply RemoveGrain(1)
-          - postSigma (1), increase it to remove all the remaining noise you want removed, but do not increase too
-            much since unnecessary high values have severe negative impact on either banding and/or sharpness
-          - degrainPlane (4), if you just want to denoise only the chroma use 3 (this helps with compressability
-            while the clip is almost identical to the original)
-          - outputStage (2), if the degraining is too strong, you can output earlier stages
-          - postMix (0), if the degraining is too strong, increase the value going from 0 to 100
-          - fftThreads (1), usefull if you have processor cores to spare, increasing to 2 will probably help a little
-            with speed.
-          - rec (false), enables use of Recalculate for refining motion analysis. Enable for higher quality motion
-            estimation but lower performance.
-        """
         width = clip.width
         height = clip.height
 
