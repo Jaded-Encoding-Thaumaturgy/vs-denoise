@@ -30,13 +30,13 @@ class TemporalLimitConfig:
         thSCD: int | tuple[int | None, int | None] | None = None, mv_planes: PlanesT = None,
         vectors: MotionVectors | None = None, preset: MVToolsPreset = MVToolsPresets.SMDE
     ) -> vs.VideoNode:
-        preset = preset(planes=mv_planes)
+        preset = preset(planes=mv_planes, vectors=vectors)
 
-        NR1 = MVTools(clip, vectors=vectors, **preset).degrain(thSAD=thSAD1, thSCD=thSCD)
+        NR1 = MVTools(clip, **preset).degrain(thSAD1, 255, thSCD)
 
         NR1x = limit_filter(NR1, clip, self.limiter(clip), LimitFilterMode.SIMPLE_MIN, 0)
 
-        return MVTools(NR1x, vectors=vectors, **preset).degrain(thSAD=thSAD2, thSCD=thSCD)
+        return MVTools(NR1x, **preset).degrain(thSAD2, 255, thSCD)
 
 
 class TemporalLimit(CustomIntEnum):
