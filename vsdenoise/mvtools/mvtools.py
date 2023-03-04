@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from itertools import chain
-from math import ceil, exp
+from math import exp
 from typing import Any, Sequence
 
 from vstools import (
@@ -570,7 +570,7 @@ class MVTools:
 
         processed = func(interleaved, **kwargs)
 
-        return processed.std.SelectEvery(cycle=n_clips, offsets=ceil(n_clips / 2))
+        return processed.std.SelectEvery(cycle=n_clips, offsets=(n_clips - 1) / 2)
 
     def degrain(
         self,
