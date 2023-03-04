@@ -383,7 +383,7 @@ class TemporalLimiter(CustomIntEnum):
 def temporal_degrain(
     clip: vs.VideoNode, tr: int = 1, grain_level: int = 2,
     post: PostProcessFFT | PostProcessConfig = PostProcessFFT.REPAIR,
-    limiter: TemporalLimiter | TemporalLimiterConfig = TemporalLimiter.FFT3D,
+    limiter: TemporalLimiter | TemporalLimiterConfig | VSFunction = TemporalLimiter.FFT3D,
     block_size: int | None = None, refine: int = 0,
     thSAD1: int | None = None, thSAD2: int | None = None,
     thSCD1: int | None = None, thSCD2: int = 50,
@@ -447,8 +447,10 @@ def temporal_degrain(
         ov = 2 * round(limitVal * 2 / [4, 4, 4, 3, 2, 2][grain_level] * 0.5)
 
         limitConf = limiter(sigma=limitVal, block_size=limitVal * 2, ov=ov)  # type: ignore
-    else:
+    elif isinstance(limiter, TemporalLimiter):
         limitConf = limiter()  # type: ignore
+    else:
+        limitConf = TemporalLimiter.CUSTOM(limiter)
 
     class MotionModeCustom(MotionMode.Config):
         def block_coherence(self, block_size: int) -> int:
