@@ -395,9 +395,7 @@ def temporal_degrain(
 ) -> vs.VideoNode:
     func = FunctionUtil(clip, temporal_degrain, planes, (vs.GRAY, vs.YUV))
 
-    if func.luma_only:
-        chroma_motion = False
-        planes = [0]
+    chroma_motion = chroma_motion and func.chroma
 
     longlat = max(func.clip.width, func.clip.height)
     shortlat = min(func.clip.width, func.clip.height)
@@ -414,8 +412,6 @@ def temporal_degrain(
         autoTune = 3
 
     postConf = post if isinstance(post, PostProcessConfig) else post()
-
-    maxTR = max(tr, postConf.tr)
 
     prefilter = fallback(
         prefilter, [*([Prefilter.NONE] * 3), *([Prefilter.GAUSSBLUR2] * 3)][grain_level]  # type: ignore
@@ -461,27 +457,24 @@ def temporal_degrain(
     motion_ref = MotionMode.from_param(truemotion)
 
     preset = MVToolsPresets.CUSTOM(
-        tr=tr, refine=refine, prefilter=prefilter(clip) if isinstance(prefilter, Prefilter) else prefilter,
+        tr=tr, refine=refine, prefilter=prefilter(func.work_clip) if isinstance(prefilter, Prefilter) else prefilter,
         pel=meSubpel, hpad=hpad, vpad=vpad, block_size=block_size,
         overlap=property(lambda self: self.block_size // 2), search=search_mode,
         motion=MotionModeCustom(
             truemotion, motion_lambda, motion_ref.sad_limit, 50 if truemotion else 25, motion_ref.plevel, global_motion
         ), super_args=dict(chroma=chroma_motion), analyze_args=dict(chroma=chroma_motion),
-        recalculate_args=dict(thsad=thSAD1 // 2), planes=planes
+        recalculate_args=dict(thsad=thSAD1 // 2), planes=func.norm_planes
     )
 
-    maxMV = MVTools(clip, **preset(tr=maxTR, **kwargs))
-    maxMV.analyze()
+    maxMV = MVTools(func.work_clip, **preset(tr=max(tr, postConf.tr), **kwargs)).analyze()
 
     NR2 = limitConf(
-        clip, thSAD1, thSAD2, (thSCD1, thSCD2),
-        list(set(func.norm_planes + [1, 2])) if chroma_motion else func.norm_planes, maxMV.vectors, preset
-    ) if tr > 0 else clip
+        func.work_clip, thSAD1, thSAD2, (thSCD1, thSCD2),
+        func.with_planes([1, 2]) if chroma_motion else func, maxMV, preset
+    ) if tr > 0 else func.work_clip
 
     if postConf.tr > 0:
-        dnWindow = MVTools(NR2, vectors=maxMV, **preset(tr=postConf.tr)).compensate(
-            postConf, thSAD=thSAD2, thSCD=(thSCD1, thSCD2)
-        )
+        dnWindow = MVTools(NR2, vectors=maxMV, **preset(tr=postConf.tr)).compensate(postConf, thSAD2, (thSCD1, thSCD2))
     else:
         dnWindow = postConf(NR2)
 
@@ -490,13 +483,13 @@ def temporal_degrain(
             contra = 3
 
         if isinstance(contra, int):
-            sharpened = contrasharpening(dnWindow, clip, contra, 13, planes)
+            sharpened = contrasharpening(dnWindow, func.work_clip, contra, 13, func.norm_planes)
         else:
-            sharpened = contrasharpening_dehalo(dnWindow, clip, contra, planes=planes)
+            sharpened = contrasharpening_dehalo(dnWindow, func.work_clip, contra, 2.5, func.norm_planes)
     else:
         sharpened = dnWindow
 
     if postConf.tr > 0 and postConf.merge_strength:
-        sharpened = clip.std.Merge(sharpened, postConf.merge_strength / 100)
+        sharpened = func.work_clip.std.Merge(sharpened, postConf.merge_strength / 100)
 
-    return sharpened
+    return func.return_clip(sharpened)
