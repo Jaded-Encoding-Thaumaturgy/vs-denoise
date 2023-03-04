@@ -4,23 +4,18 @@ This module contains general denoising functions built on top of base denoisers.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from functools import partial
 from itertools import count, zip_longest
-from typing import TYPE_CHECKING, Any, Callable, Concatenate, Iterable, Literal, cast, overload
+from typing import Any, Callable, Iterable, cast
 
 from vskernels import Bilinear, Catrom, Scaler, ScalerT
-from vsrgtools import (
-    LimitFilterMode, RemoveGrainMode, contrasharpening, contrasharpening_dehalo, limit_filter, removegrain
-)
+from vsrgtools import RemoveGrainMode, contrasharpening, contrasharpening_dehalo, removegrain
 from vsrgtools.util import norm_rmode_planes
 from vstools import (
-    CustomIntEnum, FunctionUtil, KwargsT, P, PlanesT, VSFunction, depth, expect_bits, fallback, get_h, get_w,
-    normalize_planes, vs
+    FunctionUtil, KwargsT, PlanesT, VSFunction, depth, expect_bits, fallback, get_h, get_w, normalize_planes, vs
 )
 
-from .fft import fft3d
-from .mvtools import MotionMode, MotionVectors, MVTools, MVToolsPreset, MVToolsPresets, SADMode, SearchMode
+from .limit import TemporalLimit, TemporalLimitConfig
+from .mvtools import MotionMode, MVTools, MVToolsPresets, SADMode, SearchMode
 from .mvtools.enums import SearchModeBase
 from .postprocess import PostProcess, PostProcessConfig
 from .prefilters import PelType, Prefilter
@@ -28,9 +23,7 @@ from .prefilters import PelType, Prefilter
 __all__ = [
     'mlm_degrain',
 
-    'temporal_degrain',
-
-    'TemporalLimiter'
+    'temporal_degrain'
 ]
 
 
@@ -186,89 +179,10 @@ def mlm_degrain(
     return depth(ref_denoise, bits)
 
 
-@dataclass
-class TemporalLimiterConfig:
-    limiter: VSFunction
-
-    def __call__(
-        self, clip: vs.VideoNode,
-        thSAD1: int | tuple[int, int], thSAD2: int | tuple[int, int],
-        thSCD: int | tuple[int | None, int | None] | None = None, mv_planes: PlanesT = None,
-        vectors: MotionVectors | None = None, preset: MVToolsPreset = MVToolsPresets.SMDE
-    ) -> vs.VideoNode:
-        preset = preset(planes=mv_planes)
-
-        NR1 = MVTools(clip, vectors=vectors, **preset).degrain(thSAD=thSAD1, thSCD=thSCD)
-
-        NR1x = limit_filter(NR1, clip, self.limiter(clip), LimitFilterMode.SIMPLE_MIN, 0)
-
-        return MVTools(NR1x, vectors=vectors, **preset).degrain(thSAD=thSAD2, thSCD=thSCD)
-
-
-class TemporalLimiter(CustomIntEnum):
-    CUSTOM = -1
-    FFT3D = 0
-
-    if TYPE_CHECKING:
-        from .funcs import TemporalLimiter
-
-        @overload
-        def __call__(  # type: ignore
-            self: Literal[TemporalLimiter.CUSTOM],
-            limiter: Callable[Concatenate[vs.VideoNode, P], vs.VideoNode], /, *args: P.args, **kwargs: P.kwargs
-        ) -> TemporalLimiterConfig:
-            ...
-
-        @overload
-        def __call__(  # type: ignore
-            self: Literal[TemporalLimiter.CUSTOM], limiter: vs.VideoNode, /,
-        ) -> TemporalLimiterConfig:
-            ...
-
-        @overload
-        def __call__(  # type: ignore
-            self: Literal[TemporalLimiter.FFT3D], *, sigma: float, block_size: int, ov: int
-        ) -> TemporalLimiterConfig:
-            ...
-
-        def __call__(self, *args: Any, **kwargs: Any) -> TemporalLimiterConfig:  # type: ignore
-            ...
-    else:
-        def __call__(
-            self, limiter: vs.VideoNode | VSFunction | None = None, *args: Any, **kwargs: Any
-        ) -> TemporalLimiterConfig:
-            if self is self.CUSTOM:
-                if isinstance(limiter, vs.VideoNode):
-                    def limit_func(clip: vs.VideoNode, *args: Any, **kwargs: Any) -> vs.VideoNode:
-                        return limiter
-                else:
-                    if limiter is None:
-                        def _limiter(clip: vs.VideoNode, *args: Any, **kwargs: Any) -> vs.VideoNode:
-                            return clip
-
-                        limiter = _limiter
-
-                    limit_func = partial(limiter, *args, **kwargs)
-            elif self is self.FFT3D:
-                sigma = kwargs.get('sigma')
-                block_size = kwargs.get('block_size')
-                ov = kwargs.get('ov')
-
-                def limit_func(clip: vs.VideoNode, *args: Any, **kwargs: Any) -> vs.VideoNode:
-                    return fft3d(
-                        clip, sigma=sigma, sigma2=sigma * 0.625,
-                        sigma3=sigma * 0.375, sigma4=sigma * 0.250,
-                        bt=3, bw=block_size, bh=block_size, ow=ov, oh=ov,
-                        **kwargs
-                    )
-
-            return TemporalLimiterConfig(limit_func)
-
-
 def temporal_degrain(
     clip: vs.VideoNode, tr: int = 1, grain_level: int = 2,
     post: PostProcess | PostProcessConfig = PostProcess.REPAIR,
-    limiter: TemporalLimiter | TemporalLimiterConfig | VSFunction = TemporalLimiter.FFT3D,
+    limiter: TemporalLimit | TemporalLimitConfig | VSFunction = TemporalLimit.FFT3D,
     block_size: int | None = None, refine: int = 0,
     thSAD1: int | None = None, thSAD2: int | None = None,
     thSCD1: int | None = None, thSCD2: int = 50,
@@ -325,17 +239,17 @@ def temporal_degrain(
 
     thSAD1, thSAD2, thSCD1 = [int(x) for x in (thSAD1f, thSAD2f, thSCD1f)]
 
-    if isinstance(limiter, TemporalLimiterConfig):
+    if isinstance(limiter, TemporalLimitConfig):
         limitConf = limiter
-    elif limiter is TemporalLimiter.FFT3D:
+    elif limiter is TemporalLimit.FFT3D:
         limitVal = [6, 8, 12, 16, 32, 48][[-1, -1, 0, 0, 0, 1][grain_level] + autoTune + 1]
         ov = 2 * round(limitVal * 2 / [4, 4, 4, 3, 2, 2][grain_level] * 0.5)
 
         limitConf = limiter(sigma=limitVal, block_size=limitVal * 2, ov=ov)  # type: ignore
-    elif isinstance(limiter, TemporalLimiter):
+    elif isinstance(limiter, TemporalLimit):
         limitConf = limiter()  # type: ignore
     else:
-        limitConf = TemporalLimiter.CUSTOM(limiter)
+        limitConf = TemporalLimit.CUSTOM(limiter)
 
     class MotionModeCustom(MotionMode.Config):
         def block_coherence(self, block_size: int) -> int:
