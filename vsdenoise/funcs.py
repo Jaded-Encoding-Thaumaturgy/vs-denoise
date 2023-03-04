@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import partial
 from itertools import count, zip_longest
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Literal, cast, overload, Concatenate
+from typing import TYPE_CHECKING, Any, Callable, Concatenate, Iterable, Literal, cast, overload
 
 from vskernels import Bilinear, Catrom, Scaler, ScalerT
 from vsrgtools import (
@@ -15,14 +15,14 @@ from vsrgtools import (
 )
 from vsrgtools.util import norm_rmode_planes
 from vstools import (
-    CustomIntEnum, FuncExceptT, FunctionUtil, KwargsT, P, PlanesT, VSFunction, depth, expect_bits, fallback, get_h,
-    get_w, normalize_planes, vs
+    CustomIntEnum, FunctionUtil, KwargsT, P, PlanesT, VSFunction, depth, expect_bits, fallback, get_h, get_w,
+    normalize_planes, vs
 )
 
-from .fft import DFTTest, fft3d
-from .knlm import nl_means
+from .fft import fft3d
 from .mvtools import MotionMode, MotionVectors, MVTools, MVToolsPreset, MVToolsPresets, SADMode, SearchMode
 from .mvtools.enums import SearchModeBase
+from .postprocess import PostProcess, PostProcessConfig
 from .prefilters import PelType, Prefilter
 
 __all__ = [
@@ -30,7 +30,7 @@ __all__ = [
 
     'temporal_degrain',
 
-    'PostProcessFFT', 'TemporalLimiter'
+    'TemporalLimiter'
 ]
 
 
@@ -187,121 +187,6 @@ def mlm_degrain(
 
 
 @dataclass
-class PostProcessConfig:
-    mode: PostProcessFFT
-    kwargs: KwargsT
-
-    _sigma: float | None = None
-    _tr: int | None = None
-    _block_size: int | None = None
-    merge_strength: int = 0
-
-    @property
-    def sigma(self) -> float:
-        sigma = fallback(self._sigma, 1.0)
-
-        if self.mode is PostProcessFFT.DFTTEST:
-            return sigma * 4
-
-        if self.mode is PostProcessFFT.NL_MEANS:
-            return sigma / 2
-
-        return sigma
-
-    @property
-    def tr(self) -> int:
-        if self.mode <= 0:
-            return 0
-
-        tr = fallback(self._tr, 1)
-
-        if self.mode is PostProcessFFT.DFTTEST:
-            return min(tr, 3)
-
-        if self.mode in {PostProcessFFT.FFT3D_MED, PostProcessFFT.FFT3D_HIGH}:
-            return min(tr, 2)
-
-        return tr
-
-    @property
-    def block_size(self) -> int:
-        if self.mode is PostProcessFFT.DFTTEST:
-            from .fft import BackendInfo
-
-            backend_info = BackendInfo.from_param(self.kwargs.pop('plugin', DFTTest.Backend.AUTO))
-
-            if backend_info.resolved_backend.is_dfttest2:
-                return 16
-
-        return fallback(self._block_size, [0, 48, 32, 12, 0][self.mode.value])
-
-    def __call__(self, clip: vs.VideoNode, planes: PlanesT = None, func: FuncExceptT | None = None) -> vs.VideoNode:
-        func = func or self.__class__
-
-        if self.mode is PostProcessFFT.REPAIR:
-            return removegrain(clip, norm_rmode_planes(clip, RemoveGrainMode.MINMAX_AROUND1, planes))
-
-        if self.mode in {PostProcessFFT.FFT3D_MED, PostProcessFFT.FFT3D_HIGH}:
-            return fft3d(clip, func, bw=self.block_size, bh=self.block_size, bt=self.tr * 2 + 1, **self.kwargs)
-
-        if self.mode is PostProcessFFT.DFTTEST:
-            return DFTTest.denoise(
-                clip, self.sigma, tr=self.tr, block_size=self.block_size,
-                planes=planes, **(KwargsT(overlap=int(self.block_size * 9 / 12)) | self.kwargs)  # type: ignore
-            )
-
-        if self.mode is PostProcessFFT.NL_MEANS:
-            return nl_means(
-                clip, self.sigma, self.tr, planes=planes, **(KwargsT(sr=2) | self.kwargs)  # type: ignore
-            )
-
-        return clip
-
-
-class PostProcessFFT(CustomIntEnum):
-    REPAIR = 0
-    FFT3D_HIGH = 1
-    FFT3D_MED = 2
-    DFTTEST = 3
-    NL_MEANS = 4
-
-    if TYPE_CHECKING:
-        from .funcs import PostProcessFFT
-
-        @overload
-        def __call__(  # type: ignore
-            self: Literal[PostProcessFFT.REPAIR], *, merge_strength: int = 0
-        ) -> PostProcessConfig:
-            ...
-
-        @overload
-        def __call__(  # type: ignore
-            self: Literal[PostProcessFFT.NL_MEANS], *, sigma: float = 1.0, tr: int | None = None,
-            merge_strength: int = 0, **kwargs: Any
-        ) -> PostProcessConfig:
-            ...
-
-        @overload
-        def __call__(
-            self, *, sigma: float = 1.0, tr: int | None = None, block_size: int | None = None,
-            merge_strength: int = 0, **kwargs: Any
-        ) -> PostProcessConfig:
-            ...
-
-        def __call__(
-            self, *, sigma: float = 1.0, tr: int | None = None, block_size: int | None = None,
-            merge_strength: int = 0, **kwargs: Any
-        ) -> PostProcessConfig:
-            ...
-    else:
-        def __call__(
-            self, *, sigma: float = 1.0, tr: int | None = None, block_size: int | None = None,
-            merge_strength: int = 0, **kwargs: Any
-        ) -> PostProcessConfig:
-            return PostProcessConfig(self, kwargs, sigma, tr, block_size, merge_strength)
-
-
-@dataclass
 class TemporalLimiterConfig:
     limiter: VSFunction
 
@@ -382,7 +267,7 @@ class TemporalLimiter(CustomIntEnum):
 
 def temporal_degrain(
     clip: vs.VideoNode, tr: int = 1, grain_level: int = 2,
-    post: PostProcessFFT | PostProcessConfig = PostProcessFFT.REPAIR,
+    post: PostProcess | PostProcessConfig = PostProcess.REPAIR,
     limiter: TemporalLimiter | TemporalLimiterConfig | VSFunction = TemporalLimiter.FFT3D,
     block_size: int | None = None, refine: int = 0,
     thSAD1: int | None = None, thSAD2: int | None = None,
