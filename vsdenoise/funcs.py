@@ -204,7 +204,7 @@ def temporal_degrain(
         (i for i, (x, y) in enumerate([(1050, 576), (1280, 720), (2048, 1152)]) if longlat <= x and shortlat <= y), 3
     )
 
-    thSCD = normalize_thscd(thSCD, ([3, 3, 3, 4, 5, 6][grain_level] * 64, 50), temporal_degrain)
+    thSCD = normalize_thscd(thSCD, ([192, 192, 192, 256, 320, 384][grain_level], 50), temporal_degrain, scale=False)
 
     if post is None:
         post = PostProcess.DFTTEST
