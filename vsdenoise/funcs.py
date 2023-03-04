@@ -9,9 +9,10 @@ from functools import partial
 from itertools import count, zip_longest
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Literal, cast, overload, Concatenate
 
-from vsexprtools import norm_expr
 from vskernels import Bilinear, Catrom, Scaler, ScalerT
-from vsrgtools import RemoveGrainMode, contrasharpening, contrasharpening_dehalo, removegrain
+from vsrgtools import (
+    LimitFilterMode, RemoveGrainMode, contrasharpening, contrasharpening_dehalo, limit_filter, removegrain
+)
 from vsrgtools.util import norm_rmode_planes
 from vstools import (
     CustomIntEnum, FuncExceptT, FunctionUtil, KwargsT, P, PlanesT, VSFunction, depth, expect_bits, fallback, get_h,
@@ -314,7 +315,7 @@ class TemporalLimiterConfig:
 
         NR1 = MVTools(clip, vectors=vectors, **preset).degrain(thSAD=thSAD1, thSCD=thSCD)
 
-        NR1x = norm_expr([clip, self.limiter(clip), NR1], 'x y - abs x z - abs < y z ?', 0)
+        NR1x = limit_filter(NR1, clip, self.limiter(clip), LimitFilterMode.SIMPLE_MIN, 0)
 
         return MVTools(NR1x, vectors=vectors, **preset).degrain(thSAD=thSAD2, thSCD=thSCD)
 
