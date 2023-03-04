@@ -339,6 +339,38 @@ class BackendInfo(KwargsT):
 
         self.backend = backend
 
+    @classmethod
+    def from_param(cls, value: DFTTest.Backend | BackendInfo) -> BackendInfo:
+        return value() if isinstance(value, DFTTest.Backend) else value
+
+    @property
+    def resolved_backend(self) -> DFTTest.Backend:
+        backend = self.backend
+
+        Backend = DFTTest.Backend
+
+        if backend is Backend.AUTO:
+            try:
+                from dfttest2 import __version__  # type: ignore  # noqa: F401
+
+                if hasattr(core, 'dfttest2_nvrtc'):
+                    backend = Backend.NVRTC
+                elif hasattr(core, 'dfttest2_cuda'):
+                    backend = Backend.cuFFT
+                elif hasattr(core, 'dfttest2_cpu'):
+                    backend = Backend.CPU
+                elif hasattr(core, 'dfttest2_gcc'):
+                    backend = Backend.GCC
+                else:
+                    raise KeyError
+            except (ModuleNotFoundError, KeyError):
+                if hasattr(core, 'neo_dfttest'):
+                    backend = Backend.NEO
+                elif hasattr(core, 'dfttest'):
+                    backend = Backend.OLD
+
+        return backend
+
     def __call__(
         self, clip: vs.VideoNode, sloc: SLocT | None = None,
         ftype: FilterTypeT | None = None,
@@ -393,29 +425,9 @@ class BackendInfo(KwargsT):
 
             dft_args[key] = value
 
-        backend = self.backend
+        backend = self.resolved_backend
 
-        if backend is Backend.AUTO:
-            try:
-                from dfttest2 import __version__  # type: ignore  # noqa: F401
-
-                if hasattr(core, 'dfttest2_nvrtc'):
-                    backend = Backend.NVRTC
-                elif hasattr(core, 'dfttest2_cuda'):
-                    backend = Backend.cuFFT
-                elif hasattr(core, 'dfttest2_cpu'):
-                    backend = Backend.CPU
-                elif hasattr(core, 'dfttest2_gcc'):
-                    backend = Backend.GCC
-                else:
-                    raise KeyError
-            except (ModuleNotFoundError, KeyError):
-                if hasattr(core, 'neo_dfttest'):
-                    backend = Backend.NEO
-                elif hasattr(core, 'dfttest'):
-                    backend = Backend.OLD
-
-        if backend in {Backend.cuFFT, Backend.NVRTC, Backend.CPU, Backend.GCC}:
+        if backend.is_dfttest2:
             from dfttest2 import Backend as DFTBackend
             from dfttest2 import DFTTest as DFTTest2  # noqa
 
@@ -441,7 +453,7 @@ class BackendInfo(KwargsT):
 
             if (sbsize := dft_args.pop('sbsize', 16)) != 16:
                 raise CustomValueError(
-                    '{backend} doesn\'t support sbsize != 16!', func, sbsize, backend=backend
+                    '{backend} doesn\'t support block_size != 16!', func, sbsize, backend=backend
                 )
 
             if (nlocation := dft_args.pop('nlocation', None)) is not None:
@@ -522,12 +534,16 @@ class DFTTest:
             def __call__(self, **kwargs: Any) -> BackendInfo:
                 return BackendInfo(self, **kwargs)
 
+        @property
+        def is_dfttest2(self) -> bool:
+            return self in {self.cuFFT, self.NVRTC, self.CPU, self.GCC}  # type: ignore
+
     def __init__(
         self, clip: vs.VideoNode | None = None, plugin: Backend | BackendInfo = Backend.AUTO,
         sloc: SLocT | None = None, **kwargs: Any
     ) -> None:
         self.clip = clip
-        self.plugin: BackendInfo = plugin() if isinstance(plugin, DFTTest.Backend) else plugin
+        self.plugin = BackendInfo.from_param(plugin)
 
         self.default_args = kwargs.copy()
         self.default_slocation = sloc if isinstance(sloc, SLocation.MultiDim) else SLocation.from_param(sloc)
