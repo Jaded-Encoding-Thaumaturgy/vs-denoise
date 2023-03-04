@@ -267,7 +267,7 @@ class MVTools:
         :return:                    SuperClips tuple containing the render, search, and recalculate super clips.
         """
 
-        ref = self.get_ref_clip(ref, self.__class__.super)
+        ref = self.get_ref_clip(ref, self.super)
         rfilter = kwargs_fallback(rfilter, (self.super_func_kwargs, 'rfilter'), 3)
         range_conversion = kwargs_fallback(range_conversion, (self.super_func_kwargs, 'range_conversion'), 5.0)
 
@@ -355,7 +355,7 @@ class MVTools:
         :return:                    :py:class:`MotionVectors` object with the analyzed motion vectors.
         """
 
-        ref = self.get_ref_clip(ref, self.__class__.analyze)
+        ref = self.get_ref_clip(ref, self.analyze)
 
         block_size = kwargs_fallback(block_size, (self.analyze_func_kwargs, 'block_size'), 16 if self.is_hd else 8)
         blocksize = max(self.refine and 2 ** (self.refine + 1), block_size)
@@ -434,7 +434,7 @@ class MVTools:
         motion: MotionMode.Config | None = None, supers: SuperClips | None = None,
         *, ref: vs.VideoNode | None = None
     ) -> None:
-        ref = self.get_ref_clip(ref, self.__class__.analyze)
+        ref = self.get_ref_clip(ref, self.analyze)
 
         if not self.vectors.got_vectors:
             raise CustomRuntimeError('You need to first run analyze before recalculating!', self.recalculate)
@@ -546,10 +546,10 @@ class MVTools:
         :return:         Motion compensated output of `func`.
         """
 
-        ref = self.get_ref_clip(ref, self.__class__.compensate)
+        ref = self.get_ref_clip(ref, self.compensate)
 
         vect_b, vect_f = self.get_vectors_bf()
-        thSCD1, thSCD2 = normalize_thscd(thSCD, thSAD, self.params_curve, self.__class__.compensate)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, thSAD, self.params_curve, self.compensate)
         supers = supers or self.get_supers(ref)
 
         compensate_args = dict(
@@ -620,7 +620,7 @@ class MVTools:
         :return:        Degrained clip.
         """
 
-        ref = self.get_ref_clip(ref, self.__class__.degrain)
+        ref = self.get_ref_clip(ref, self.degrain)
 
         vect_b, vect_f = self.get_vectors_bf()
         supers = supers or self.get_supers(ref)
@@ -634,12 +634,12 @@ class MVTools:
 
         if not all(0 <= x <= 255 for x in (limit, limitC)):
             raise CustomOverflowError(
-                '"limit" values should be between 0 and 255 (inclusive)!', self.__class__.degrain
+                '"limit" values should be between 0 and 255 (inclusive)!', self.degrain
             )
 
         limitf, limitCf = scale_value(limit, 8, ref), scale_value(limitC, 8, ref)
 
-        thSCD1, thSCD2 = normalize_thscd(thSCD, thSAD, self.params_curve, self.__class__.degrain)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, thSAD, self.params_curve, self.degrain)
 
         degrain_args = dict[str, Any](thscd1=thSCD1, thscd2=thSCD2, plane=self.mv_plane)
 
