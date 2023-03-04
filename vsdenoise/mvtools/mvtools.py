@@ -482,7 +482,7 @@ class MVTools:
                 recalc_blksize = clamp(blocksize / 2 ** i, 4, 128)
 
                 self.vectors.vmulti = self.mvtools.Recalculate(
-                    supers.recalculate, self.vectors.vmulti, **(recalc_args | dict(
+                    supers.recalculate, vectors=self.vectors.vmulti, **(recalc_args | dict(
                         blksize=recalc_blksize, overlap=recalc_blksize / 2,
                         lambda_=motion.block_coherence(recalc_blksize)
                     ))

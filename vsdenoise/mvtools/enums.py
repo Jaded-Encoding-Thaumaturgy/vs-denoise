@@ -4,7 +4,10 @@ from dataclasses import dataclass
 from math import exp
 from typing import Any, Literal, TypeVar, cast, overload
 
-from vstools import MISSING, CustomIntEnum, CustomStrEnum, CustomValueError, MissingT, VSFunction, core, fallback, vs
+from vstools import (
+    MISSING, CustomIntEnum, CustomStrEnum, CustomValueError, MissingT, VSFunctionAllArgs, VSFunctionKwArgs, core,
+    fallback, vs
+)
 
 __all__ = [
     'MVDirection',
@@ -48,26 +51,28 @@ class MVToolsPlugin(CustomIntEnum):
         return core.mv if self is MVToolsPlugin.INTEGER else core.mvsf
 
     @property
-    def Super(self) -> VSFunction:
-        return cast(VSFunction, self.namespace.Super)
+    def Super(self) -> VSFunctionKwArgs:
+        return cast(VSFunctionKwArgs, self.namespace.Super)
 
     @property
-    def Analyse(self) -> VSFunction:
-        return cast(VSFunction, self.namespace.Analyze if self is MVToolsPlugin.FLOAT_NEW else self.namespace.Analyse)
+    def Analyse(self) -> VSFunctionKwArgs:
+        return cast(
+            VSFunctionKwArgs, self.namespace.Analyze if self is MVToolsPlugin.FLOAT_NEW else self.namespace.Analyse
+        )
 
     @property
-    def Recalculate(self) -> VSFunction:
-        return cast(VSFunction, self.namespace.Recalculate)
+    def Recalculate(self) -> VSFunctionKwArgs:
+        return cast(VSFunctionKwArgs, self.namespace.Recalculate)
 
     @property
-    def Compensate(self) -> VSFunction:
-        return cast(VSFunction, self.namespace.Compensate)
+    def Compensate(self) -> VSFunctionKwArgs:
+        return cast(VSFunctionKwArgs, self.namespace.Compensate)
 
     @property
-    def Mask(self) -> VSFunction:
-        return cast(VSFunction, self.namespace.Mask)
+    def Mask(self) -> VSFunctionKwArgs:
+        return cast(VSFunctionKwArgs, self.namespace.Mask)
 
-    def Degrain(self, radius: int | None = None) -> VSFunction:
+    def Degrain(self, radius: int | None = None) -> VSFunctionAllArgs:
         if radius is None and self is not MVToolsPlugin.FLOAT_NEW:
             raise CustomValueError('This implementation needs a radius!', f'{self.name}.Degrain')
 
@@ -79,7 +84,7 @@ class MVToolsPlugin(CustomIntEnum):
             )
 
         try:
-            return cast(VSFunction, getattr(self.namespace, f"Degrain{fallback(radius, '')}"))
+            return cast(VSFunctionAllArgs, getattr(self.namespace, f"Degrain{fallback(radius, '')}"))
         except AttributeError:
             raise CustomValueError(f'This radius isn\'t supported! ({radius})', f'{self.name}.Degrain')
 
