@@ -482,7 +482,7 @@ class MVTools:
                 recalc_blksize = clamp(blocksize / 2 ** i, 4, 128)
 
                 self.vectors.vmulti = self.mvtools.Recalculate(
-                    supers.recalculate, self.vectors.vmulti, **(recalc_args | dict(
+                    supers.recalculate, vectors=self.vectors.vmulti, **(recalc_args | dict(
                         blksize=recalc_blksize, overlap=recalc_blksize / 2,
                         lambda_=motion.block_coherence(recalc_blksize)
                     ))
@@ -550,7 +550,7 @@ class MVTools:
         ref = self.get_ref_clip(ref, self.compensate)
 
         vect_b, vect_f = self.get_vectors_bf()
-        thSCD1, thSCD2 = normalize_thscd(thSCD, thSAD, self.params_curve, self.compensate)
+        thSCD1, thSCD2 = self.normalize_thscd(thSCD, thSAD, self.compensate)
         supers = supers or self.get_supers(ref)
 
         compensate_args = dict(
@@ -640,7 +640,7 @@ class MVTools:
 
         limitf, limitCf = scale_value(limit, 8, ref), scale_value(limitC, 8, ref)
 
-        thSCD1, thSCD2 = normalize_thscd(thSCD, thSAD, self.params_curve, self.degrain)
+        thSCD1, thSCD2 = self.normalize_thscd(thSCD, thSAD, self.degrain)
 
         degrain_args = dict[str, Any](thscd1=thSCD1, thscd2=thSCD2, plane=self.mv_plane)
 
@@ -758,6 +758,12 @@ class MVTools:
                 clip, self.pel, PelType.WIENER if is_ref else PelType.BICUBIC
             ) for is_ref, ptype, clip in zip((False, True), pel_type, (pref, ref))
         )
+
+    def normalize_thscd(
+        self, thSCD: int | tuple[int | None, int | None] | None, thSAD: int,
+        func: FuncExceptT | None = None
+    ) -> tuple[int, int]:
+        return normalize_thscd(thSCD, (round(0.35 * thSAD + 300) if self.params_curve else 400, 51), func)
 
     @classmethod
     def denoise(
