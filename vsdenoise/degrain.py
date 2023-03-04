@@ -1,10 +1,9 @@
 from functools import partial
-from typing import Any
 
 from vsrgtools import contrasharpening, removegrain
-from vstools import VSFunction, core, fallback, get_color_family, get_depth, get_neutral_value, get_sample_type, vs
+from vstools import VSFunction, core, fallback, get_color_family, get_neutral_value, get_sample_type, vs
 
-from .dfttest import DFTTest
+from .dfttest import DFTTest, fft3d
 from .knlm import nl_means
 from .mvtools import MotionMode, MVTools, MVToolsPresets, SADMode, SearchMode
 from .prefilters import Prefilter
@@ -92,10 +91,10 @@ def temporal_degrain(
 
         postDenoiser = [
             partial(removegrain, mode=1),
-            partial(_fft3d, sigma=postSigma, planes=planes, bt=postTD,
-                    ncpu=fftThreads, bw=postBlkSize, bh=postBlkSize),
-            partial(_fft3d, sigma=postSigma, planes=planes, bt=postTD,
-                    ncpu=fftThreads, bw=postBlkSize, bh=postBlkSize),
+            partial(fft3d, sigma=postSigma, planes=planes, bt=postTD,
+                    ncpu=fftThreads, bw=postBlkSize, bh=postBlkSize, func=temporal_degrain),
+            partial(fft3d, sigma=postSigma, planes=planes, bt=postTD,
+                    ncpu=fftThreads, bw=postBlkSize, bh=postBlkSize, func=temporal_degrain),
             partial(DFTTest.denoise, sloc=postSigma * 4, tr=postTR, planes=planes,
                     block_size=postBlkSize, overlap=postBlkSize * 9 / 12),
             partial(nl_means, strength=postSigma / 2, tr=postTR, sr=2, device_id=gpuId, planes=planes),
@@ -154,9 +153,9 @@ def temporal_degrain(
         ovNum = [4, 4, 4, 3, 2, 2][grainLevel]
         ov = 2 * round(limitBlksz / ovNum * 0.5)
 
-        return _fft3d(
+        return fft3d(
             clip, planes=CMplanes, sigma=limitSigma, sigma2=s2, sigma3=s3, sigma4=s4,
-            bt=3, bw=limitBlksz, bh=limitBlksz, ow=ov, oh=ov, ncpu=fftThreads
+            bt=3, bw=limitBlksz, bh=limitBlksz, ow=ov, oh=ov, ncpu=fftThreads, func=temporal_degrain
         )
 
     limiter = fallback(limiter, limiterFFT3D)  # type: ignore
@@ -227,29 +226,3 @@ def temporal_degrain(
         sharpened = core.std.Expr([clip, sharpened], f"x {postMix} * y {100-postMix} * + 100 /")
 
     return [NR1x, NR2, sharpened][outputStage]
-
-
-def _fft3d(clip: vs.VideoNode, **kwargs: Any) -> vs.VideoNode:
-    if hasattr(core, 'fft3dfilter'):
-        # fft3dfilter from AmusementClub is significantly faster in my tests
-        # https://github.com/AmusementClub/VapourSynth-FFT3DFilter
-
-        # Only thing is that fft3dfilter produces a change in contrast/tint
-        # when used as a postFFT denoiser...
-        # neo_fft3d does not have the same issue.
-
-        # I think the summary is - all fft3dfilters are trash at this rate...
-
-        # fft3dfilter requires sigma values to be scaled to bit depth
-        # https://github.com/AmusementClub/VapourSynth-FFT3DFilter/blob/mod/doc/fft3dfilter.md#scaling-parameters-according-to-bit-depth
-        sigmaMultiplier = 1.0 / 256.0 if get_sample_type(clip) == vs.FLOAT else 1 << (get_depth(clip) - 8)
-        for sigma in ['sigma', 'sigma2', 'sigma3', 'sigma4']:
-            if sigma in kwargs:
-                kwargs[sigma] *= sigmaMultiplier
-
-        return core.fft3dfilter.FFT3DFilter(clip, **kwargs)  # type: ignore
-    elif hasattr(core, 'neo_fft3d'):
-        # neo_fft3d is slower than fft3d filter for me...
-        return core.neo_fft3d.FFT3D(clip, **kwargs)  # type: ignore
-    else:
-        raise ImportError("TemporalDegrain2: No suitable version of fft3dfilter/neo_fft3d found, please install one.")
