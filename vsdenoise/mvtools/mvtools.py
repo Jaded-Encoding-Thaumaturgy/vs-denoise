@@ -8,7 +8,8 @@ from vstools import (
     ColorRange, ConstantFormatVideoNode, CustomOverflowError, CustomRuntimeError, FieldBased, FieldBasedT, FuncExceptT,
     GenericVSFunction, InvalidColorFamilyError, KwargsT, PlanesT, check_ref_clip, check_variable, clamp, core, depth,
     disallow_variable_format, disallow_variable_resolution, fallback, kwargs_fallback, normalize_planes, normalize_seq,
-    scale_value, vs)
+    scale_value, vs
+)
 
 from ..prefilters import PelType, Prefilter, prefilter_to_full_range
 from .enums import MotionMode, MVDirection, MVToolsPlugin, SADMode, SearchMode
