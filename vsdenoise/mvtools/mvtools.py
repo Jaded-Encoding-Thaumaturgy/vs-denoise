@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 from itertools import chain
-from math import ceil, exp
+from math import exp
 from typing import Any, Sequence
 
 from vstools import (
     ColorRange, ConstantFormatVideoNode, CustomOverflowError, CustomRuntimeError, FieldBased, FieldBasedT, FuncExceptT,
     GenericVSFunction, InvalidColorFamilyError, KwargsT, PlanesT, check_ref_clip, check_variable, clamp, core, depth,
     disallow_variable_format, disallow_variable_resolution, fallback, kwargs_fallback, normalize_planes, normalize_seq,
-    scale_value, vs)
+    scale_value, vs
+)
 
 from ..prefilters import PelType, Prefilter, prefilter_to_full_range
 from .enums import MotionMode, MVDirection, MVToolsPlugin, SADMode, SearchMode
@@ -267,7 +268,7 @@ class MVTools:
         :return:                    SuperClips tuple containing the render, search, and recalculate super clips.
         """
 
-        ref = self.get_ref_clip(ref, self.__class__.super)
+        ref = self.get_ref_clip(ref, self.super)
         rfilter = kwargs_fallback(rfilter, (self.super_func_kwargs, 'rfilter'), 3)
         range_conversion = kwargs_fallback(range_conversion, (self.super_func_kwargs, 'range_conversion'), 5.0)
 
@@ -355,7 +356,7 @@ class MVTools:
         :return:                    :py:class:`MotionVectors` object with the analyzed motion vectors.
         """
 
-        ref = self.get_ref_clip(ref, self.__class__.analyze)
+        ref = self.get_ref_clip(ref, self.analyze)
 
         block_size = kwargs_fallback(block_size, (self.analyze_func_kwargs, 'block_size'), 16 if self.is_hd else 8)
         blocksize = max(self.refine and 2 ** (self.refine + 1), block_size)
@@ -434,7 +435,7 @@ class MVTools:
         motion: MotionMode.Config | None = None, supers: SuperClips | None = None,
         *, ref: vs.VideoNode | None = None
     ) -> None:
-        ref = self.get_ref_clip(ref, self.__class__.analyze)
+        ref = self.get_ref_clip(ref, self.analyze)
 
         if not self.vectors.got_vectors:
             raise CustomRuntimeError('You need to first run analyze before recalculating!', self.recalculate)
@@ -519,37 +520,37 @@ class MVTools:
         This function is for using compensated and original frames to create an interleaved clip,
         denoising it with the external temporal filter `func`, and select central cleaned original frames for output.
 
-        :param func:        Temporal function to motion compensate.
-        :param thSAD:       This is the SAD threshold for safe (dummy) compensation.\n
-                            If block SAD is above thSAD, the block is bad, and we use source block
-                            instead of the compensated block.
-        :param thSCD:       The first value is a threshold for whether a block has changed
-                            between the previous frame and the current one.\n
-                            When a block has changed, it means that motion estimation for it isn't relevant.
-                            It, for example, occurs at scene changes, and is one of the thresholds used to
-                            tweak the scene changes detection engine.\n
-                            Raising it will lower the number of blocks detected as changed.\n
-                            It may be useful for noisy or flickered video. This threshold is compared to the SAD value.\n
-                            For exactly identical blocks we have SAD = 0, but real blocks are always different
-                            because of objects complex movement (zoom, rotation, deformation),
-                            discrete pixels sampling, and noise.\n
-                            Suppose we have two compared 8×8 blocks with every pixel different by 5.\n
-                            It this case SAD will be 8×8×5 = 320 (block will not detected as changed for thSCD1 = 400).\n
-                            Actually this parameter is scaled internally in MVTools,
-                            and it is always relative to 8x8 block size.\n
-                            The second value is a threshold of the percentage of how many blocks have to change for
-                            the frame to be considered as a scene change. It ranges from 0 to 100 %.
-        :param supers:      Custom super clips to be used for compensating.
-        :param ref:         Reference clip to use instead of main clip.
-        :param kwargs:      Keyword arguments passed to `func` to avoid using `partial`.
+        :param func:     Temporal function to motion compensate.
+        :param thSAD:    This is the SAD threshold for safe (dummy) compensation.\n
+                         If block SAD is above thSAD, the block is bad, and we use source block
+                         instead of the compensated block.
+        :param thSCD:    The first value is a threshold for whether a block has changed
+                         between the previous frame and the current one.\n
+                         When a block has changed, it means that motion estimation for it isn't relevant.
+                         It, for example, occurs at scene changes, and is one of the thresholds used to
+                         tweak the scene changes detection engine.\n
+                         Raising it will lower the number of blocks detected as changed.\n
+                         It may be useful for noisy or flickered video. This threshold is compared to the SAD value.\n
+                         For exactly identical blocks we have SAD = 0, but real blocks are always different
+                         because of objects complex movement (zoom, rotation, deformation),
+                         discrete pixels sampling, and noise.\n
+                         Suppose we have two compared 8×8 blocks with every pixel different by 5.\n
+                         It this case SAD will be 8×8×5 = 320 (block will not detected as changed for thSCD1 = 400).\n
+                         Actually this parameter is scaled internally in MVTools,
+                         and it is always relative to 8x8 block size.\n
+                         The second value is a threshold of the percentage of how many blocks have to change for
+                         the frame to be considered as a scene change. It ranges from 0 to 100 %.
+        :param supers:   Custom super clips to be used for compensating.
+        :param ref:      Reference clip to use instead of main clip.
+        :param kwargs:   Keyword arguments passed to `func` to avoid using `partial`.
 
-        :return:            Motion compensated output of `func`.
+        :return:         Motion compensated output of `func`.
         """
 
-        ref = self.get_ref_clip(ref, self.__class__.compensate)
+        ref = self.get_ref_clip(ref, self.compensate)
 
         vect_b, vect_f = self.get_vectors_bf()
-        thSCD1, thSCD2 = normalize_thscd(thSCD, thSAD, self.params_curve, self.__class__.compensate)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, thSAD, self.params_curve, self.compensate)
         supers = supers or self.get_supers(ref)
 
         compensate_args = dict(
@@ -570,7 +571,7 @@ class MVTools:
 
         processed = func(interleaved, **kwargs)
 
-        return processed.std.SelectEvery(cycle=n_clips, offsets=(n_clips - 1) / 2)
+        return processed.std.SelectEvery(cycle=n_clips, offsets=(n_clips - 1) // 2)
 
     def degrain(
         self,
@@ -620,7 +621,7 @@ class MVTools:
         :return:        Degrained clip.
         """
 
-        ref = self.get_ref_clip(ref, self.__class__.degrain)
+        ref = self.get_ref_clip(ref, self.degrain)
 
         vect_b, vect_f = self.get_vectors_bf()
         supers = supers or self.get_supers(ref)
@@ -634,12 +635,12 @@ class MVTools:
 
         if not all(0 <= x <= 255 for x in (limit, limitC)):
             raise CustomOverflowError(
-                '"limit" values should be between 0 and 255 (inclusive)!', self.__class__.degrain
+                '"limit" values should be between 0 and 255 (inclusive)!', self.degrain
             )
 
         limitf, limitCf = scale_value(limit, 8, ref), scale_value(limitC, 8, ref)
 
-        thSCD1, thSCD2 = normalize_thscd(thSCD, thSAD, self.params_curve, self.__class__.degrain)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, thSAD, self.params_curve, self.degrain)
 
         degrain_args = dict[str, Any](thscd1=thSCD1, thscd2=thSCD2, plane=self.mv_plane)
 
