@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import partial
 from itertools import count, zip_longest
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Literal, cast, overload
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Literal, cast, overload, Concatenate
 
 from vsexprtools import norm_expr
 from vskernels import Bilinear, Catrom, Scaler, ScalerT
@@ -329,7 +329,7 @@ class TemporalLimiter(CustomIntEnum):
         @overload
         def __call__(  # type: ignore
             self: Literal[TemporalLimiter.CUSTOM],
-            limiter: Callable[P, vs.VideoNode], /, *args: P.args, **kwargs: P.kwargs
+            limiter: Callable[Concatenate[vs.VideoNode, P], vs.VideoNode], /, *args: P.args, **kwargs: P.kwargs
         ) -> TemporalLimiterConfig:
             ...
 
