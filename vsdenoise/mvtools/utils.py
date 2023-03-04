@@ -35,15 +35,14 @@ def planes_to_mvtools(input_planes: Sequence[int]) -> int:
 
 
 def normalize_thscd(
-    thSCD: int | tuple[int | None, int | None] | None, thSAD: int,
-    params_curve: bool = True, func: FuncExceptT | None = None
+    thSCD: int | tuple[int | None, int | None] | None, default: tuple[int, int],
+    func: FuncExceptT | None = None
 ) -> tuple[int, int]:
     func = func or normalize_thscd
 
     thSCD1, thSCD2 = thSCD if isinstance(thSCD, tuple) else (thSCD, None)
 
-    thSCD1 = fallback(thSCD1, round(0.35 * thSAD + 300) if params_curve else 400)
-    thSCD2 = fallback(thSCD2, 51)
+    thSCD1, thSCD2 = fallback(thSCD1, default[0]), fallback(thSCD2, default[1])
 
     if not 1 <= thSCD2 <= 100:
         raise CustomOverflowError('"thSCD[1]" must be between 1 and 100 (inclusive)!', func)
