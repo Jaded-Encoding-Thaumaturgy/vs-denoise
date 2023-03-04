@@ -4,7 +4,7 @@ from .bm3d import *
 from .ccd import *
 from .deblock import *
 from .degrain import *
-from .dfttest import *
+from .fft import *
 from .funcs import *
 from .knlm import *
 from .mvtools import *

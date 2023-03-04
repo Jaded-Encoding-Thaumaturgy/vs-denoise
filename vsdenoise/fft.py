@@ -221,7 +221,7 @@ class FilterType(CustomIntEnum):
     MULT_RANGE = 4
 
     if TYPE_CHECKING:
-        from .dfttest import FilterType
+        from .fft import FilterType
 
         @overload
         def __call__(  # type: ignore[misc]
@@ -306,7 +306,7 @@ class SynthesisType(CustomIntEnum):
     BARLETT_HANN = 9
 
     if TYPE_CHECKING:
-        from .dfttest import SynthesisType
+        from .fft import SynthesisType
 
         @overload
         def __call__(  # type: ignore[misc]
@@ -483,7 +483,7 @@ class DFTTest:
         GCC = auto()
 
         if TYPE_CHECKING:
-            from .dfttest import DFTTest
+            from .fft import DFTTest
 
             Backend: TypeAlias = DFTTest.Backend
 

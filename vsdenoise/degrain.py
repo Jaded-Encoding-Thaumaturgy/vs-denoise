@@ -3,7 +3,7 @@ from functools import partial
 from vsrgtools import contrasharpening, removegrain
 from vstools import VSFunction, core, fallback, get_color_family, get_neutral_value, get_sample_type, vs
 
-from .dfttest import DFTTest, fft3d
+from .fft import DFTTest, fft3d
 from .knlm import nl_means
 from .mvtools import MotionMode, MVTools, MVToolsPresets, SADMode, SearchMode
 from .prefilters import Prefilter
