@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Callable, Concatenate, Literal, overload
 from vsrgtools import LimitFilterMode, limit_filter
 from vstools import CustomIntEnum, P, PlanesT, VSFunction, vs
 
-from .fft import fft3d
+from .fft import fft3d, DFTTest
 from .mvtools import MotionVectors, MVTools, MVToolsPreset, MVToolsPresets
 
 __all__ = [
@@ -42,6 +42,7 @@ class TemporalLimitConfig:
 class TemporalLimit(CustomIntEnum):
     CUSTOM = -1
     FFT3D = 0
+    DFTTEST = 1
 
     if TYPE_CHECKING:
         from .limit import TemporalLimit
@@ -62,6 +63,12 @@ class TemporalLimit(CustomIntEnum):
         @overload
         def __call__(  # type: ignore
             self: Literal[TemporalLimit.FFT3D], *, sigma: float, block_size: int, ov: int
+        ) -> TemporalLimitConfig:
+            ...
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[TemporalLimit.DFTTEST], *, sigma_low: float, sigma_high: float | None = None
         ) -> TemporalLimitConfig:
             ...
 
@@ -95,5 +102,11 @@ class TemporalLimit(CustomIntEnum):
                         bt=3, bw=block_size, bh=block_size, ow=ov, oh=ov,
                         **kwargs
                     )
+            elif self is self.DFTTEST:
+                sigma_low = kwargs.get('sigma_low')
+                sigma_high = kwargs.get('sigma_high', sigma_low)
+
+                def limit_func(clip: vs.VideoNode, *args: Any, **kwargs: Any) -> vs.VideoNode:
+                    return DFTTest.denoise(clip, {0: sigma_low, 1: sigma_high}, **kwargs)
 
             return TemporalLimitConfig(limit_func)

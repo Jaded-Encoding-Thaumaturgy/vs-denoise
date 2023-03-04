@@ -200,7 +200,7 @@ def temporal_degrain(
     long_lat, short_lat = max(*(x := (func.clip.width, func.clip.height))), min(*x)
 
     auto_tune = next(
-        (i for i, (i, j) in enumerate([(1050, 576), (1280, 720), (2048, 1152)]) if long_lat <= i and short_lat <= j), 3
+        (i for i, (k, j) in enumerate([(1050, 576), (1280, 720), (2048, 1152)]) if long_lat <= k and short_lat <= j), 3
     )
 
     thSCD = normalize_thscd(thSCD, ([192, 192, 192, 256, 320, 384][grain_level], 50), temporal_degrain, scale=False)
@@ -233,13 +233,16 @@ def temporal_degrain(
         ])[grain_level])
     ]
 
+    limitVal = [6, 8, 12, 16, 32, 48][[-1, -1, 0, 0, 0, 1][grain_level] + auto_tune + 1]
+
     if isinstance(limiter, TemporalLimitConfig):
         limitConf = limiter
     elif limiter is TemporalLimit.FFT3D:
-        limitVal = [6, 8, 12, 16, 32, 48][[-1, -1, 0, 0, 0, 1][grain_level] + auto_tune + 1]
         ov = 2 * round(limitVal * 2 / [4, 4, 4, 3, 2, 2][grain_level] * 0.5)
 
         limitConf = limiter(sigma=limitVal, block_size=limitVal * 2, ov=ov)  # type: ignore
+    elif limiter is TemporalLimit.DFTTEST:
+        limitConf = limiter(sigma_low=limitVal / 2, sigma_high=limitVal)  # type: ignore
     elif isinstance(limiter, TemporalLimit):
         limitConf = limiter()  # type: ignore
     else:
