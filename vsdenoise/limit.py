@@ -16,12 +16,12 @@ from .fft import fft3d, DFTTest
 from .mvtools import MotionVectors, MVTools, MVToolsPreset, MVToolsPresets
 
 __all__ = [
-    'TemporalLimit'
+    'TemporalLimiter'
 ]
 
 
 @dataclass
-class TemporalLimitConfig:
+class TemporalLimiterConfig:
     limiter: VSFunction
 
     def __call__(
@@ -39,45 +39,45 @@ class TemporalLimitConfig:
         return MVTools(NR1x, **preset).degrain(thSAD2, 255, thSCD)
 
 
-class TemporalLimit(CustomIntEnum):
+class TemporalLimiter(CustomIntEnum):
     CUSTOM = -1
     FFT3D = 0
     DFTTEST = 1
 
     if TYPE_CHECKING:
-        from .limit import TemporalLimit
+        from .limit import TemporalLimiter
 
         @overload
         def __call__(  # type: ignore
-            self: Literal[TemporalLimit.CUSTOM],
+            self: Literal[TemporalLimiter.CUSTOM],
             limiter: Callable[Concatenate[vs.VideoNode, P], vs.VideoNode], /, *args: P.args, **kwargs: P.kwargs
-        ) -> TemporalLimitConfig:
+        ) -> TemporalLimiterConfig:
             ...
 
         @overload
         def __call__(  # type: ignore
-            self: Literal[TemporalLimit.CUSTOM], limiter: vs.VideoNode, /,
-        ) -> TemporalLimitConfig:
+            self: Literal[TemporalLimiter.CUSTOM], limiter: vs.VideoNode, /,
+        ) -> TemporalLimiterConfig:
             ...
 
         @overload
         def __call__(  # type: ignore
-            self: Literal[TemporalLimit.FFT3D], *, sigma: float, block_size: int, ov: int
-        ) -> TemporalLimitConfig:
+            self: Literal[TemporalLimiter.FFT3D], *, sigma: float, block_size: int, ov: int
+        ) -> TemporalLimiterConfig:
             ...
 
         @overload
         def __call__(  # type: ignore
-            self: Literal[TemporalLimit.DFTTEST], *, sigma_low: float, sigma_high: float | None = None
-        ) -> TemporalLimitConfig:
+            self: Literal[TemporalLimiter.DFTTEST], *, sigma_low: float, sigma_high: float | None = None
+        ) -> TemporalLimiterConfig:
             ...
 
-        def __call__(self, *args: Any, **kwargs: Any) -> TemporalLimitConfig:  # type: ignore
+        def __call__(self, *args: Any, **kwargs: Any) -> TemporalLimiterConfig:  # type: ignore
             ...
     else:
         def __call__(
             self, limiter: vs.VideoNode | VSFunction | None = None, *args: Any, **kwargs: Any
-        ) -> TemporalLimitConfig:
+        ) -> TemporalLimiterConfig:
             if self is self.CUSTOM:
                 if isinstance(limiter, vs.VideoNode):
                     def limit_func(clip: vs.VideoNode, *args: Any, **kwargs: Any) -> vs.VideoNode:
@@ -109,4 +109,4 @@ class TemporalLimit(CustomIntEnum):
                 def limit_func(clip: vs.VideoNode, *args: Any, **kwargs: Any) -> vs.VideoNode:
                     return DFTTest.denoise(clip, {0: sigma_low, 1: sigma_high}, **kwargs)
 
-            return TemporalLimitConfig(limit_func)
+            return TemporalLimiterConfig(limit_func)

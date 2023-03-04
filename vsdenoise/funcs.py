@@ -14,7 +14,7 @@ from vstools import (
     FunctionUtil, KwargsT, PlanesT, VSFunction, depth, expect_bits, fallback, get_h, get_w, normalize_planes, vs
 )
 
-from .limit import TemporalLimit, TemporalLimitConfig
+from .limit import TemporalLimiter, TemporalLimiterConfig
 from .mvtools import MotionMode, MVTools, MVToolsPresets, SADMode, SearchMode
 from .mvtools.enums import SearchModeBase
 from .mvtools.utils import normalize_thscd
@@ -189,7 +189,7 @@ def temporal_degrain(
     sad_mode: SADMode | tuple[SADMode, SADMode] = SADMode.SPATIAL.same_recalc,
     prefilter: Prefilter | vs.VideoNode | None = None,
     truemotion: bool = False, global_motion: bool = True, chroma_motion: bool = True,
-    limiter: TemporalLimit | TemporalLimitConfig | VSFunction = TemporalLimit.FFT3D,
+    limiter: TemporalLimiter | TemporalLimiterConfig | VSFunction = TemporalLimiter.FFT3D,
     grain_level: int = 4, contra: bool | int | float = False, planes: PlanesT = None,
     **kwargs: Any
 ) -> vs.VideoNode:
@@ -235,18 +235,18 @@ def temporal_degrain(
 
     limitVal = [6, 8, 12, 16, 32, 48][[-1, -1, 0, 0, 0, 1][grain_level] + auto_tune + 1]
 
-    if isinstance(limiter, TemporalLimitConfig):
+    if isinstance(limiter, TemporalLimiterConfig):
         limitConf = limiter
-    elif limiter is TemporalLimit.FFT3D:
+    elif limiter is TemporalLimiter.FFT3D:
         ov = 2 * round(limitVal * 2 / [4, 4, 4, 3, 2, 2][grain_level] * 0.5)
 
         limitConf = limiter(sigma=limitVal, block_size=limitVal * 2, ov=ov)  # type: ignore
-    elif limiter is TemporalLimit.DFTTEST:
+    elif limiter is TemporalLimiter.DFTTEST:
         limitConf = limiter(sigma_low=limitVal / 2, sigma_high=limitVal)  # type: ignore
-    elif isinstance(limiter, TemporalLimit):
+    elif isinstance(limiter, TemporalLimiter):
         limitConf = limiter()  # type: ignore
     else:
-        limitConf = TemporalLimit.CUSTOM(limiter)
+        limitConf = TemporalLimiter.CUSTOM(limiter)
 
     class MotionModeCustom(MotionMode.Config):
         def block_coherence(self, block_size: int) -> int:
