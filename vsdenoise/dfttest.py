@@ -438,7 +438,7 @@ class BackendInfo(KwargsT):
 
             if (sbsize := dft_args.pop('sbsize', 16)) != 16:
                 raise CustomValueError(
-                    '{backend} doesn\'t support sbsize != 16!', func, sbsize, backend=backend
+                    '{backend} doesn\'t support block_size != 16!', func, sbsize, backend=backend
                 )
 
             if (nlocation := dft_args.pop('nlocation', None)) is not None:
