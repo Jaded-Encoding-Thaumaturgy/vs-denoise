@@ -570,7 +570,7 @@ class MVTools:
 
         processed = func(interleaved, **kwargs)
 
-        return processed.std.SelectEvery(cycle=n_clips, offsets=(n_clips - 1) / 2)
+        return processed.std.SelectEvery(cycle=n_clips, offsets=(n_clips - 1) // 2)
 
     def degrain(
         self,
