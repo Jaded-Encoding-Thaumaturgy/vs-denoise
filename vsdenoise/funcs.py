@@ -5,6 +5,7 @@ This module contains general denoising functions built on top of base denoisers.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import partial
 from itertools import count, zip_longest
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Literal, cast, overload
 
@@ -13,19 +14,23 @@ from vskernels import Bilinear, Catrom, Scaler, ScalerT
 from vsrgtools import RemoveGrainMode, contrasharpening, removegrain
 from vsrgtools.util import norm_rmode_planes
 from vstools import (
-    CustomIntEnum, FuncExceptT, KwargsT, PlanesT, VSFunction, core, depth, expect_bits, fallback, get_color_family,
-    get_h, get_neutral_value, get_sample_type, get_w, normalize_planes, vs
+    CustomIntEnum, FuncExceptT, FunctionUtil, KwargsT, P, PlanesT, VSFunction, depth, expect_bits, fallback, get_h,
+    get_w, normalize_planes, vs
 )
+
+from vsdenoise.mvtools.motion import MotionVectors
 
 from .fft import DFTTest, fft3d
 from .knlm import nl_means
-from .mvtools import MotionMode, MVTools, MVToolsPresets, SADMode, SearchMode
+from .mvtools import MotionMode, MVTools, MVToolsPreset, MVToolsPresets, SADMode, SearchMode
 from .prefilters import PelType, Prefilter
 
 __all__ = [
     'mlm_degrain',
 
-    'temporal_degrain', 'PostProcessFFT'
+    'temporal_degrain',
+
+    'PostProcessFFT', 'TemporalLimiter'
 ]
 
 
@@ -296,13 +301,90 @@ class PostProcessFFT(CustomIntEnum):
             return PostProcessConfig(self, kwargs, sigma, tr, block_size, merge_strength)
 
 
+@dataclass
+class TemporalLimiterConfig:
+    limiter: VSFunction
+
+    def __call__(
+        self, clip: vs.VideoNode,
+        thSAD1: int | tuple[int, int], thSAD2: int | tuple[int, int],
+        thSCD: int | tuple[int | None, int | None] | None = None,
+        vectors: MotionVectors | None = None, preset: MVToolsPreset = MVToolsPresets.SMDE
+    ) -> vs.VideoNode:
+        NR1 = MVTools(clip, vectors=vectors, **preset).degrain(thSAD=thSAD1, thSCD=thSCD)
+
+        NR1x = norm_expr([clip, self.limiter(clip), NR1], 'x y - abs x z - abs < y z ?', 0)
+
+        return MVTools(NR1x, vectors=vectors, **preset).degrain(thSAD=thSAD2, thSCD=thSCD)
+
+
+class TemporalLimiter(CustomIntEnum):
+    CUSTOM = -1
+    FFT3D = 0
+
+    if TYPE_CHECKING:
+        from .funcs import TemporalLimiter
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[TemporalLimiter.CUSTOM],
+            limiter: Callable[P, vs.VideoNode], /, *args: P.args, **kwargs: P.kwargs
+        ) -> TemporalLimiterConfig:
+            ...
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[TemporalLimiter.CUSTOM], limiter: vs.VideoNode, /,
+        ) -> TemporalLimiterConfig:
+            ...
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[TemporalLimiter.FFT3D], *, sigma: float, block_size: int, ov: int
+        ) -> TemporalLimiterConfig:
+            ...
+
+        def __call__(self, *args: Any, **kwargs: Any) -> TemporalLimiterConfig:  # type: ignore
+            ...
+    else:
+        def __call__(
+            self, limiter: vs.VideoNode | VSFunction | None = None, *args: Any, **kwargs: Any
+        ) -> TemporalLimiterConfig:
+            if self is self.CUSTOM:
+                if isinstance(limiter, vs.VideoNode):
+                    def limit_func(clip: vs.VideoNode, *args: Any, **kwargs: Any) -> vs.VideoNode:
+                        return limiter
+                else:
+                    if limiter is None:
+                        def _limiter(clip: vs.VideoNode, *args: Any, **kwargs: Any) -> vs.VideoNode:
+                            return clip
+
+                        limiter = _limiter
+
+                    limit_func = partial(limiter, *args, **kwargs)
+            elif self is self.FFT3D:
+                sigma = kwargs.get('sigma')
+                block_size = kwargs.get('block_size')
+                ov = kwargs.get('ov')
+
+                def limit_func(clip: vs.VideoNode, *args: Any, **kwargs: Any) -> vs.VideoNode:
+                    return fft3d(
+                        clip, sigma=sigma, sigma2=sigma * 0.625,
+                        sigma3=sigma * 0.375, sigma4=sigma * 0.250,
+                        bt=3, bw=block_size, bh=block_size, ow=ov, oh=ov,
+                        **kwargs
+                    )
+
+            return TemporalLimiterConfig(limit_func)
+
+
 def temporal_degrain(
-    clip: vs.VideoNode, /,
+    clip: vs.VideoNode,
     tr: int = 1, grainLevel: int = 2,
     post: PostProcessFFT | PostProcessConfig = PostProcessFFT.REPAIR,
-    planes: int | list[int] = 4, *,
+    planes: PlanesT = None, *,
     grainLevelSetup: bool = False,
-    outputStage: int = 2,
+    outputStage: int = 1,
     meAlg: int = 4,
     meAlgPar: int | None = None,
     meSubpel: int | None = None,
@@ -318,29 +400,18 @@ def temporal_degrain(
     GlobalMotion: bool = True,
     ChromaMotion: bool = True,
     refine: bool | int = False,
-    limiter: Prefilter | VSFunction | vs.VideoNode | None = None,
-    limitSigma: int | None = None,
-    limitBlksz: int | None = None,
-    extraSharp: bool | int = False,
-    fftThreads: int = 1
+    limiter: TemporalLimiter | TemporalLimiterConfig = TemporalLimiter.FFT3D,
+    extraSharp: bool | int = False
 ) -> vs.VideoNode:
-    width = clip.width
-    height = clip.height
+    func = FunctionUtil(clip, temporal_degrain, planes, (vs.GRAY, vs.YUV))
 
-    neutral = get_neutral_value(clip)
-    isFLOAT = get_sample_type(clip) == vs.FLOAT
-    isGRAY = get_color_family(clip) == vs.GRAY
-
-    if isinstance(planes, int):
-        # Convert int-based plane selection to array-based plane selection to match the normal VS standard
-        planes = [[0], [1], [2], [1, 2], [0, 1, 2]][planes]
-
-    if isGRAY:
+    if func.luma_only:
         ChromaMotion = False
-        planes = 0
+        planes = [0]
 
-    longlat = max(width, height)
-    shortlat = min(width, height)
+    longlat = max(func.clip.width, func.clip.height)
+    shortlat = min(func.clip.width, func.clip.height)
+
     grainLevel += 2
 
     if grainLevelSetup:
@@ -374,7 +445,6 @@ def temporal_degrain(
     ppSAD1 = fallback(ppSAD1, [3, 5, 7, 9, 11, 13][grainLevel])
     ppSAD2 = fallback(ppSAD2, [2, 4, 5, 6, 7, 8][grainLevel])
     ppSCD1 = fallback(ppSCD1, [3, 3, 3, 4, 5, 6][grainLevel])
-    CMplanes = [0, 1, 2] if ChromaMotion else [0]
 
     if DCT == 5:
         ppSAD1 = int(ppSAD1 * 1.7)
@@ -384,30 +454,21 @@ def temporal_degrain(
     thSAD2 = int(ppSAD2 * 64)
     thSCD1 = int(ppSCD1 * 64)
 
-    limitAT = [-1, -1, 0, 0, 0, 1][grainLevel] + autoTune + 1
-    limitSigma = fallback(limitSigma, [6, 8, 12, 16, 32, 48][limitAT])
-    limitBlksz = fallback(limitBlksz, [12, 16, 24, 32, 64, 96][limitAT])
+    if isinstance(limiter, TemporalLimiterConfig):
+        limitConf = limiter
+    elif limiter is TemporalLimiter.FFT3D:
+        limitAT = [-1, -1, 0, 0, 0, 1][grainLevel] + autoTune + 1
+        limitSigma = [6, 8, 12, 16, 32, 48][limitAT]
+        limitBlockSize = [12, 16, 24, 32, 64, 96][limitAT]
+
+        ovNum = [4, 4, 4, 3, 2, 2][grainLevel]
+        ov = 2 * round(limitBlockSize / ovNum * 0.5)
+
+        limitConf = limiter(sigma=limitSigma, block_size=limitBlockSize, ov=ov)  # type: ignore
+    else:
+        limitConf = limiter()  # type: ignore
 
     sharpenRadius = 3 if extraSharp is True else None
-
-    # TODO: Provide DFTTest version for improved quality + performance.
-    def limiterFFT3D(clip: vs.VideoNode) -> vs.VideoNode:
-        assert limitSigma and limitBlksz and grainLevel is not None
-
-        s2 = limitSigma * 0.625
-        s3 = limitSigma * 0.375
-        s4 = limitSigma * 0.250
-        ovNum = [4, 4, 4, 3, 2, 2][grainLevel]
-        ov = 2 * round(limitBlksz / ovNum * 0.5)
-
-        return fft3d(
-            clip, planes=CMplanes, sigma=limitSigma, sigma2=s2, sigma3=s3, sigma4=s4,
-            bt=3, bw=limitBlksz, bh=limitBlksz, ow=ov, oh=ov, ncpu=fftThreads, func=temporal_degrain
-        )
-
-    limiter = fallback(limiter, limiterFFT3D)  # type: ignore
-
-    assert limiter
 
     if isinstance(SrchClipPP, Prefilter):
         srchClip = SrchClipPP(clip)
@@ -435,26 +496,18 @@ def temporal_degrain(
     maxMV = MVTools(clip, **preset(tr=maxTR))
     maxMV.analyze()
 
-    NR1 = MVTools(clip, vectors=maxMV, **preset).degrain(thSAD=thSAD1, thSCD=(thSCD1, thSCD2))
-
-    if tr > 0:
-        spat = limiter(clip) if callable(limiter) else limiter
-
-        NR1x = norm_expr([clip, spat, NR1], 'x y - abs x z - abs < y z ?', 0)
-
-        NR2 = MVTools(NR1x, vectors=maxMV, **preset).degrain(thSAD=thSAD2, thSCD=(thSCD1, thSCD2))
-    else:
-        NR2 = clip
+    NR2 = limitConf(clip, thSAD1, thSAD2, (thSCD1, thSCD2), maxMV.vectors, preset) if tr > 0 else clip
 
     if postConf.tr > 0:
-        mvNoiseWindow = MVTools(NR2, vectors=maxMV, **preset(tr=postConf.tr))
-        dnWindow = mvNoiseWindow.compensate(postConf, thSAD=thSAD2, thSCD=(thSCD1, thSCD2))
+        dnWindow = MVTools(NR2, vectors=maxMV, **preset(tr=postConf.tr)).compensate(
+            postConf, thSAD=thSAD2, thSCD=(thSCD1, thSCD2)
+        )
     else:
         dnWindow = postConf(NR2)
 
     sharpened = contrasharpening(dnWindow, clip, sharpenRadius)
 
-    if postConf.tr > 0:
+    if postConf.tr > 0 and postConf.merge_strength:
         sharpened = clip.std.Merge(sharpened, postConf.merge_strength / 100)
 
-    return [NR1x, NR2, sharpened][outputStage]
+    return [NR2, sharpened][outputStage]
