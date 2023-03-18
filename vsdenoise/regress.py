@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Concatenate, Sequence
 
-from vsexprtools import ExprOp, aka_expr_available, norm_expr
+from vsexprtools import ExprOp, complexpr_available, norm_expr
 from vskernels import Catrom, Kernel, KernelT, Mitchell, Scaler, ScalerT
 from vsrgtools import box_blur
 from vstools import (
@@ -299,7 +299,7 @@ class Regression:
             norm_expr(
                 [Exys_y, blur_x, Ex_y, var_x, var_y],
                 f'x y z * - XYS! XYS@ a {eps} + / XYS@ dup * a b * {eps} + / sqrt {coeff_x} - {coeff_y} / 0 max *'
-            ) if aka_expr_available else norm_expr(
+            ) if complexpr_available else norm_expr(
                 [norm_expr([Exys_y, blur_x, Ex_y], 'x y z * -'), var_x, var_y],
                 f'x y {eps} + / x dup * y z * {eps} + / sqrt {coeff_x} - {coeff_y} / 0 max *'
             )

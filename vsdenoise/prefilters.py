@@ -9,7 +9,7 @@ from math import ceil, sin
 from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 from vsaa import Nnedi3
-from vsexprtools import ExprOp, aka_expr_available, norm_expr
+from vsexprtools import ExprOp, complexpr_available, norm_expr
 from vskernels import Bicubic, BicubicZopti, Bilinear, Scaler, ScalerT
 from vsmasktools import retinex
 from vsrgtools import bilateral, blur, gauss_blur, min_blur, replace_low_frequencies
@@ -819,7 +819,7 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
 
         head = f'{k} {1 + c} {(1 + c) * c}'
 
-        if aka_expr_available:
+        if complexpr_available:
             head = f'{t} T! {head}'
             t = 'T@'
 

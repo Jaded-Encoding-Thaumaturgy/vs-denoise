@@ -8,7 +8,7 @@ from math import sin, sqrt
 from typing import Any
 
 from vsaa import Nnedi3
-from vsexprtools import EXPR_VARS, aka_expr_available, norm_expr
+from vsexprtools import EXPR_VARS, complexpr_available, norm_expr
 from vskernels import Bicubic, Point
 from vsscale import SSIM
 from vstools import (
@@ -128,7 +128,7 @@ def ccd(
 
     InvalidColorFamilyError.check(src, (vs.YUV, vs.RGB), ccd)
 
-    if aka_expr_available:
+    if complexpr_available:
         if tr < 0 or tr > 3:
             raise CustomIndexError('Temporal radius must be between 0 and 3 (inclusive)!', ccd, tr)
         elif tr > src.num_frames // 2:
