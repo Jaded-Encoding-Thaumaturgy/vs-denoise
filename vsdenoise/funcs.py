@@ -8,15 +8,23 @@ from itertools import count, zip_longest
 from typing import Any, Callable, Iterable, cast
 
 from vskernels import Bilinear, Catrom, Scaler, ScalerT
-from vsrgtools import RemoveGrainMode, removegrain
+from vsrgtools import RemoveGrainMode, contrasharpening, contrasharpening_dehalo, removegrain
 from vsrgtools.util import norm_rmode_planes
-from vstools import KwargsT, PlanesT, depth, expect_bits, get_h, get_w, normalize_planes, vs
+from vstools import (
+    FunctionUtil, KwargsT, PlanesT, VSFunction, depth, expect_bits, fallback, get_h, get_w, normalize_planes, vs
+)
 
-from .mvtools import MotionMode, MVTools
-from .prefilters import PelType
+from .limit import TemporalLimiter, TemporalLimiterConfig
+from .mvtools import MotionMode, MVTools, MVToolsPresets, SADMode, SearchMode
+from .mvtools.enums import SearchModeBase
+from .mvtools.utils import normalize_thscd
+from .postprocess import PostProcess, PostProcessConfig
+from .prefilters import PelType, Prefilter
 
 __all__ = [
-    'mlm_degrain'
+    'mlm_degrain',
+
+    'temporal_degrain'
 ]
 
 
@@ -170,3 +178,115 @@ def mlm_degrain(
             ref_denoise = scaler.scale(ref_denoise, ref_den_next.width, ref_den_next.height)
 
     return depth(ref_denoise, bits)
+
+
+def temporal_degrain(
+    clip: vs.VideoNode, tr: int = 1, thSAD: int | None = None,
+    block_size: int | None = None, refine: int = 0,
+    post: PostProcess | PostProcessConfig | None = None,
+    thSAD2: int | None = None, thSCD: int | tuple[int | None, int | None] | None = (None, 50),
+    search_mode: SearchMode | SearchMode.Config = SearchMode.HEXAGON,
+    sad_mode: SADMode | tuple[SADMode, SADMode] = SADMode.SPATIAL.same_recalc,
+    prefilter: Prefilter | vs.VideoNode | None = None,
+    truemotion: bool = False, global_motion: bool = True, chroma_motion: bool = True,
+    limiter: TemporalLimiter | TemporalLimiterConfig | VSFunction = TemporalLimiter.FFT3D,
+    grain_level: int = 4, contra: bool | int | float = False, planes: PlanesT = None,
+    **kwargs: Any
+) -> vs.VideoNode:
+    func = FunctionUtil(clip, temporal_degrain, planes, (vs.GRAY, vs.YUV))
+
+    chroma_motion = chroma_motion and func.chroma
+
+    long_lat, short_lat = max(*(x := (func.clip.width, func.clip.height))), min(*x)
+
+    auto_tune = next(
+        (i for i, (k, j) in enumerate([(1050, 576), (1280, 720), (2048, 1152)]) if long_lat <= k and short_lat <= j), 3
+    )
+
+    thSCD = normalize_thscd(thSCD, ([192, 192, 192, 256, 320, 384][grain_level], 50), temporal_degrain, scale=False)
+
+    if post is None:
+        post = PostProcess.DFTTEST
+
+    postConf = post if isinstance(post, PostProcessConfig) else post()
+
+    prefilter = fallback(
+        prefilter, [*([Prefilter.NONE] * 3), *([Prefilter.GAUSSBLUR2] * 3)][grain_level]  # type: ignore
+    )
+
+    if not isinstance(search_mode, SearchModeBase.Config):
+        meAlgPar = 5 if refine and truemotion else 2
+        meSubpel = [4, 2, 2, 1][auto_tune]
+
+        search_mode = search_mode(meAlgPar, meSubpel, search_mode)
+
+    block_size = fallback(block_size, [8, 8, 16, 32][auto_tune])
+
+    motion_lambda = (1000 if truemotion else 100) * (block_size ** 2) // 64
+
+    th_scale = 1.7 if (sad_mode[0] if isinstance(sad_mode, tuple) else sad_mode) is SADMode.SATD else 1.0
+
+    thSAD, thSAD2 = [
+        int((d * 64.0 if x is None else x) * th_scale)
+        for x, d in zip((thSAD, thSAD2), list[tuple[int, int]]([
+            (3, 2), (5, 4), (7, 5), (9, 6), (11, 7), (13, 8)
+        ])[grain_level])
+    ]
+
+    limitVal = [6, 8, 12, 16, 32, 48][[-1, -1, 0, 0, 0, 1][grain_level] + auto_tune + 1]
+
+    if isinstance(limiter, TemporalLimiterConfig):
+        limitConf = limiter
+    elif limiter is TemporalLimiter.FFT3D:
+        ov = 2 * round(limitVal * 2 / [4, 4, 4, 3, 2, 2][grain_level] * 0.5)
+
+        limitConf = limiter(sigma=limitVal, block_size=limitVal * 2, ov=ov)  # type: ignore
+    elif limiter is TemporalLimiter.DFTTEST:
+        limitConf = limiter(sigma_low=limitVal / 2, sigma_high=limitVal)  # type: ignore
+    elif isinstance(limiter, TemporalLimiter):
+        limitConf = limiter()  # type: ignore
+    else:
+        limitConf = TemporalLimiter.CUSTOM(limiter)
+
+    class MotionModeCustom(MotionMode.Config):
+        def block_coherence(self, block_size: int) -> int:
+            return motion_lambda // 4
+
+    motion_ref = MotionMode.from_param(truemotion)
+
+    preset = MVToolsPresets.CUSTOM(
+        tr=tr, refine=refine, prefilter=prefilter(func.work_clip) if isinstance(prefilter, Prefilter) else prefilter,
+        pel=meSubpel, hpad=block_size, vpad=block_size, block_size=block_size, recalculate_args=dict(thsad=thSAD // 2),
+        overlap=property(lambda self: self.block_size // 2), analyze_args=dict(chroma=chroma_motion),
+        search=search_mode, super_args=dict(chroma=chroma_motion), planes=func.norm_planes, motion=MotionModeCustom(
+            truemotion, motion_lambda, motion_ref.sad_limit, 50 if truemotion else 25, motion_ref.plevel, global_motion
+        )
+    )
+
+    maxMV = MVTools(func.work_clip, **preset(tr=max(tr, postConf.tr), **kwargs)).analyze()
+
+    NR2 = limitConf(
+        func.work_clip, thSAD, thSAD2, thSCD,
+        func.with_planes([1, 2]) if chroma_motion else func, maxMV, preset
+    ) if tr > 0 else func.work_clip
+
+    if postConf.tr > 0:
+        dnWindow = MVTools(NR2, vectors=maxMV, **preset(tr=postConf.tr)).compensate(postConf, thSAD2, thSCD)
+    else:
+        dnWindow = postConf(NR2)
+
+    if contra:
+        if contra is True:
+            contra = 3
+
+        if isinstance(contra, int):
+            sharpened = contrasharpening(dnWindow, func.work_clip, contra, 13, func.norm_planes)
+        else:
+            sharpened = contrasharpening_dehalo(dnWindow, func.work_clip, contra, 2.5, func.norm_planes)
+    else:
+        sharpened = dnWindow
+
+    if postConf.tr > 0 and postConf.merge_strength:
+        sharpened = func.work_clip.std.Merge(sharpened, postConf.merge_strength / 100)
+
+    return func.return_clip(sharpened)

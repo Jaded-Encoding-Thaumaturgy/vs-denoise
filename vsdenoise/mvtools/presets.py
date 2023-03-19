@@ -8,6 +8,7 @@ from vstools import ColorRange, CustomEnum, FieldBasedT, KwargsNotNone, KwargsT,
 
 from ..prefilters import PelType, Prefilter
 from .enums import MotionMode, SADMode, SearchMode
+from .motion import MotionVectors
 
 __all__ = [
     'MVToolsPreset', 'MVToolsPresets'
@@ -45,6 +46,10 @@ class MVToolsPreset(MVToolsPresetBase):
     motion: property | MotionMode.Config | None = None
     prefilter: property | Prefilter | vs.VideoNode | None = None
     pel_type: property | PelType | tuple[PelType, PelType] | None = None
+    vectors: property | MotionVectors | None = None
+    super_args: property | KwargsT | None = None
+    analyze_args: property | KwargsT | None = None
+    recalculate_args: property | KwargsT | None = None
 
     if TYPE_CHECKING:
         def __call__(
@@ -56,7 +61,9 @@ class MVToolsPreset(MVToolsPresetBase):
             search: SearchMode | SearchMode.Config | None = None, motion: MotionMode.Config | None = None,
             sad_mode: SADMode | tuple[SADMode, SADMode] | None = None, rfilter: int | None = None,
             sharp: int | None = None, prefilter: Prefilter | vs.VideoNode | None = None,
-            pel_type: PelType | tuple[PelType, PelType] | None = None
+            pel_type: PelType | tuple[PelType, PelType] | None = None, vectors: MotionVectors | None = None,
+            super_args: KwargsT | None = None, analyze_args: KwargsT | None = None,
+            recalculate_args: KwargsT | None = None
         ) -> MVToolsPreset:
             ...
     else:

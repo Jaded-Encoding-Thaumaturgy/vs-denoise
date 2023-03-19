@@ -5,8 +5,9 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, Iterator, Literal, Mapping, NamedTuple, Sequence, TypeAlias, TypeVar, overload
 
 from vstools import (
-    CustomEnum, CustomIntEnum, CustomOverflowError, CustomRuntimeError, CustomValueError, DependencyNotFoundError,
-    FuncExceptT, KwargsNotNone, KwargsT, PlanesT, SupportsFloatOrIndex, check_variable, core, flatten, inject_self, vs
+    CustomEnum, CustomImportError, CustomIntEnum, CustomOverflowError, CustomRuntimeError, CustomValueError,
+    DependencyNotFoundError, FuncExceptT, KwargsNotNone, KwargsT, PlanesT, SupportsFloatOrIndex, check_variable, core,
+    flatten, get_depth, get_sample_type, inject_self, vs
 )
 
 __all__ = [
@@ -20,7 +21,9 @@ __all__ = [
 
     'SynthesisType', 'SynthesisTypeT',
 
-    'DFTTest'
+    'DFTTest',
+
+    'fft3d'
 ]
 
 Frequency: TypeAlias = float
@@ -492,7 +495,7 @@ class DFTTest:
         GCC = auto()
 
         if TYPE_CHECKING:
-            from .dfttest import DFTTest
+            from .fft import DFTTest
 
             Backend: TypeAlias = DFTTest.Backend
 
@@ -621,3 +624,23 @@ class DFTTest:
         return self.insert_freq(
             self.denoise(sloc, low, func=self.merge_freq, **kwargs), high, sloc, func=self.merge_freq, **kwargs
         )
+
+
+def fft3d(clip: vs.VideoNode, func: FuncExceptT | None = None, **kwargs: Any) -> vs.VideoNode:
+    if hasattr(core, 'fft3dfilter'):
+        # fft3dfilter requires sigma values to be scaled to bit depth
+        # https://github.com/myrsloik/VapourSynth-FFT3DFilter/blob/master/doc/fft3dfilter.md#scaling-parameters-according-to-bit-depth
+        sigmaMultiplier = 1.0 / 256.0 if get_sample_type(clip) is vs.FLOAT else 1 << (get_depth(clip) - 8)
+
+        for sigma in ['sigma', 'sigma2', 'sigma3', 'sigma4']:
+            if sigma in kwargs:
+                kwargs[sigma] *= sigmaMultiplier
+
+        return core.fft3dfilter.FFT3DFilter(clip, **kwargs)  # type: ignore
+
+    if hasattr(core, 'neo_fft3d'):
+        return core.neo_fft3d.FFT3D(clip, **kwargs)  # type: ignore
+
+    raise CustomImportError(
+        func or fft3d, 'fft3d', "No fft3d plugin (fft3dfilter, neo_fft3d) found, please install one."
+    )
