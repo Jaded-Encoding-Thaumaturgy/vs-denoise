@@ -8,7 +8,7 @@ from vskernels import Catrom, Kernel, KernelT, Mitchell, Scaler, ScalerT
 from vsrgtools import box_blur
 from vstools import (
     P1, CustomOverflowError, InvalidSubsamplingError, P, VSFunction, check_variable, complex_hash, depth, expect_bits,
-    get_subsampling, get_u, get_v, get_y, join, split, vs
+    get_subsampling, get_y, join, split, vs
 )
 
 __all__ = [
@@ -209,7 +209,7 @@ class Regression:
     """Epsilon, used in expressions to avoid division by zero."""
 
     def __post_init__(self) -> None:
-        self.blur_conf = Regression.BlurConf.from_param(self.blur_func)
+        self.blur_conf = Regression.BlurConf.from_param(self.blur_func)  # type: ignore
 
     @classmethod
     def from_param(
@@ -355,22 +355,26 @@ def chroma_reconstruct(
     scaler = Scaler.ensure_obj(scaler, chroma_reconstruct)
     downscaler = kernel.ensure_obj(downscaler, chroma_reconstruct)
 
-    if get_subsampling(clip) != '420':
+    subsampling = get_subsampling(clip)
+
+    if subsampling not in {'420', '444'}:
         raise InvalidSubsamplingError(chroma_reconstruct, clip)
 
     regression = Regression.from_param(blur_conf, eps, *args, **kwargs)
 
     up, bits = expect_bits(clip, 32)
 
-    y = get_y(up)
+    y, shifted_planes = get_y(up), split(up)
 
-    shifted_planes = [
-        scaler.scale(plane, up.width, up.height, (0, 0.25)) for plane in [
-            downscaler.scale(
-                y, up.width // 2, up.height // 2, (0, -.5)
-            ), get_u(up), get_v(up)
+    if subsampling == '420':
+        shifted_planes = [
+            scaler.scale(plane, up.width, up.height, (0, 0.25)) for plane in [
+                downscaler.scale(y, up.width // 2, up.height // 2, (0, -.5)),
+                *shifted_planes[1:]
+            ]
         ]
-    ]
+    else:
+        i444 = True
 
     corr_slopes = regression.sloped_corr(shifted_planes, weight, avg=True)
 
