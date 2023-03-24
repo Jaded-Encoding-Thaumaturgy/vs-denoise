@@ -421,7 +421,7 @@ class MVTools:
         if self.refine:
             self.recalculate(
                 self.refine, self.tr, blocksize, halfoverlap, thSAD_recalc,
-                search, recalc_sad_mode, motion, supers, ref=ref
+                search, recalc_sad_mode, motion, vectors, supers, ref=ref
             )
 
         vectors.kwargs.update(thSAD=thSAD)
@@ -432,12 +432,17 @@ class MVTools:
         self, refine: int = 3, tr: int | None = None, block_size: int | None = None,
         overlap: int | None = None, thSAD: int | None = None,
         search: SearchMode | SearchMode.Config | None = None, sad_mode: SADMode = SADMode.SATD,
-        motion: MotionMode.Config | None = None, supers: SuperClips | None = None,
-        *, ref: vs.VideoNode | None = None
+        motion: MotionMode.Config | None = None, vectors: MotionVectors | MVTools | None = None,
+        supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
     ) -> None:
         ref = self.get_ref_clip(ref, self.analyze)
 
-        if not self.vectors.got_vectors:
+        if isinstance(vectors, MVTools):
+            vectors = vectors.vectors
+        elif vectors is None:
+            vectors = self.vectors
+
+        if not vectors.got_vectors:
             raise CustomRuntimeError('You need to first run analyze before recalculating!', self.recalculate)
 
         tr = fallback(tr, self.tr)
@@ -481,21 +486,21 @@ class MVTools:
             for i in range(refine):
                 recalc_blksize = clamp(blocksize / 2 ** i, 4, 128)
 
-                self.vectors.vmulti = self.mvtools.Recalculate(
-                    supers.recalculate, vectors=self.vectors.vmulti, **(recalc_args | dict(
+                vectors.vmulti = self.mvtools.Recalculate(
+                    supers.recalculate, vectors=vectors.vmulti, **(recalc_args | dict(
                         blksize=recalc_blksize, overlap=recalc_blksize / 2,
                         lambda_=motion.block_coherence(recalc_blksize)
                     ))
                 )
         else:
             for i in range(1, t2 + 1):
-                if not self.vectors.got_mv(MVDirection.BACK, i) or not self.vectors.got_mv(MVDirection.FWRD, i):
+                if not vectors.got_mv(MVDirection.BACK, i) or not vectors.got_mv(MVDirection.FWRD, i):
                     continue
 
                 for j in range(0, refine):
                     recalc_blksize = clamp(blocksize / 2 ** j, 4, 128)
 
-                    self.vectors.calculate_vectors(
+                    vectors.calculate_vectors(
                         i, self.mvtools, supers, True, **(recalc_args | dict(
                             blksize=recalc_blksize, overlap=recalc_blksize // 2,
                             lambda_=motion.block_coherence(recalc_blksize)
@@ -579,7 +584,7 @@ class MVTools:
         limit: int | tuple[int, int] = 255,
         thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None,
-        *, ref: vs.VideoNode | None = None
+        *, vectors: MotionVectors | MVTools | None = None, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
         """
         Makes a temporal denoising with motion compensation.
@@ -623,12 +628,17 @@ class MVTools:
 
         ref = self.get_ref_clip(ref, self.degrain)
 
+        if isinstance(vectors, MVTools):
+            vectors = vectors.vectors
+        elif vectors is None:
+            vectors = self.vectors
+
         vect_b, vect_f = self.get_vectors_bf()
         supers = supers or self.get_supers(ref)
 
         thSAD, thSADC = (thSAD if isinstance(thSAD, tuple) else (thSAD, None))
 
-        thSAD = kwargs_fallback(thSAD, (self.vectors.kwargs, 'thSAD'), 300)
+        thSAD = kwargs_fallback(thSAD, (vectors.kwargs, 'thSAD'), 300)
         thSADC = fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)) if self.params_curve else thSAD // 2)
 
         limit, limitC = normalize_seq(limit, 2)
@@ -653,7 +663,7 @@ class MVTools:
                 degrain_args.update(thsad2=[thSAD / 2, thSADC / 2])
 
         if self.mvtools is MVToolsPlugin.FLOAT_NEW:
-            output = self.mvtools.Degrain()(ref, supers.render, self.vectors.vmulti, **degrain_args)
+            output = self.mvtools.Degrain()(ref, supers.render, vectors.vmulti, **degrain_args)
         else:
             output = self.mvtools.Degrain(self.tr)(
                 ref, supers.render, *chain.from_iterable(zip(vect_b, vect_f)), **degrain_args
