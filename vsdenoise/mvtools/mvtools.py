@@ -790,7 +790,8 @@ class MVTools:
         recalculate_args: KwargsT | None = None, compensate_args: KwargsT | None = None,
         range_conversion: float | None = None, sharp: int | None = None,
         hpad: int | None = None, vpad: int | None = None, params_curve: bool = True,
-        rfilter: int | None = None, vectors: MotionVectors | MVTools | None = None, supers: SuperClips | None = None
+        rfilter: int | None = None, vectors: MotionVectors | MVTools | None = None,
+        supers: SuperClips | None = None, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
         mvtools = cls(
             clip, tr, refine, pel, planes, range_in, source_type, high_precision, hpad, vpad,
@@ -803,8 +804,12 @@ class MVTools:
         else:
             thSADA = thSADD = thSAD
 
-        supers = supers or mvtools.super(range_conversion, sharp, rfilter, prefilter, pel_type)
+        supers = supers or mvtools.super(
+            range_conversion, sharp, rfilter, prefilter, pel_type, inplace=True
+        )
 
-        vectors = vectors or mvtools.analyze(block_size, overlap, thSADA, search, sad_mode, motion, supers)
+        vectors = vectors or mvtools.analyze(
+            block_size, overlap, thSADA, search, sad_mode, motion, supers, inplace=True
+        )
 
-        return mvtools.degrain(thSADD, limit, thSCD, supers)
+        return mvtools.degrain(thSADD, limit, thSCD, supers, ref=ref)

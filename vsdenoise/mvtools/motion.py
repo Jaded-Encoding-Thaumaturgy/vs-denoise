@@ -24,6 +24,7 @@ class MotionVectors:
 
     def __init__(self) -> None:
         self._init_vects()
+        self.vmulti = None  # type: ignore
         self.kwargs = dict[str, Any]()
 
     def _init_vects(self) -> None:
@@ -33,7 +34,9 @@ class MotionVectors:
     def got_vectors(self) -> bool:
         """Whether the instance uses bidirectional motion vectors."""
 
-        return bool(self.temporal_vectors[MVDirection.BACK] and self.temporal_vectors[MVDirection.FWRD])
+        return bool(
+            (self.temporal_vectors[MVDirection.BACK] and self.temporal_vectors[MVDirection.FWRD]) or self.vmulti
+        )
 
     def got_mv(self, direction: MVDirection, delta: int) -> bool:
         """
