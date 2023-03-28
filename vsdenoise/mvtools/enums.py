@@ -62,7 +62,7 @@ class MVToolsPlugin(CustomIntEnum):
 
     @property
     def Recalculate(self) -> VSFunctionAllArgs:
-        return cast(VSFunctionKwArgs, self.namespace.Recalculate)
+        return cast(VSFunctionAllArgs, self.namespace.Recalculate)
 
     @property
     def Compensate(self) -> VSFunctionKwArgs:
