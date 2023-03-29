@@ -617,16 +617,17 @@ class DFTTest:
 
     @inject_self
     def extract_freq(self, clip: vs.VideoNode, sloc: SLocT, **kwargs: Any) -> vs.VideoNode:
-        return clip.std.MakeDiff(self.denoise(clip, sloc, func=self.extract_freq, **kwargs))
+        return clip.std.MakeDiff(self.denoise(clip, sloc, **(dict(func=self.extract_freq) | kwargs)))
 
     @inject_self
     def insert_freq(self, low: vs.VideoNode, high: vs.VideoNode, sloc: SLocT, **kwargs: Any) -> vs.VideoNode:
-        return low.std.MergeDiff(self.extract_freq(high, sloc, func=self.insert_freq, **kwargs))
+        return low.std.MergeDiff(self.extract_freq(high, sloc, **(dict(func=self.insert_freq) | kwargs)))
 
     @inject_self
     def merge_freq(self, low: vs.VideoNode, high: vs.VideoNode, sloc: SLocT, **kwargs: Any) -> vs.VideoNode:
         return self.insert_freq(
-            self.denoise(sloc, low, func=self.merge_freq, **kwargs), high, sloc, func=self.merge_freq, **kwargs
+            self.denoise(sloc, low, **(dict(func=self.merge_freq) | kwargs)),
+            high, sloc, **(dict(func=self.merge_freq) | kwargs)
         )
 
 
