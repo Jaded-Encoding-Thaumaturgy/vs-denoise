@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Callable, Literal, overload
 
 from vsexprtools import ExprOp, ExprToken, norm_expr
 from vskernels import Bilinear
@@ -15,6 +15,7 @@ from vstools import (
 
 from .fft import DFTTest, fft3d
 from .knlm import nl_means
+from .prefilters import Prefilter
 
 __all__ = [
     'decrease_size',
@@ -24,8 +25,8 @@ __all__ = [
 
 
 def decrease_size(
-    clip: vs.VideoNode, sigmaS: float = 10.0, sigmaR: float = 0.009,
-    min_in: int = 180, max_in: int = 230, gamma: float = 1.0,
+    clip: vs.VideoNode, min_in: int = 180, max_in: int = 230, gamma: float = 1.0,
+    blur_method: Callable[..., vs.VideoNode] | Prefilter = bilateral,
     mask: vs.VideoNode | tuple[float, float] | tuple[float, float, EdgeDetectT] = (0.0496, 0.125, FDoGTCanny),
     prefilter: bool | tuple[int, int] | float = True, planes: PlanesT = None, show_mask: bool = False, **kwargs: Any
 ) -> vs.VideoNode:
@@ -86,7 +87,10 @@ def decrease_size(
     if show_mask:
         return mask
 
-    denoise = bilateral(clip, sigmaS, sigmaR, **kwargs)
+    if blur_method == bilateral:
+        denoise = blur_method(clip, sigmaS=10.0, sigmaR=0.009, **kwargs)
+    else:
+        denoise = blur_method(clip, **kwargs)
 
     return clip.std.MaskedMerge(denoise, mask, planes)
 
