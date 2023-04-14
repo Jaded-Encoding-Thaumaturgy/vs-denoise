@@ -7,7 +7,7 @@ from __future__ import annotations
 import warnings
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
-from typing import Any, NamedTuple, final, overload
+from typing import Any, Literal, NamedTuple, final, overload
 
 from vstools import (
     ColorRange, ColorRangeT, Colorspace, ConstantFormatVideoNode, CustomIndexError, CustomStrEnum, CustomValueError,
@@ -139,7 +139,7 @@ class ProfileBase:
         """Overrides for profile defaults and kwargs for final calls."""
 
         def as_dict(
-            self, cuda: bool = False, basic: bool = False, aggregate: bool = False,
+            self, cuda: vs.Plugin | Literal[False], basic: bool = False, aggregate: bool = False,
             args: KwargsT | None = None, **kwargs: Any
         ) -> KwargsT:
             """
@@ -212,7 +212,8 @@ class ProfileBase:
                 values |= args
 
             if cuda:
-                cuda_keys = set[str](core.bm3dcuda.BM3D.__signature__.parameters.keys())  # type: ignore
+                func = cuda.BM3Dv2 if hasattr(cuda, 'BM3Dv2') else cuda.BM3D
+                cuda_keys = set[str](func.__signature__.parameters.keys())
 
                 values = {
                     key: value for key, value in values.items()
@@ -505,7 +506,7 @@ class AbstractBM3DCuda(AbstractBM3D, metaclass=AbstractBM3DCudaMeta):
         clip = self.cspconfig.get_clip(self.cspconfig.clip, self._pre_clip, clip)
 
         kwargs = self.profile.as_dict(
-            True, True, False, self.basic_args, sigma=self.sigma, radius=self.radius.basic
+            self.plugin, True, False, self.basic_args, sigma=self.sigma, radius=self.radius.basic
         )
 
         if hasattr(self.plugin, 'BM3Dv2'):
@@ -529,7 +530,7 @@ class AbstractBM3DCuda(AbstractBM3D, metaclass=AbstractBM3DCudaMeta):
             ref = self.basic(clip, True)
 
         kwargs = self.profile.as_dict(
-            True, False, True, self.final_args, sigma=self.sigma, radius=self.radius.final
+            self.plugin, False, True, self.final_args, sigma=self.sigma, radius=self.radius.final
         )
 
         if hasattr(self.plugin, 'BM3Dv2'):
