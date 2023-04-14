@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
-
-from vapoursynth import VideoNode
+from vapoursynth import VideoNode, Plugin
 from vstools import SimpleByteDataArray, SingleOrSeq, SingleOrSeqOpt
 
 __all__ = [
@@ -12,8 +10,8 @@ __all__ = [
 ]
 
 
-class _Plugin_bm3dcuda_Core_Bound(Protocol):
-    def BM3D(
+class _Plugin_bm3dcuda_Core_Bound(Plugin):
+    def BM3D(  # type: ignore
         self, clip: VideoNode, ref: VideoNode | None = None, sigma: SingleOrSeqOpt[float] = None,
         block_step: SingleOrSeqOpt[int] = None, bm_range: SingleOrSeqOpt[int] = None,
         radius: int | None = None, ps_num: SingleOrSeqOpt[int] = None,
@@ -22,7 +20,7 @@ class _Plugin_bm3dcuda_Core_Bound(Protocol):
     ) -> VideoNode:
         ...
 
-    def BM3Dv2(
+    def BM3Dv2(  # type: ignore
         self, clip: VideoNode, ref: VideoNode | None = None, sigma: SingleOrSeqOpt[float] = None,
         block_step: SingleOrSeqOpt[int] = None, bm_range: SingleOrSeqOpt[int] = None,
         radius: int | None = None, ps_num: SingleOrSeqOpt[int] = None,
@@ -31,12 +29,12 @@ class _Plugin_bm3dcuda_Core_Bound(Protocol):
     ) -> VideoNode:
         ...
 
-    def VAggregate(self, clip: VideoNode, src: VideoNode, planes: SingleOrSeq[int]) -> VideoNode:
+    def VAggregate(self, clip: VideoNode, src: VideoNode, planes: SingleOrSeq[int]) -> VideoNode:  # type: ignore
         ...
 
 
-class _Plugin_bm3dcuda_rtc_Core_Bound(Protocol):
-    def BM3D(
+class _Plugin_bm3dcuda_rtc_Core_Bound(Plugin):
+    def BM3D(  # type: ignore
         self, clip: VideoNode, ref: VideoNode | None = None, sigma: SingleOrSeqOpt[float] = None,
         block_step: SingleOrSeqOpt[int] = None, bm_range: SingleOrSeqOpt[int] = None,
         radius: int | None = None, ps_num: SingleOrSeqOpt[int] = None,
@@ -48,7 +46,7 @@ class _Plugin_bm3dcuda_rtc_Core_Bound(Protocol):
     ) -> VideoNode:
         ...
 
-    def BM3Dv2(
+    def BM3Dv2(  # type: ignore
         self, clip: VideoNode, ref: VideoNode | None = None, sigma: SingleOrSeqOpt[float] = None,
         block_step: SingleOrSeqOpt[int] = None, bm_range: SingleOrSeqOpt[int] = None,
         radius: int | None = None, ps_num: SingleOrSeqOpt[int] = None,
@@ -60,12 +58,12 @@ class _Plugin_bm3dcuda_rtc_Core_Bound(Protocol):
     ) -> VideoNode:
         ...
 
-    def VAggregate(self, clip: VideoNode, src: VideoNode, planes: SingleOrSeq[int]) -> VideoNode:
+    def VAggregate(self, clip: VideoNode, src: VideoNode, planes: SingleOrSeq[int]) -> VideoNode:  # type: ignore
         ...
 
 
-class _Plugin_bm3dcpu_Core_Bound(Protocol):
-    def BM3D(
+class _Plugin_bm3dcpu_Core_Bound(Plugin):
+    def BM3D(  # type: ignore
         self, clip: VideoNode, ref: VideoNode | None = None, sigma: SingleOrSeqOpt[float] = None,
         block_step: SingleOrSeqOpt[int] = None, bm_range: SingleOrSeqOpt[int] = None,
         radius: int | None = None, ps_num: int | None = None, ps_range: int | None = None,
@@ -73,7 +71,7 @@ class _Plugin_bm3dcpu_Core_Bound(Protocol):
     ) -> VideoNode:
         ...
 
-    def BM3Dv2(
+    def BM3Dv2(  # type: ignore
         self, clip: VideoNode, ref: VideoNode | None = None, sigma: SingleOrSeqOpt[float] = None,
         block_step: SingleOrSeqOpt[int] = None, bm_range: SingleOrSeqOpt[int] = None,
         radius: int | None = None, ps_num: int | None = None, ps_range: int | None = None,
@@ -81,5 +79,5 @@ class _Plugin_bm3dcpu_Core_Bound(Protocol):
     ) -> VideoNode:
         ...
 
-    def VAggregate(self, clip: VideoNode, src: VideoNode, planes: SingleOrSeq[int]) -> VideoNode:
+    def VAggregate(self, clip: VideoNode, src: VideoNode, planes: SingleOrSeq[int]) -> VideoNode:  # type: ignore
         ...
