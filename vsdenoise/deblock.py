@@ -3,12 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal, SupportsFloat, cast
 
-from vsexprtools import expr_func
+from vsexprtools import expr_func, norm_expr
 from vskernels import Catrom, Kernel, KernelT, Point
 from vstools import (
-    CustomStrEnum, DependencyNotFoundError, DitherType, FrameRangeN, FrameRangesN, InvalidColorFamilyError,
-    LengthMismatchError, Matrix, MatrixT, UnsupportedVideoFormatError, check_variable, core, depth, get_depth,
-    get_nvidia_version, replace_ranges, vs
+    CustomStrEnum, DependencyNotFoundError, DitherType, FrameRangeN, FrameRangesN, InvalidColorFamilyError, KwargsT,
+    LengthMismatchError, Matrix, MatrixT, UnsupportedVideoFormatError, check_variable, core, depth, fallback, get_depth,
+    get_nvidia_version, get_y, join, replace_ranges, vs
 )
 
 __all__ = [
@@ -21,11 +21,12 @@ class _dpir(CustomStrEnum):
     DENOISE = 'denoise'
 
     def __call__(
-        self, clip: vs.VideoNode, strength: SupportsFloat | vs.VideoNode | None = 10,
-        matrix: MatrixT | None = None, cuda: bool | Literal['trt'] | None = None, i444: bool = False,
+        self, clip: vs.VideoNode, strength: SupportsFloat | vs.VideoNode | None | tuple[
+            SupportsFloat | vs.VideoNode | None, SupportsFloat | vs.VideoNode | None
+        ] = 10, matrix: MatrixT | None = None, cuda: bool | Literal['trt'] | None = None, i444: bool = False,
         tiles: int | tuple[int, int] | None = None, overlap: int | tuple[int, int] | None = 8,
         zones: list[tuple[FrameRangeN | FrameRangesN | None, SupportsFloat | vs.VideoNode | None]] | None = None,
-        fp16: bool | None = None, num_streams: int = 1, device_id: int = 0, kernel: KernelT = Catrom
+        fp16: bool | None = None, num_streams: int | None = None, device_id: int = 0, kernel: KernelT = Catrom
     ) -> vs.VideoNode:
         func = 'dpir'
 
@@ -36,20 +37,40 @@ class _dpir(CustomStrEnum):
 
         assert check_variable(clip, func)
 
+        if isinstance(strength, tuple):
+            if clip.format.num_planes > 1:
+                args = (matrix, cuda, i444, tiles, overlap, zones, fp16, num_streams, device_id, kernel)
+                return join(dpir(get_y(clip), strength[0], *args), dpir(clip, strength[1], *args))
+            strength = strength[0]
+
         kernel = Kernel.ensure_obj(kernel)
 
         bit_depth = get_depth(clip)
         is_rgb, is_gray = (clip.format.color_family is f for f in (vs.RGB, vs.GRAY))
-
-        clip_32 = depth(clip, 32, dither_type=DitherType.ERROR_DIFFUSION)
 
         if self.value == 'deblock':
             model = DPIRModel.drunet_deblocking_grayscale if is_gray else DPIRModel.drunet_deblocking_color
         else:  # elif self.value == 'denoise':
             model = DPIRModel.drunet_color if not is_gray else DPIRModel.drunet_gray
 
+        if None in {cuda, fp16}:
+            try:
+                info = cast(dict[str, int], core.trt.DeviceProperties(device_id))
+
+                fp16_available = info['major'] >= 7
+                trt_available = True
+            except BaseException:
+                fp16_available = False
+                trt_available = False
+
+        if cuda is None:
+            cuda = 'trt' if trt_available else get_nvidia_version() is not None
+
+        if fp16 is None:
+            fp16 = fp16_available
+
         def _get_strength_clip(clip: vs.VideoNode, strength: SupportsFloat) -> vs.VideoNode:
-            return clip.std.BlankClip(format=vs.GRAYS, color=float(strength) / 255, keep=True)
+            return clip.std.BlankClip(format=vs.GRAYH if fp16 else vs.GRAYS, color=float(strength) / 255, keep=True)
 
         if isinstance(strength, vs.VideoNode):
             str_clip: vs.VideoNode = strength  # type: ignore
@@ -57,15 +78,18 @@ class _dpir(CustomStrEnum):
             assert (fmt := str_clip.format)
 
             InvalidColorFamilyError.check(
-                fmt, vs.GRAY, func, '"strength" must be of {correct} color family, not {wrong}!')
+                fmt, vs.GRAY, func, '"strength" must be of {correct} color family, not {wrong}!'
+            )
 
             if fmt.id == vs.GRAY8:
-                str_clip = expr_func(str_clip, 'x 255 /', vs.GRAYS)
-            elif fmt.id != vs.GRAYS:
-                raise UnsupportedVideoFormatError('`strength` must be GRAY8 or GRAYS!', func)
+                str_clip = expr_func(str_clip, 'x 255 /', vs.GRAYH if fp16 else vs.GRAYS)
+            elif fmt.id not in {vs.GRAYH, vs.GRAYS}:
+                raise UnsupportedVideoFormatError('`strength` must be GRAY8, GRAYH or GRAYS!', func)
+            elif fp16 and fmt.id != vs.GRAYH:
+                str_clip = depth(str_clip, 16, vs.FLOAT)
 
             if str_clip.width != clip.width or str_clip.height != clip.height:
-                str_clip = kernel.scale(str_clip, clip.width, clip.height)
+                str_clip = kernel.scale(str_clip, clip.width, clip.height)  # type: ignore
 
             if str_clip.num_frames != clip.num_frames:
                 raise LengthMismatchError(func, '`strength` must be of the same length as \'clip\'')
@@ -83,12 +107,17 @@ class _dpir(CustomStrEnum):
 
         targ_format = clip.format.replace(subsampling_w=0, subsampling_h=0) if i444 else clip.format
 
-        if is_rgb or is_gray:
-            clip_rgb = clip_32
-        else:
-            clip_rgb = kernel.resample(clip_32, vs.RGBS, matrix_in=targ_matrix)
+        clip_upsample = depth(clip, 16 if fp16 else 32, vs.FLOAT, dither_type=DitherType.ERROR_DIFFUSION)
 
-        clip_rgb = clip_rgb.std.Limiter()
+        if is_rgb or is_gray:
+            clip_rgb = clip_upsample
+        else:
+            clip_rgb = kernel.resample(clip_upsample, vs.RGBH if fp16 else vs.RGBS, matrix_in=targ_matrix)
+
+        try:
+            clip_rgb = clip_rgb.std.Limiter()
+        except vs.Error:
+            clip_rgb = norm_expr(clip_rgb, 'x 0 1 clamp')
 
         if overlap is None:
             overlap_w = overlap_h = 0
@@ -194,35 +223,60 @@ class _dpir(CustomStrEnum):
 
                 zoned_strength_clip = strength_clip.std.FrameEval(_select_sclip)
 
-        if None in {cuda, fp16}:
-            try:
-                info = cast(dict[str, int], core.trt.DeviceProperties(device_id))
-
-                fp16_available = info['major'] >= 7
-                trt_available = True
-            except BaseException:
-                fp16_available = False
-                trt_available = False
-
-        if cuda is None:
-            cuda = 'trt' if trt_available else get_nvidia_version() is not None
-
-        if fp16 is None:
-            fp16 = fp16_available
-
         backend: backendT
+        bkwargs = KwargsT(fp16=fp16, device_id=device_id)
 
-        if cuda == 'trt':
+        # All this will eventually be in vs-nn
+        if cuda is None or trt_available:
+            try:
+                data: KwargsT = core.trt.DeviceProperties(device_id)  # type: ignore
+                memory = data.get('total_global_memory', 0)
+                def_num_streams = data.get('async_engine_count', 1)
+
+                cuda = 'trt'
+
+                bkwargs = KwargsT(
+                    workspace=memory / (1 << 22) if memory else None,
+                    use_cuda_graph=True, use_cublas=True, use_cudnn=True,
+                    use_edge_mask_convolutions=True, use_jit_convolutions=True,
+                    static_shape=True, heuristic=True, output_format=int(fp16),
+                    tf32=not fp16, force_fp16=fp16, num_streams=def_num_streams
+                ) | bkwargs
+
+                streams_info = 'OK' if bkwargs['num_streams'] == def_num_streams else 'MISMATCH'
+
+                core.log_message(
+                    vs.MESSAGE_TYPE_DEBUG,
+                    f'Selected [{data.get("name", b"<unknown>").decode("utf8")}] '
+                    f'with {f"{(memory / (1 << 30))}GiB" if memory else "<unknown>"} of VRAM, '
+                    f'num_streams={def_num_streams} ({streams_info})'
+                )
+            except Exception:
+                cuda = get_nvidia_version() is not None
+
+        if bkwargs.get('num_streams', None) is None:
+            bkwargs.update(num_streams=fallback(num_streams, 1))
+
+        if cuda is True:
+            if hasattr(core, 'ort'):
+                backend = Backend.ORT_CUDA(**bkwargs)
+            else:
+                backend = Backend.OV_GPU(**bkwargs)
+        elif cuda is False:
+            if hasattr(core, 'ncnn'):
+                backend = Backend.NCNN_VK(**bkwargs)
+            else:
+                bkwargs.pop('device_id')
+
+                if hasattr(core, 'ort'):
+                    backend = Backend.ORT_CPU(**bkwargs)
+                else:
+                    backend = Backend.OV_CPU(**bkwargs)
+        else:
             channels = 2 << (not is_gray)
 
-            backend = Backend.TRT(
-                (tile_w, tile_h), fp16=fp16, num_streams=num_streams, device_id=device_id, verbose=False
-            )
+            backend = Backend.TRT((tile_w, tile_h), **bkwargs)
             backend._channels = channels
-        elif cuda:
-            backend = Backend.ORT_CUDA(fp16=fp16, num_streams=num_streams, device_id=device_id, verbosity=False)
-        else:
-            backend = Backend.OV_CPU(fp16=fp16)
 
         network_path = Path(models_path) / 'dpir' / f'{tuple(DPIRModel.__members__)[model]}.onnx'
 
