@@ -69,8 +69,8 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
         if pref_type == Prefilter.NONE:
             return clip
 
-        if pref_type.value in {0, 1, 2}:
-            return min_blur(clip, pref_type.value, planes)
+        if pref_type.value in {Prefilter.MINBLUR1, Prefilter.MINBLUR2, Prefilter.MINBLUR3}:
+            return min_blur(clip, int(pref_type._name_[-1]), planes)
 
         if pref_type == Prefilter.MINBLURFLUX:
             temp_thr, spat_thr = kwargs.get('temp_thr', 2), kwargs.get('spat_thr', 2)
