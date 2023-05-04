@@ -603,7 +603,7 @@ class MVTools:
                         Low values can result in staggered denoising, large values can result in ghosting and artifacts.
         :param limit:   Maximum change of pixel. This is post-processing to prevent some artifacts.\n
                         Value ranges from 0 to 255. At 255, no pixel may be adjusted,
-                        effectively preventing any degraining from occuring.
+                        effectively preventing any degraining from occurring.
         :param thSCD:   The first value is a threshold for whether a block has changed
                         between the previous frame and the current one.\n
                         When a block has changed, it means that motion estimation for it isn't relevant.
