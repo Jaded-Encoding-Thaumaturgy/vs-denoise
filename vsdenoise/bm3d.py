@@ -4,7 +4,6 @@ This module implements wrappers for BM3D
 
 from __future__ import annotations
 
-import warnings
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Literal, NamedTuple, final, overload
@@ -395,23 +394,6 @@ class AbstractBM3D(vs_object):
 
         :return:        Final, refined, denoised clip.
         """
-
-    @property
-    def clip(self) -> vs.VideoNode:
-        """
-        Final denoised clip.
-
-        :return:        Output clip.
-        """
-        from inspect import currentframe, getframeinfo
-
-        fi = getframeinfo(currentframe())  # type: ignore
-
-        print(warnings.formatwarning(
-            "The `clip` property is deprecated! Please use the .final() method!",
-            DeprecationWarning, fi.filename, fi.lineno - 8
-        ))
-        return self.final()
 
     @classmethod
     def denoise(

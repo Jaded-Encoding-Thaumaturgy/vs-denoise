@@ -253,9 +253,6 @@ class Prefilter(PrefilterBase):
     NLMEANS = 5
     """Denoising with NLMeans, then postprocessed to remove low frequencies."""
 
-    KNLMEANSCL = NLMEANS
-    """Deprecated, use NLMEANS instead."""
-
     BM3D = 6
     """Normal spatio-temporal denoising using BM3D."""
 

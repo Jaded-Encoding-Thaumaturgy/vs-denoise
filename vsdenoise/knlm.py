@@ -9,14 +9,14 @@ from enum import auto
 from typing import TYPE_CHECKING, Any, Literal, Sequence, overload
 
 from vstools import (
-    CustomEnum, CustomValueError, KwargsT, PlanesT, check_variable, core, disallow_variable_format, join,
-    normalize_planes, normalize_seq, to_arr, vs
+    CustomEnum, CustomValueError, KwargsT, PlanesT, check_variable, core, join, normalize_planes, normalize_seq, to_arr,
+    vs
 )
 
 __all__ = [
     'ChannelMode', 'DeviceType',
 
-    'nl_means', 'knl_means_cl'
+    'nl_means'
 ]
 
 
@@ -230,22 +230,3 @@ def nl_means(
     chroma = _nl_means(1, 'UV') if 1 in planes or 2 in planes else None
 
     return join({None: clip, tuple(planes): chroma, 0: luma})
-
-
-@disallow_variable_format
-def knl_means_cl(
-    clip: vs.VideoNode, /, strength: float | Sequence[float] = 1.2,
-    tr: int | Sequence[int] = 1, sr: int | Sequence[int] = 2, simr: int | Sequence[int] = 4,
-    channels: ChannelMode = ChannelMode.ALL_PLANES, device_type: DeviceType | DEVICETYPE = DeviceType.AUTO,
-    **kwargs: Any
-) -> vs.VideoNode:
-    warnings.warn('knl_means_cl is deprecated! Please use nl_means!')
-
-    if isinstance(device_type, str):
-        warnings.warn('Passing a str to device_type is deprecated! Please use the DeviceType enum!')
-        device_type = DeviceType(device_type)
-
-    if device_type in {DeviceType.CUDA, 'cuda'}:
-        raise CustomValueError('This function is deprecated! Use the nl_means function!', knl_means_cl)
-
-    return nl_means(clip, strength, tr, sr, simr, device_type, channels.to_planes(), **kwargs)
