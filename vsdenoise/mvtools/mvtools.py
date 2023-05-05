@@ -435,7 +435,7 @@ class MVTools:
         motion: MotionMode.Config | None = None, vectors: MotionVectors | MVTools | None = None,
         supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
     ) -> None:
-        ref = self.get_ref_clip(ref, self.analyze)
+        ref = self.get_ref_clip(ref, self.recalculate)
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -554,9 +554,10 @@ class MVTools:
 
         ref = self.get_ref_clip(ref, self.compensate)
 
-        vect_b, vect_f = self.get_vectors_bf()
         thSCD1, thSCD2 = self.normalize_thscd(thSCD, thSAD, self.compensate)
         supers = supers or self.get_supers(ref)
+
+        vect_b, vect_f = self.get_vectors_bf(self.vectors)
 
         compensate_args = dict(
             super=supers.render, thsad=thSAD,
@@ -602,7 +603,7 @@ class MVTools:
                         Low values can result in staggered denoising, large values can result in ghosting and artifacts.
         :param limit:   Maximum change of pixel. This is post-processing to prevent some artifacts.\n
                         Value ranges from 0 to 255. At 255, no pixel may be adjusted,
-                        effectively preventing any degraining from occuring.
+                        effectively preventing any degraining from occurring.
         :param thSCD:   The first value is a threshold for whether a block has changed
                         between the previous frame and the current one.\n
                         When a block has changed, it means that motion estimation for it isn't relevant.
@@ -633,7 +634,7 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        vect_b, vect_f = self.get_vectors_bf()
+        vect_b, vect_f = self.get_vectors_bf(vectors, supers=supers, ref=ref)
         supers = supers or self.get_supers(ref)
 
         thSAD, thSADC = (thSAD if isinstance(thSAD, tuple) else (thSAD, None))
@@ -693,7 +694,10 @@ class MVTools:
 
         return supers
 
-    def get_vectors_bf(self, *, inplace: bool = False) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
+    def get_vectors_bf(
+        self, vectors: MotionVectors, *, supers: SuperClips | None = None,
+        ref: vs.VideoNode | None = None, inplace: bool = False
+    ) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
         """
         Get the backwards and forward vectors.\n
 
@@ -706,7 +710,8 @@ class MVTools:
         :return:            Two lists, respectively for backward and forwards, containing motion vectors.
         """
 
-        vectors = self.vectors if self.vectors.got_vectors else self.analyze(inplace=inplace)
+        if not vectors.got_vectors:
+            vectors = self.analyze(supers=supers, ref=ref, inplace=inplace)
 
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
@@ -812,4 +817,4 @@ class MVTools:
             block_size, overlap, thSADA, search, sad_mode, motion, supers, inplace=True
         )
 
-        return mvtools.degrain(thSADD, limit, thSCD, supers, ref=ref)
+        return mvtools.degrain(thSADD, limit, thSCD, supers, vectors=vectors, ref=ref)

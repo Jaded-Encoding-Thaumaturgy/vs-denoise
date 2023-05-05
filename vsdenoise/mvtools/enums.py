@@ -180,7 +180,7 @@ class SADMode(CustomIntEnum):
 
     @property
     def is_satd(self) -> bool:
-        """Returns wether this SADMode uses SATD rather than SAD."""
+        """Returns whether this SADMode uses SATD rather than SAD."""
 
         return self >= SADMode.SATD
 
@@ -470,7 +470,7 @@ class MotionMode:
     """Use for true motion search (high vector coherence)."""
 
     VECT_NOSCALING = Config(True, 1000, 1200, 50, 0, True)
-    """Same as :py:attr:`VECT_COHERENCE` but with plevel set to no scaling (lower penality factor)."""
+    """Same as :py:attr:`VECT_COHERENCE` but with plevel set to no scaling (lower penalty factor)."""
 
     class _CustomConfig:
         def __call__(
