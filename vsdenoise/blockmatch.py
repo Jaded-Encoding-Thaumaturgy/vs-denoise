@@ -63,16 +63,14 @@ def wnnm(
                                     If a float is passed, this strength will be applied to every plane.
                                     Values higher than 4.0 are not recommended. Recommended values are [0.35, 1.0].
                                     Default: 3.0.
-    :param refine:                  The amount of times to refine the estimation.
-                                    @PLACEHOLDER@
+    :param refine:                  The amount of iterations for iterative regularization.
                                     Default: 0.
     :param radius:                  Temporal radius. To enable spatial-only denoising, set this to 0.
                                     Higher values will rapidly increase filtering time and RAM usage.
                                     Default: 0.
-    :param rclip:                   Reference clip. Must be the same dimensions and format as input clip.
+    :param ref:                     Reference clip. Must be the same dimensions and format as input clip.
                                     Alternatively, a :py:class:`Prefilter` can be passed.
                                     Default: None.
-                                    @PLACEHOLDER@ - rename to `ref` for consistency?
     :param block_size:              The size of a block. Blocks are basic processing units.
                                     Larger blocks will take more time to process, but combined with `block_step`,
                                     may result in fewer blocks being processed overall.
@@ -102,9 +100,12 @@ def wnnm(
                                     Valid range is [1, +inf]. Default: 4.
     :param residual:                Whether to center blocks before performing collaborative filtering.
                                     Default: False.
-    :param adaptive_aggregation:    Whether to perform adaptive block aggregration. Default: True.
-    :param merge_factor:            @PLACEHOLDER@
-    :param self_refine:             @PLACEHOLDER@
+    :param adaptive_aggregation:    Whether to aggregate similar blocks weighted by the inverse of the number
+                                    of non-zero singular values after WNNM. Default: True.
+    :param merge_factor:            Merge amount of the last recalculation into the new one
+                                    when performing iterative regularization.
+    :param self_refine:             If True, in the iterative recalculation step it will pass the
+                                    last recalculation as ref clip instead of the original ``ref``.
     :param planes:                  Planes to process. If None, all planes. Default: None.
 
     :return:                        Denoised clip.
@@ -146,7 +147,58 @@ def bmdegrain(
     merge_factor: float = 0.1, self_refine: bool = False, planes: PlanesT = None,
     *, radius: int | MissingT = MISSING, rclip: vs.VideoNode | Prefilter | MissingT = MISSING
 ) -> vs.VideoNode:
-    """@PLACEHOLDER@"""
+    """
+    BM3D and mvtools inspired denoiser.
+
+    :param clip:                    Clip to process.
+    :param sigma:                   Strength of denoising, valid range is [0, +inf].
+                                    If a float is passed, this strength will be applied to every plane.
+                                    Values higher than 4.0 are not recommended. Recommended values are [0.35, 1.0].
+                                    Default: 3.0.
+    :param refine:                  The amount of iterations for iterative regularization.
+                                    Default: 0.
+    :param radius:                  Temporal radius. To enable spatial-only denoising, set this to 0.
+                                    Higher values will rapidly increase filtering time and RAM usage.
+                                    Default: 0.
+    :param ref:                     Reference clip. Must be the same dimensions and format as input clip.
+                                    Alternatively, a :py:class:`Prefilter` can be passed.
+                                    Default: None.
+    :param block_size:              The size of a block. Blocks are basic processing units.
+                                    Larger blocks will take more time to process, but combined with `block_step`,
+                                    may result in fewer blocks being processed overall.
+                                    Valid ranges are [1, 64]. Default: 8.
+    :param block_step:              Sliding step to process every next reference block.
+                                    The total amount of blocks to process can be calculated with the following equation:
+                                    `(width / block_step) * (height / block_step)`.
+                                    Smaller values results in more reference blocks being processed.
+                                    Default: 8.
+    :param group_size:              Maximum number of similar blocks allowed per group (the 3rd dimension).
+                                    Valid range is [1, 256]. By allowing more similar blocks to be grouped together,
+                                    fewer blocks will be given to a transformed group,
+                                    increasing the denoising strength.
+                                    Setting this to 1 means no block matching will be performed.
+                                    Default: 8.
+    :param bm_range:                Length of the side of the searching neighborhood. Valid range is [0, +inf].
+                                    The size of the search window is `(bm_range * 2 + 1) x (bm_range * 2 + 1)`.
+                                    Larger values take more time to process, but increases the likelihood
+                                    of finding similar patches.
+                                    Default: 7.
+    :param ps_num:                  The number of matched locations used for the predictive search.
+                                    Valid ranges are [1, `group_size`].
+                                    Larger values increases the possibility to match similar blocks,
+                                    at the cost of taking more processing power.
+                                    Default: 2.
+    :param ps_range:                Length of the side of the search neighborhood for `pd_num`.
+                                    Valid range is [1, +inf]. Default: 4.
+    :param merge_factor:            Merge amount of the last recalculation into the new one
+                                    when performing iterative regularization.
+    :param self_refine:             If True, in the iterative recalculation step it will pass the
+                                    last recalculation as ref clip instead of the original ``ref``.
+    :param planes:                  Planes to process. If None, all planes. Default: None.
+
+    :return:                        Denoised clip.
+    """
+
     func = FunctionUtil(clip, wnnm, planes, bitdepth=32)
 
     if radius is not MISSING:

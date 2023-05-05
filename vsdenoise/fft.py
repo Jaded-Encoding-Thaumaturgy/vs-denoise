@@ -31,7 +31,7 @@ Sigma: TypeAlias = float
 
 
 class SInterMode(CustomEnum):
-    """@PLACEHOLDER@"""
+    """SLocation interpolation mode."""
 
     LINEAR = 'linear'
     SPLINE = 1

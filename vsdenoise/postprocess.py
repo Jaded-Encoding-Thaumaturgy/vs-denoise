@@ -54,7 +54,7 @@ def decrease_size(
     :param max_in:      Ending pixel value for the gradient mask. Must be a value between 0–255.
                         This value must be greater than `min_in`. Any pixel values above this will be fully masked.
                         Default: 230.
-    :param mask:        @PLACEHOLDER@
+    :param mask:        Mask node for masking out details from the blur.
     :param prefilter:   Prefilter the clip prior to masked blurring.
 
                         If you pass a float, a gauss blur will be used with the value determining its sigma.
