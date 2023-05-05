@@ -29,18 +29,20 @@ from vsdenoise import MVTools, SADMode, MotionMode, Prefilter, BM3DCuda, Profile
 clip = ...
 
 ref = MVTools.denoise(
-    clip, 100, block_size=32, overlap=8, thSAD=200,
+    clip, thSAD=100, block_size=32, overlap=8,
     motion=MotionMode.HIGH_SAD,
-    prefilter=Prefilter.DFTTEST, 
+    prefilter=Prefilter.DFTTEST,
     sad_mode=(
         SADMode.ADAPTIVE_SPATIAL_MIXED,
         SADMode.ADAPTIVE_SATD_MIXED,
     )
 )
 
-denoise = BM3DCuda.denoise(clip, [0.8, 0], 2, profile=Profile.NORMAL, ref=ref)
+denoise_luma = BM3DCuda.denoise(
+    clip, sigma=[0.8, 0], radius=2, profile=Profile.NORMAL, ref=ref
+    )
 
-denoise = nl_means(
-    denoise, tr=2, rclip=ref, strength=0.6, wmode=3, planes=[1, 2],
+denoise_chroma = nl_means(
+    denoise_luma, tr=2, rclip=ref, strength=0.6, wmode=3, planes=[1, 2],
 )
 ```
