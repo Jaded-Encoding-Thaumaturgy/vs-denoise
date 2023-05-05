@@ -10,8 +10,8 @@ from typing import Any, Literal, NamedTuple, final, overload
 
 from vstools import (
     ColorRange, ColorRangeT, Colorspace, ConstantFormatVideoNode, CustomIndexError, CustomStrEnum, CustomValueError,
-    DitherType, FuncExceptT, KwargsT, Matrix, MatrixT, Self, SingleOrArr, check_variable, core, depth, get_video_format,
-    join, normalize_seq, vs, vs_object
+    DitherType, FuncExceptT, FunctionUtil, KwargsT, Matrix, MatrixT, PlanesT, Self, SingleOrArr, check_variable, core,
+    depth, get_video_format, join, normalize_seq, vs, vs_object
 )
 
 from .types import _Plugin_bm3dcpu_Core_Bound, _Plugin_bm3dcuda_Core_Bound, _Plugin_bm3dcuda_rtc_Core_Bound
@@ -405,9 +405,20 @@ class AbstractBM3D(vs_object):
         cls, clip: vs.VideoNode, sigma: SingleOrArr[float], tr: SingleOrArr[int] | None = None,
         refine: int = 1, profile: Profile | Profile.Config = Profile.FAST, ref: vs.VideoNode | None = None,
         matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
-        colorspace: Colorspace | None = None, fp32: bool = True
+        colorspace: Colorspace | None = None, fp32: bool = True, planes: PlanesT = None
     ) -> vs.VideoNode:
-        return cls(clip, sigma, tr, profile, ref, refine, matrix, range_in, colorspace, fp32).final()
+        func = FunctionUtil(clip, cls.denoise, planes)
+
+        sigma = func.norm_seq(sigma, 0.0)
+
+        bm3d = cls(clip, sigma, tr, profile, ref, refine, matrix, range_in, colorspace, fp32)
+
+        if refine:
+            return bm3d.basic(
+                bm3d.cspconfig.get_clip(bm3d.cspconfig.clip, bm3d._pre_clip, None)
+            )
+
+        return bm3d.final()
 
     def __post_init__(self) -> None:
         self._pre_clip = self.cspconfig.prepare_clip(self.cspconfig.clip)
