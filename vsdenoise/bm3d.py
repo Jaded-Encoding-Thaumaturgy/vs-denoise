@@ -9,10 +9,9 @@ from dataclasses import dataclass
 from typing import Any, Literal, NamedTuple, final, overload
 
 from vstools import (
-    ColorRange, ColorRangeT, Colorspace, ConstantFormatVideoNode, CustomIndexError, CustomStrEnum, CustomValueError,
-    DitherType, FuncExceptT, FunctionUtil, KwargsT, Matrix, MatrixT, PlanesT, Self, SingleOrArr, check_variable, core,
-    depth, get_video_format, join, normalize_seq, vs, vs_object
-)
+    MISSING, ColorRange, ColorRangeT, Colorspace, ConstantFormatVideoNode, CustomIndexError, CustomStrEnum,
+    CustomValueError, DitherType, FuncExceptT, FunctionUtil, KwargsT, Matrix, MatrixT, MissingT, PlanesT, Self,
+    SingleOrArr, check_variable, core, depth, get_video_format, join, normalize_seq, vs, vs_object)
 
 from .types import _Plugin_bm3dcpu_Core_Bound, _Plugin_bm3dcuda_Core_Bound, _Plugin_bm3dcuda_rtc_Core_Bound
 
@@ -309,7 +308,7 @@ class AbstractBM3D(vs_object):
         self, clip: vs.VideoNode, sigma: SingleOrArr[float], tr: SingleOrArr[int] | None = None,
         profile: Profile | Profile.Config = Profile.FAST, ref: vs.VideoNode | None = None, refine: int = 1,
         matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
-        colorspace: Colorspace | None = None, fp32: bool = True, *, radius: SingleOrArr[int] | None = None
+        colorspace: Colorspace | None = None, fp32: bool = True, *, radius: SingleOrArr[int] | MissingT = MISSING
     ) -> None:
         """
         :param clip:            Source clip.
@@ -336,7 +335,7 @@ class AbstractBM3D(vs_object):
         """
         assert check_variable(clip, self.__class__)
 
-        if radius is not None:
+        if radius is not MISSING:
             import warnings
             warnings.warn(f'{self.__class__.__name__}: radius is deprecated and will be removed. Use tr')
             tr = radius
@@ -440,7 +439,7 @@ class BM3D(AbstractBM3D):
         profile: Profile | Profile.Config = Profile.FAST, pre: vs.VideoNode | None = None,
         ref: vs.VideoNode | None = None, refine: int = 1, matrix: MatrixT | None = None,
         range_in: ColorRangeT | None = None, colorspace: Colorspace | None = None, fp32: bool = True,
-        *, radius: SingleOrArr[int] | None = None
+        *, radius: SingleOrArr[int] | MissingT = MISSING
     ) -> None:
         self.pre = pre and self.cspconfig.check_clip(pre, matrix, range_in, self.__class__)
 

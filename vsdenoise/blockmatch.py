@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import cast
 
 from vsexprtools import norm_expr
-from vstools import FunctionUtil, KwargsT, PlanesT, core, vs
+from vstools import MISSING, FunctionUtil, KwargsT, MissingT, PlanesT, core, vs
 
 from .prefilters import Prefilter
 
@@ -43,11 +43,11 @@ def wnnm(
     bm_range: int = 7, ps_num: int = 2, ps_range: int = 4,
     residual: bool = False, adaptive_aggregation: bool = True,
     merge_factor: float = 0.1, self_refine: bool = False, planes: PlanesT = None,
-    *, radius: int | None = None
+    *, radius: int | MissingT = MISSING
 ) -> vs.VideoNode:
     func = FunctionUtil(clip, wnnm, planes, bitdepth=32)
 
-    if radius is not None:
+    if radius is not MISSING:
         import warnings
         warnings.warn('wnnm: radius is deprecated and will be removed. Use tr')
         tr = radius
@@ -75,11 +75,11 @@ def bmdegrain(
     block_size: int = 8, block_step: int = 8, group_size: int = 8,
     bm_range: int = 7, ps_num: int = 2, ps_range: int = 4,
     merge_factor: float = 0.1, self_refine: bool = False, planes: PlanesT = None,
-    *, radius: int | None = None
+    *, radius: int | MissingT = MISSING
 ) -> vs.VideoNode:
     func = FunctionUtil(clip, wnnm, planes, bitdepth=32)
 
-    if radius is not None:
+    if radius is not MISSING:
         import warnings
         warnings.warn('bmdegrain: radius is deprecated and will be removed. Use tr')
         tr = radius
