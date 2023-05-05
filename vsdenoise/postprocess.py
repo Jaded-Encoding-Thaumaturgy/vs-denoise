@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
+from functools import partial
 
 from vsexprtools import ExprOp, ExprToken, norm_expr
 from vskernels import Bilinear
@@ -10,12 +12,11 @@ from vsrgtools import RemoveGrainMode, bilateral, box_blur, gauss_blur, removegr
 from vsrgtools.util import norm_rmode_planes
 from vstools import (
     CustomIndexError, CustomIntEnum, FuncExceptT, InvalidColorFamilyError, KwargsT, PlanesT, check_ref_clip,
-    check_variable, fallback, flatten_vnodes, get_y, normalize_planes, scale_8bit, scale_value, vs
+    check_variable, fallback, flatten_vnodes, get_y, normalize_planes, scale_8bit, scale_value, vs, VSFunction
 )
 
 from .fft import DFTTest, fft3d
 from .knlm import nl_means
-from .prefilters import Prefilter
 
 __all__ = [
     'decrease_size',
@@ -26,10 +27,10 @@ __all__ = [
 
 def decrease_size(
     clip: vs.VideoNode, min_in: int = 180, max_in: int = 230, gamma: float = 1.0,
-    blur_method: Callable[..., vs.VideoNode] | Prefilter = bilateral,
+    blur_method: VSFunction = partial(bilateral, sigmaS=10.0, sigmaR=0.009),
     mask: vs.VideoNode | tuple[float, float] | tuple[float, float, EdgeDetectT] = (0.0496, 0.125, FDoGTCanny),
-    prefilter: bool | tuple[int, int] | float = True, planes: PlanesT = None, show_mask: bool = False, **kwargs: Any
-) -> vs.VideoNode:
+    prefilter: bool | tuple[int, int] | float = True, planes: PlanesT = None, show_mask: bool = False
+) -> vs.VideoNode:    
     assert check_variable(clip, decrease_size)
 
     if min_in > max_in:
@@ -87,10 +88,7 @@ def decrease_size(
     if show_mask:
         return mask
 
-    if blur_method == bilateral:
-        denoise = blur_method(clip, sigmaS=10.0, sigmaR=0.009, **kwargs)
-    else:
-        denoise = blur_method(clip, **kwargs)
+    denoise = blur_method(clip)
 
     return clip.std.MaskedMerge(denoise, mask, planes)
 
