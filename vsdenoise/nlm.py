@@ -123,7 +123,7 @@ class DeviceTypeWithInfo(str):
         self: DeviceTypeWithInfo | DeviceType, clip: vs.VideoNode,
         h: float | None = None, d: int | None = None, a: int | None = None, s: int | None = None,
         channels: str | None = None, wmode: int | None = None, wref: float | None = None,
-        rclip: vs.VideoNode | None = None, **kwargs: Any
+        ref: vs.VideoNode | None = None, **kwargs: Any
     ) -> vs.VideoNode:
         if self == DeviceType.AUTO and hasattr(core, 'nlm_cuda'):
             self = DeviceType.CUDA
@@ -132,10 +132,10 @@ class DeviceTypeWithInfo(str):
 
         if self == DeviceType.CUDA:
             return core.nlm_cuda.NLMeans(  # type: ignore
-                clip, d, a, s, h, channels, wmode, wref, rclip, **(self.kwargs | kwargs)
+                clip, d, a, s, h, channels, wmode, wref, ref, **(self.kwargs | kwargs)
             )
 
-        return core.knlm.KNLMeansCL(clip, d, a, s, h, channels, wmode, wref, rclip, **(self.kwargs | kwargs))
+        return core.knlm.KNLMeansCL(clip, d, a, s, h, channels, wmode, wref, ref, **(self.kwargs | kwargs))
 
 
 class DeviceType(DeviceTypeWithInfo, CustomEnum):
@@ -167,7 +167,8 @@ DEVICETYPE = Literal['accelerator', 'cpu', 'gpu', 'auto']
 def nl_means(
     clip: vs.VideoNode, strength: float | Sequence[float] = 1.2,
     tr: int | Sequence[int] = 1, sr: int | Sequence[int] = 2, simr: int | Sequence[int] = 4,
-    device_type: DeviceType = DeviceType.AUTO, planes: PlanesT = None, **kwargs: Any
+    device_type: DeviceType = DeviceType.AUTO, ref: vs.VideoNode | None = None,
+    planes: PlanesT = None, **kwargs: Any
 ) -> vs.VideoNode:
     """
     Convenience wrapper for NLMeans implementations.
@@ -186,6 +187,7 @@ def nl_means(
     :param simr:            Similarity Radius. Similarity neighbourhood size = `(2 * simr + 1) ** 2`.\n
                             Sets the radius of the similarity neighbourhood window.\n
                             The impact on performance is low, therefore it depends on the nature of the noise.
+    :param ref:             Reference clip.
     :param planes:          Set the clip planes to be processed.
     :param device_type:     Set the device to use for processing. The fastest device will be used by default.
     :param kwargs:          Additional arguments passed to the plugin.
@@ -202,7 +204,7 @@ def nl_means(
 
     nstrength, ntr, nsr, nsimr = to_arr(strength), to_arr(tr), to_arr(sr), to_arr(simr)
 
-    params = dict[str, list[float] | list[int]](strength=nstrength, tr=ntr, sr=nsr, simr=nsimr)
+    params = dict[str, list[float] | list[int]](strength=nstrength, tr=ntr, sr=nsr, simr=nsimr, ref=ref)
 
     def _nl_means(i: int, channels: str) -> vs.VideoNode:
         return device_type.NLMeans(clip, nstrength[i], ntr[i], nsr[i], nsimr[i], channels, **kwargs)
