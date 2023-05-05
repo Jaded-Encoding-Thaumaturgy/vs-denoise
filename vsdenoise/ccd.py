@@ -8,7 +8,7 @@ from math import sin, sqrt
 from typing import Any
 
 from vsaa import Nnedi3
-from vsexprtools import EXPR_VARS, norm_expr, aka_expr_available
+from vsexprtools import EXPR_VARS, complexpr_available, norm_expr
 from vskernels import Bicubic, Point
 from vsscale import SSIM
 from vstools import (
@@ -99,7 +99,7 @@ def ccd(
     It's a chroma denoiser that works great on old sources such as VHSes and DVDs.
 
     It works as a convolution of near pixels determined by ``ref_points``.
-    If the euclidian distance between the RGB values of the center pixel and a given pixel in the convolution
+    If the euclidean distance between the RGB values of the center pixel and a given pixel in the convolution
     matrix is less than the threshold, then this pixel is considered in the average.
 
     :param src:         Source clip.
@@ -128,7 +128,7 @@ def ccd(
 
     InvalidColorFamilyError.check(src, (vs.YUV, vs.RGB), ccd)
 
-    if aka_expr_available:
+    if complexpr_available:
         if tr < 0 or tr > 3:
             raise CustomIndexError('Temporal radius must be between 0 and 3 (inclusive)!', ccd, tr)
         elif tr > src.num_frames // 2:

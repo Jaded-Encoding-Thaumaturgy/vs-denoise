@@ -1,22 +1,22 @@
 """
-This module implements a wrapper for KNLMeansCL
+This module implements a wrapper for non local means denoisers
 """
 
 from __future__ import annotations
 
 import warnings
 from enum import auto
-from typing import TYPE_CHECKING, Any, Literal, Sequence, overload
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Sequence, overload
 
 from vstools import (
-    CustomEnum, CustomValueError, KwargsT, PlanesT, check_variable, core, disallow_variable_format, join,
-    normalize_planes, normalize_seq, to_arr, vs
+    CustomEnum, CustomIntEnum, CustomValueError, KwargsT, PlanesT, check_variable, core, join, normalize_planes,
+    normalize_seq, to_arr, vs
 )
 
 __all__ = [
-    'ChannelMode', 'DeviceType',
+    'ChannelMode', 'DeviceType', 'WeightMode',
 
-    'nl_means', 'knl_means_cl'
+    'nl_means'
 ]
 
 
@@ -91,7 +91,7 @@ class DeviceTypeWithInfo(str):
         return self
 
     if TYPE_CHECKING:
-        from .knlm import DeviceType
+        from .nlm import DeviceType
 
         @overload  # type: ignore
         def __call__(
@@ -123,7 +123,7 @@ class DeviceTypeWithInfo(str):
         self: DeviceTypeWithInfo | DeviceType, clip: vs.VideoNode,
         h: float | None = None, d: int | None = None, a: int | None = None, s: int | None = None,
         channels: str | None = None, wmode: int | None = None, wref: float | None = None,
-        rclip: vs.VideoNode | None = None, **kwargs: Any
+        ref: vs.VideoNode | None = None, **kwargs: Any
     ) -> vs.VideoNode:
         if self == DeviceType.AUTO and hasattr(core, 'nlm_cuda'):
             self = DeviceType.CUDA
@@ -132,10 +132,10 @@ class DeviceTypeWithInfo(str):
 
         if self == DeviceType.CUDA:
             return core.nlm_cuda.NLMeans(  # type: ignore
-                clip, d, a, s, h, channels, wmode, wref, rclip, **(self.kwargs | kwargs)
+                clip, d, a, s, h, channels, wmode, wref, ref, **(self.kwargs | kwargs)
             )
 
-        return core.knlm.KNLMeansCL(clip, d, a, s, h, channels, wmode, wref, rclip, **(self.kwargs | kwargs))
+        return core.knlm.KNLMeansCL(clip, d, a, s, h, channels, wmode, wref, ref, **(self.kwargs | kwargs))
 
 
 class DeviceType(DeviceTypeWithInfo, CustomEnum):
@@ -161,13 +161,50 @@ class DeviceType(DeviceTypeWithInfo, CustomEnum):
             return DeviceTypeWithInfo(str(self), **kwargs)
 
 
-DEVICETYPE = Literal['accelerator', 'cpu', 'gpu', 'auto']
+class WeightMode(CustomIntEnum):
+    WELSCH = 0
+    """
+    Welsch weighting function has a faster decay, but still assigns positive weights to dissimilar blocks.
+    Original Non-local means denoising weighting function.
+    """
+
+    BISQUARE_LR = 1
+    """
+    Modified Bisquare weighting function to be less robust.
+    """
+
+    BISQUARE_THR = 2
+    """
+    Bisquare weighting function use a soft threshold to compare neighbourhoods.
+    The weight is 0 as soon as a given threshold is exceeded.
+    """
+
+    BISQUARE_HR = 3
+    """
+    Modified Bisquare weighting function to be even more robust.
+    """
+
+    def __call__(self, weight_ref: float = 1.0) -> WeightModeAndRef:
+        """
+        :param weight_ref:  Amount of original pixel to contribute to the filter output,
+                            relative to the weight of the most similar pixel found.
+
+        :return:            Config with weight mode and ref.
+        """
+        return WeightModeAndRef(self, weight_ref)
+
+
+class WeightModeAndRef(NamedTuple):
+    weight_mode: WeightMode
+    weight_ref: float
 
 
 def nl_means(
     clip: vs.VideoNode, strength: float | Sequence[float] = 1.2,
     tr: int | Sequence[int] = 1, sr: int | Sequence[int] = 2, simr: int | Sequence[int] = 4,
-    device_type: DeviceType = DeviceType.AUTO, planes: PlanesT = None, **kwargs: Any
+    device_type: DeviceType = DeviceType.AUTO, ref: vs.VideoNode | None = None,
+    wmode: WeightMode | WeightModeAndRef = WeightMode.BISQUARE_HR, planes: PlanesT = None,
+    **kwargs: Any
 ) -> vs.VideoNode:
     """
     Convenience wrapper for NLMeans implementations.
@@ -186,6 +223,8 @@ def nl_means(
     :param simr:            Similarity Radius. Similarity neighbourhood size = `(2 * simr + 1) ** 2`.\n
                             Sets the radius of the similarity neighbourhood window.\n
                             The impact on performance is low, therefore it depends on the nature of the noise.
+    :param ref:             Reference clip to do weighting calculation.
+    :param wmode:           Weighting function to use.
     :param planes:          Set the clip planes to be processed.
     :param device_type:     Set the device to use for processing. The fastest device will be used by default.
     :param kwargs:          Additional arguments passed to the plugin.
@@ -201,6 +240,10 @@ def nl_means(
         return clip
 
     nstrength, ntr, nsr, nsimr = to_arr(strength), to_arr(tr), to_arr(sr), to_arr(simr)
+
+    wmoder, wref = wmode if isinstance(wmode, WeightModeAndRef) else wmode()
+
+    kwargs.update(ref=ref, wmode=wmoder.value, wref=wref)
 
     params = dict[str, list[float] | list[int]](strength=nstrength, tr=ntr, sr=nsr, simr=nsimr)
 
@@ -230,22 +273,3 @@ def nl_means(
     chroma = _nl_means(1, 'UV') if 1 in planes or 2 in planes else None
 
     return join({None: clip, tuple(planes): chroma, 0: luma})
-
-
-@disallow_variable_format
-def knl_means_cl(
-    clip: vs.VideoNode, /, strength: float | Sequence[float] = 1.2,
-    tr: int | Sequence[int] = 1, sr: int | Sequence[int] = 2, simr: int | Sequence[int] = 4,
-    channels: ChannelMode = ChannelMode.ALL_PLANES, device_type: DeviceType | DEVICETYPE = DeviceType.AUTO,
-    **kwargs: Any
-) -> vs.VideoNode:
-    warnings.warn('knl_means_cl is deprecated! Please use nl_means!')
-
-    if isinstance(device_type, str):
-        warnings.warn('Passing a str to device_type is deprecated! Please use the DeviceType enum!')
-        device_type = DeviceType(device_type)
-
-    if device_type in {DeviceType.CUDA, 'cuda'}:
-        raise CustomValueError('This function is deprecated! Use the nl_means function!', knl_means_cl)
-
-    return nl_means(clip, strength, tr, sr, simr, device_type, channels.to_planes(), **kwargs)

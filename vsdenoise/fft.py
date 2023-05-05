@@ -5,8 +5,9 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, Iterator, Literal, Mapping, NamedTuple, Sequence, TypeAlias, TypeVar, overload
 
 from vstools import (
-    CustomEnum, CustomIntEnum, CustomOverflowError, CustomRuntimeError, CustomValueError, DependencyNotFoundError,
-    FuncExceptT, KwargsNotNone, KwargsT, PlanesT, SupportsFloatOrIndex, check_variable, core, flatten, inject_self, vs
+    CustomEnum, CustomImportError, CustomIntEnum, CustomOverflowError, CustomRuntimeError, CustomValueError,
+    DependencyNotFoundError, FuncExceptT, KwargsNotNone, KwargsT, PlanesT, SupportsFloatOrIndex, check_variable, core,
+    flatten, get_depth, get_sample_type, inject_self, vs
 )
 
 __all__ = [
@@ -20,7 +21,9 @@ __all__ = [
 
     'SynthesisType', 'SynthesisTypeT',
 
-    'DFTTest'
+    'DFTTest',
+
+    'fft3d'
 ]
 
 Frequency: TypeAlias = float
@@ -138,7 +141,7 @@ class SLocation:
 
             if len(locations) % 2:
                 raise CustomValueError(
-                    "slocations must resolve to an even number of total items, pairing frequency and sigma respectively",
+                    "slocations must resolve to an even number of items, pairing frequency and sigma respectively",
                     self.__class__
                 )
 
@@ -233,7 +236,7 @@ class FilterType(CustomIntEnum):
     """mult = sigma * sqrt((psd * pmax) / ((psd + pmin) * (psd + pmax)))"""
 
     if TYPE_CHECKING:
-        from .dfttest import FilterType
+        from .fft import FilterType
 
         @overload
         def __call__(  # type: ignore[misc]
@@ -320,7 +323,7 @@ class SynthesisType(CustomIntEnum):
     BARLETT_HANN = 9
 
     if TYPE_CHECKING:
-        from .dfttest import SynthesisType
+        from .fft import SynthesisType
 
         @overload
         def __call__(  # type: ignore[misc]
@@ -352,6 +355,38 @@ class BackendInfo(KwargsT):
         super().__init__(**kwargs)
 
         self.backend = backend
+
+    @classmethod
+    def from_param(cls, value: DFTTest.Backend | BackendInfo) -> BackendInfo:
+        return value() if isinstance(value, DFTTest.Backend) else value
+
+    @property
+    def resolved_backend(self) -> DFTTest.Backend:
+        backend = self.backend
+
+        Backend = DFTTest.Backend
+
+        if backend is Backend.AUTO:
+            try:
+                from dfttest2 import __version__  # type: ignore  # noqa: F401
+
+                if hasattr(core, 'dfttest2_nvrtc'):
+                    backend = Backend.NVRTC
+                elif hasattr(core, 'dfttest2_cuda'):
+                    backend = Backend.cuFFT
+                elif hasattr(core, 'dfttest2_cpu'):
+                    backend = Backend.CPU
+                elif hasattr(core, 'dfttest2_gcc'):
+                    backend = Backend.GCC
+                else:
+                    raise KeyError
+            except (ModuleNotFoundError, KeyError):
+                if hasattr(core, 'neo_dfttest'):
+                    backend = Backend.NEO
+                elif hasattr(core, 'dfttest'):
+                    backend = Backend.OLD
+
+        return backend
 
     def __call__(
         self, clip: vs.VideoNode, sloc: SLocT | None = None,
@@ -407,29 +442,9 @@ class BackendInfo(KwargsT):
 
             dft_args[key] = value
 
-        backend = self.backend
+        backend = self.resolved_backend
 
-        if backend is Backend.AUTO:
-            try:
-                from dfttest2 import __version__  # type: ignore  # noqa: F401
-
-                if hasattr(core, 'dfttest2_nvrtc'):
-                    backend = Backend.NVRTC
-                elif hasattr(core, 'dfttest2_cuda'):
-                    backend = Backend.cuFFT
-                elif hasattr(core, 'dfttest2_cpu'):
-                    backend = Backend.CPU
-                elif hasattr(core, 'dfttest2_gcc'):
-                    backend = Backend.GCC
-                else:
-                    raise KeyError
-            except (ModuleNotFoundError, KeyError):
-                if hasattr(core, 'neo_dfttest'):
-                    backend = Backend.NEO
-                elif hasattr(core, 'dfttest'):
-                    backend = Backend.OLD
-
-        if backend in {Backend.cuFFT, Backend.NVRTC, Backend.CPU, Backend.GCC}:
+        if backend.is_dfttest2:
             from dfttest2 import Backend as DFTBackend
             from dfttest2 import DFTTest as DFTTest2  # noqa
 
@@ -455,7 +470,7 @@ class BackendInfo(KwargsT):
 
             if (sbsize := dft_args.pop('sbsize', 16)) != 16:
                 raise CustomValueError(
-                    '{backend} doesn\'t support sbsize != 16!', func, sbsize, backend=backend
+                    '{backend} doesn\'t support block_size != 16!', func, sbsize, backend=backend
                 )
 
             if (nlocation := dft_args.pop('nlocation', None)) is not None:
@@ -499,7 +514,7 @@ class DFTTest:
         GCC = auto()
 
         if TYPE_CHECKING:
-            from .dfttest import DFTTest
+            from .fft import DFTTest
 
             Backend: TypeAlias = DFTTest.Backend
 
@@ -538,12 +553,16 @@ class DFTTest:
             def __call__(self, **kwargs: Any) -> BackendInfo:
                 return BackendInfo(self, **kwargs)
 
+        @property
+        def is_dfttest2(self) -> bool:
+            return self in {self.cuFFT, self.NVRTC, self.CPU, self.GCC}  # type: ignore
+
     def __init__(
         self, clip: vs.VideoNode | None = None, plugin: Backend | BackendInfo = Backend.AUTO,
         sloc: SLocT | None = None, **kwargs: Any
     ) -> None:
         self.clip = clip
-        self.plugin: BackendInfo = plugin() if isinstance(plugin, DFTTest.Backend) else plugin
+        self.plugin = BackendInfo.from_param(plugin)
 
         self.default_args = kwargs.copy()
         self.default_slocation = sloc if isinstance(sloc, SLocation.MultiDim) else SLocation.from_param(sloc)
@@ -616,11 +635,36 @@ class DFTTest:
             )
 
     @inject_self
+    def extract_freq(self, clip: vs.VideoNode, sloc: SLocT, **kwargs: Any) -> vs.VideoNode:
+        return clip.std.MakeDiff(self.denoise(clip, sloc, **(dict(func=self.extract_freq) | kwargs)))
+
+    @inject_self
     def insert_freq(self, low: vs.VideoNode, high: vs.VideoNode, sloc: SLocT, **kwargs: Any) -> vs.VideoNode:
-        return low.std.MergeDiff(high.std.MakeDiff(self.denoise(high, sloc, func=self.insert_freq, **kwargs)))
+        return low.std.MergeDiff(self.extract_freq(high, sloc, **(dict(func=self.insert_freq) | kwargs)))
 
     @inject_self
     def merge_freq(self, low: vs.VideoNode, high: vs.VideoNode, sloc: SLocT, **kwargs: Any) -> vs.VideoNode:
         return self.insert_freq(
-            self.denoise(sloc, low, func=self.merge_freq, **kwargs), high, sloc, func=self.merge_freq, **kwargs
+            self.denoise(sloc, low, **(dict(func=self.merge_freq) | kwargs)),
+            high, sloc, **(dict(func=self.merge_freq) | kwargs)
         )
+
+
+def fft3d(clip: vs.VideoNode, func: FuncExceptT | None = None, **kwargs: Any) -> vs.VideoNode:
+    if hasattr(core, 'fft3dfilter'):
+        # fft3dfilter requires sigma values to be scaled to bit depth
+        # https://github.com/myrsloik/VapourSynth-FFT3DFilter/blob/master/doc/fft3dfilter.md#scaling-parameters-according-to-bit-depth
+        sigmaMultiplier = 1.0 / 256.0 if get_sample_type(clip) is vs.FLOAT else 1 << (get_depth(clip) - 8)
+
+        for sigma in ['sigma', 'sigma2', 'sigma3', 'sigma4']:
+            if sigma in kwargs:
+                kwargs[sigma] *= sigmaMultiplier
+
+        return core.fft3dfilter.FFT3DFilter(clip, **kwargs)  # type: ignore
+
+    if hasattr(core, 'neo_fft3d'):
+        return core.neo_fft3d.FFT3D(clip, **kwargs)  # type: ignore
+
+    raise CustomImportError(
+        func or fft3d, 'fft3d', "No fft3d plugin (fft3dfilter, neo_fft3d) found, please install one."
+    )

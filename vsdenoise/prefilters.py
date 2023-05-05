@@ -8,22 +8,22 @@ from enum import EnumMeta
 from math import ceil, sin
 from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
-from vsaa import Nnedi3, Znedi3
-from vsexprtools import ExprOp, aka_expr_available, norm_expr
-from vsmasktools import retinex
+from vsaa import Nnedi3
+from vsexprtools import ExprOp, complexpr_available, norm_expr
 from vskernels import Bicubic, BicubicZopti, Bilinear, Scaler, ScalerT
+from vsmasktools import retinex
 from vsrgtools import bilateral, blur, gauss_blur, min_blur, replace_low_frequencies
 from vstools import (
-    ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, DitherType, PlanesT, SingleOrArr,
-    SingleOrArrOpt, check_variable, clamp, core, depth, disallow_variable_format, disallow_variable_resolution,
-    fallback, get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes, scale_8bit, scale_value,
-    split, vs, MissingT, MISSING, normalize_seq
+    MISSING, ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, DitherType, MissingT, PlanesT,
+    SingleOrArr, SingleOrArrOpt, check_variable, clamp, core, depth, disallow_variable_format,
+    disallow_variable_resolution, fallback, get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes,
+    normalize_seq, scale_8bit, scale_value, split, vs
 )
 
 from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
-from .dfttest import DFTTest
-from .knlm import DEVICETYPE, DeviceType, nl_means
+from .fft import DFTTest
+from .nlm import DEVICETYPE, DeviceType, nl_means
 
 __all__ = [
     'Prefilter', 'prefilter_to_full_range',
@@ -69,8 +69,8 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
         if pref_type == Prefilter.NONE:
             return clip
 
-        if pref_type.value in {0, 1, 2}:
-            return min_blur(clip, pref_type.value, planes)
+        if pref_type.value in {Prefilter.MINBLUR1, Prefilter.MINBLUR2, Prefilter.MINBLUR3}:
+            return min_blur(clip, int(pref_type._name_[-1]), planes)
 
         if pref_type == Prefilter.MINBLURFLUX:
             temp_thr, spat_thr = kwargs.get('temp_thr', 2), kwargs.get('spat_thr', 2)
@@ -130,11 +130,9 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             else:
                 raise ValueError
 
-            sigma = kwargs.pop('sigma', sigma)
+            sigmas = kwargs.pop('sigma', [sigma if 0 in planes else 0, sigma if (1 in planes or 2 in planes) else 0])
 
-            sigmas = [sigma if 0 in planes else 0, sigma if (1 in planes or 2 in planes) else 0]
-
-            bm3d_args = dict[str, Any](sigma=sigmas, radius=1, profile=profile) | kwargs
+            bm3d_args = dict[str, Any](sigma=sigmas, tr=1, profile=profile) | kwargs
 
             return bm3d_arch(clip, **bm3d_args).final()
 
@@ -148,6 +146,12 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             boxblur = blur(downscale, kwargs.pop('radius', 1), kwargs.pop('mode', ConvMode.SQUARE), planes)
 
             return upscaler.scale(boxblur, clip.width, clip.height)
+
+        if pref_type == Prefilter.GAUSS:
+            if 'sharp' not in kwargs and 'sigma' not in kwargs:
+                kwargs |= dict(sigma=1.5)
+
+            return gauss_blur(clip, **(kwargs | dict[str, Any](planes=planes)))
 
         if pref_type == Prefilter.GAUSSBLUR:
             if 'sharp' not in kwargs and 'sigma' not in kwargs:
@@ -202,7 +206,17 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
             return bilateral(clip, baseS, baseR, ref, **kwargs)
 
-        return clip
+        if pref_type is Prefilter.BMLATERAL:
+            sigma = kwargs.pop('sigma', 1.5)
+            tr = kwargs.pop('tr', 2)
+            radius = kwargs.pop('radius', 7)
+            cuda = kwargs.pop('gpu', hasattr(core, 'bm3dcuda'))
+
+            den = Prefilter.BM3D(
+                clip, planes, sigma=[10.0, 8.0] if cuda else [8.0, 6.4], tr=tr, gpu=cuda, **kwargs
+            )
+
+            return Prefilter.BILATERAL(den, planes, sigmaS=[sigma, sigma / 3], sigmaR=radius / 255)
 
 
 class Prefilter(PrefilterBase):
@@ -239,14 +253,14 @@ class Prefilter(PrefilterBase):
     NLMEANS = 5
     """Denoising with NLMeans, then postprocessed to remove low frequencies."""
 
-    KNLMEANSCL = NLMEANS
-    """Deprecated, use NLMEANS instead."""
-
     BM3D = 6
     """Normal spatio-temporal denoising using BM3D."""
 
     SCALEDBLUR = 7
     """Perform blurring at a scaled-down resolution, then scale it back up."""
+
+    GAUSS = 13
+    """Simply Gaussian blur."""
 
     GAUSSBLUR = 8
     """Gaussian blurred, then postprocessed to remove low frequencies."""
@@ -259,6 +273,9 @@ class Prefilter(PrefilterBase):
 
     BILATERAL = 11
     """Classic bilateral filtering or edge-preserving bilateral multi pass filtering."""
+
+    BMLATERAL = 14
+    """BM3D + BILATERAL blurring."""
 
     if TYPE_CHECKING:
         from .prefilters import Prefilter
@@ -337,7 +354,7 @@ class Prefilter(PrefilterBase):
         def __call__(  # type: ignore
             self: Literal[Prefilter.BM3D], clip: vs.VideoNode, /, planes: PlanesT = None,
             *, arch: type[AbstractBM3D] = ..., gpu: bool = False,
-            sigma: SingleOrArr[float] = ..., radius: SingleOrArr[int] = 1,
+            sigma: SingleOrArr[float] = ..., tr: SingleOrArr[int] = 1,
             profile: Profile = ..., ref: vs.VideoNode | None = None, refine: int = 1
         ) -> vs.VideoNode:
             """
@@ -345,7 +362,7 @@ class Prefilter(PrefilterBase):
 
             :param clip:        Clip to be preprocessed.
             :param sigma:       Strength of denoising, valid range is [0, +inf].
-            :param radius:      Temporal radius, valid range is [1, 16].
+            :param tr:          Temporal radius, valid range is [1, 16].
             :param profile:     See :py:attr:`vsdenoise.bm3d.Profile`.
             :param ref:         Reference clip used in block-matching, replacing the basic estimation.
                                 If not specified, the input clip is used instead.
@@ -460,6 +477,25 @@ class Prefilter(PrefilterBase):
             :param gpu:         Whether to use GPU processing if available or not.
 
             :return:            Preprocessed clip.
+            """
+
+        @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.BMLATERAL], clip: vs.VideoNode, /, planes: PlanesT = None,
+            sigma: float = 1.5, radius: float = 7, tr: int = 2, gpu: bool | None = None, **kwargs: Any
+        ) -> vs.VideoNode:
+            """
+            BM3D + BILATERAL smoothing.
+
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
+            :param sigma:       ``Bilateral`` spatial weight sigma.
+            :param radius:      ``Bilateral`` radius weight sigma.
+            :param tr:          Temporal radius for BM3D.
+            :param gpu:         Whether to process with GPU or not. None is auto.
+            :param **kwargs:    Kwargs passed to BM3D.
+
+            :return:            Partial Prefilter.
             """
 
         @overload
@@ -664,6 +700,24 @@ class Prefilter(PrefilterBase):
             """
 
         @overload
+        def __call__(  # type: ignore
+            self: Literal[Prefilter.BMLATERAL], *, planes: PlanesT = None,
+            sigma: float = 1.5, radius: float = 7, tr: int = 2, gpu: bool | None = None, **kwargs: Any
+        ) -> vs.VideoNode:
+            """
+            BM3D + BILATERAL smoothing.
+
+            :param planes:      Planes to be preprocessed.
+            :param sigma:       ``Bilateral`` spatial weight sigma.
+            :param radius:      ``Bilateral`` radius weight sigma.
+            :param tr:          Temporal radius for BM3D.
+            :param gpu:         Whether to process with GPU or not. None is auto.
+            :param **kwargs:    Kwargs passed to BM3D.
+
+            :return:            Partial Prefilter.
+            """
+
+        @overload
         def __call__(self, *, planes: PlanesT = None, **kwargs: Any) -> PrefilterPartial:
             """
             Run the selected filter.
@@ -762,7 +816,7 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
 
         head = f'{k} {1 + c} {(1 + c) * c}'
 
-        if aka_expr_available:
+        if complexpr_available:
             head = f'{t} T! {head}'
             t = 'T@'
 
@@ -896,15 +950,12 @@ class PelType(int, PelTypeBase):
                     pel_type = PelType.NNEDI3
 
         if pel_type == PelType.NNEDI3:
-            nnedicl, nnedi, znedi = (hasattr(core, ns) for ns in ('nnedi3cl', 'nnedi3', 'znedi3'))
-            do_nnedi = (nnedicl or nnedi) and not znedi
-
-            if not any((nnedi, znedi, nnedicl)):
+            if not any((hasattr(core, ns) for ns in ('nnedi3cl', 'nnedi3'))):
                 raise CustomRuntimeError('Missing any nnedi3 implementation!', PelType.NNEDI3)
 
             kwargs |= {'nsize': 0, 'nns': clamp(((pel - 1) // 2) + 1, 0, 4), 'qual': clamp(pel - 1, 1, 3)} | kwargs
 
-            pel_type = Nnedi3(**kwargs, opencl=nnedicl) if do_nnedi else Znedi3(**kwargs)
+            pel_type = Nnedi3(**kwargs)
 
         assert isinstance(pel_type, Scaler)
 

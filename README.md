@@ -20,4 +20,27 @@ Or if you want the latest git version, install it with this command:
 ```sh
 $ pip install git+https://github.com/Irrational-Encoding-Wizardry/vs-denoise.git
 ```
-<br>
+<br><br>
+
+## Example usage
+```py
+from vsdenoise import MVTools, SADMode, MotionMode, Prefilter, BM3DCuda, Profile, nl_means
+
+clip = ...
+
+ref = MVTools.denoise(
+    clip, 100, block_size=32, overlap=8, thSAD=200,
+    motion=MotionMode.HIGH_SAD,
+    prefilter=Prefilter.DFTTEST, 
+    sad_mode=(
+        SADMode.ADAPTIVE_SPATIAL_MIXED,
+        SADMode.ADAPTIVE_SATD_MIXED,
+    )
+)
+
+denoise = BM3DCuda.denoise(clip, [0.8, 0], 2, profile=Profile.NORMAL, ref=ref)
+
+denoise = nl_means(
+    denoise, tr=2, rclip=ref, strength=0.6, wmode=3, planes=[1, 2],
+)
+```
