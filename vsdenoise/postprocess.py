@@ -14,7 +14,7 @@ from vstools import (
 )
 
 from .fft import DFTTest, fft3d
-from .knlm import nl_means
+from .nlm import nl_means
 
 __all__ = [
     'decrease_size',

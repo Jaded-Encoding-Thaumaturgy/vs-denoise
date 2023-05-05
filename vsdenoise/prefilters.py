@@ -23,7 +23,7 @@ from vstools import (
 from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
 from .fft import DFTTest
-from .knlm import DEVICETYPE, DeviceType, nl_means
+from .nlm import DEVICETYPE, DeviceType, nl_means
 
 __all__ = [
     'Prefilter', 'prefilter_to_full_range',

@@ -1,5 +1,5 @@
 """
-This module implements a wrapper for KNLMeansCL
+This module implements a wrapper for non local means denoisers
 """
 
 from __future__ import annotations
@@ -91,7 +91,7 @@ class DeviceTypeWithInfo(str):
         return self
 
     if TYPE_CHECKING:
-        from .knlm import DeviceType
+        from .nlm import DeviceType
 
         @overload  # type: ignore
         def __call__(
