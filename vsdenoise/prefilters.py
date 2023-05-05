@@ -23,7 +23,7 @@ from vstools import (
 from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
 from .fft import DFTTest
-from .nlm import DEVICETYPE, DeviceType, nl_means
+from .nlm import DeviceType, nl_means
 
 __all__ = [
     'Prefilter', 'prefilter_to_full_range',
@@ -324,7 +324,7 @@ class Prefilter(PrefilterBase):
         def __call__(  # type: ignore
             self: Literal[Prefilter.NLMEANS], clip: vs.VideoNode, /, planes: PlanesT = None,
             *, strength: SingleOrArr[float] = 7.0, tr: SingleOrArr[int] = 1, sr: SingleOrArr[int] = 2,
-            simr: SingleOrArr[int] = 2, device_type: DEVICETYPE | DeviceType = DeviceType.AUTO, **kwargs: Any
+            simr: SingleOrArr[int] = 2, device_type: DeviceType = DeviceType.AUTO, **kwargs: Any
         ) -> vs.VideoNode:
             """
             Denoising with NLMeans, then postprocessed to remove low frequencies.
@@ -551,7 +551,7 @@ class Prefilter(PrefilterBase):
         def __call__(  # type: ignore
             self: Literal[Prefilter.NLMEANS], *, planes: PlanesT = None,
             strength: SingleOrArr[float] = 7.0, tr: SingleOrArr[int] = 1, sr: SingleOrArr[int] = 2,
-            simr: SingleOrArr[int] = 2, device_type: DEVICETYPE | DeviceType = DeviceType.AUTO, **kwargs: Any
+            simr: SingleOrArr[int] = 2, device_type: DeviceType = DeviceType.AUTO, **kwargs: Any
         ) -> PrefilterPartial:
             """
             Denoising with NLMeans, then postprocessed to remove low frequencies.
