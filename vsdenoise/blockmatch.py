@@ -38,13 +38,19 @@ def _recursive_denoise(
 
 def wnnm(
     clip: vs.VideoNode, sigma: float | list[float] = 3.0,
-    refine: int = 0, radius: int = 0, rclip: vs.VideoNode | Prefilter | None = None,
+    refine: int = 0, tr: int = 0, rclip: vs.VideoNode | Prefilter | None = None,
     block_size: int = 8, block_step: int = 8, group_size: int = 8,
     bm_range: int = 7, ps_num: int = 2, ps_range: int = 4,
     residual: bool = False, adaptive_aggregation: bool = True,
-    merge_factor: float = 0.1, self_refine: bool = False, planes: PlanesT = None
+    merge_factor: float = 0.1, self_refine: bool = False, planes: PlanesT = None,
+    *, radius: int | None = None
 ) -> vs.VideoNode:
     func = FunctionUtil(clip, wnnm, planes, bitdepth=32)
+
+    if radius is not None:
+        import warnings
+        warnings.warn('wnnm: radius is deprecated and will be removed. Use tr')
+        tr = radius
 
     sigma = func.norm_seq(sigma)
 
@@ -56,7 +62,7 @@ def wnnm(
             func.work_clip, core.wnnm.WNNM, self_refine and 'rclip' or None,
             refine, merge_factor, planes, dict(
                 sigma=sigma, block_size=block_size, block_step=block_step, group_size=group_size,
-                bm_range=bm_range, radius=radius, ps_num=ps_num, ps_range=ps_range, rclip=rclip,
+                bm_range=bm_range, radius=tr, ps_num=ps_num, ps_range=ps_range, rclip=rclip,
                 adaptive_aggregation=adaptive_aggregation, residual=residual
             )
         )
@@ -65,12 +71,18 @@ def wnnm(
 
 def bmdegrain(
     clip: vs.VideoNode, sigma: float | list[float] = 3.0,
-    refine: int = 0, radius: int = 0, rclip: vs.VideoNode | Prefilter | None = None,
+    refine: int = 0, tr: int = 0, rclip: vs.VideoNode | Prefilter | None = None,
     block_size: int = 8, block_step: int = 8, group_size: int = 8,
     bm_range: int = 7, ps_num: int = 2, ps_range: int = 4,
-    merge_factor: float = 0.1, self_refine: bool = False, planes: PlanesT = None
+    merge_factor: float = 0.1, self_refine: bool = False, planes: PlanesT = None,
+    *, radius: int | None = None
 ) -> vs.VideoNode:
     func = FunctionUtil(clip, wnnm, planes, bitdepth=32)
+
+    if radius is not None:
+        import warnings
+        warnings.warn('bmdegrain: radius is deprecated and will be removed. Use tr')
+        tr = radius
 
     sigma = func.norm_seq(sigma)
 
@@ -82,7 +94,7 @@ def bmdegrain(
             func.work_clip, core.bmdegrain.BMDegrain, self_refine and 'rclip' or None,
             refine, merge_factor, planes, dict(
                 th_sse=sigma, block_size=block_size, block_step=block_step, group_size=group_size,
-                bm_range=bm_range, radius=radius, ps_num=ps_num, ps_range=ps_range, rclip=rclip
+                bm_range=bm_range, radius=tr, ps_num=ps_num, ps_range=ps_range, rclip=rclip
             )
         )
     )

@@ -132,7 +132,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
             sigmas = kwargs.pop('sigma', [sigma if 0 in planes else 0, sigma if (1 in planes or 2 in planes) else 0])
 
-            bm3d_args = dict[str, Any](sigma=sigmas, radius=1, profile=profile) | kwargs
+            bm3d_args = dict[str, Any](sigma=sigmas, tr=1, profile=profile) | kwargs
 
             return bm3d_arch(clip, **bm3d_args).final()
 
@@ -213,7 +213,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             cuda = kwargs.pop('gpu', hasattr(core, 'bm3dcuda'))
 
             den = Prefilter.BM3D(
-                clip, planes, sigma=[10.0, 8.0] if cuda else [8.0, 6.4], radius=tr, gpu=cuda, **kwargs
+                clip, planes, sigma=[10.0, 8.0] if cuda else [8.0, 6.4], tr=tr, gpu=cuda, **kwargs
             )
 
             return Prefilter.BILATERAL(den, planes, sigmaS=[sigma, sigma / 3], sigmaR=radius / 255)
@@ -354,7 +354,7 @@ class Prefilter(PrefilterBase):
         def __call__(  # type: ignore
             self: Literal[Prefilter.BM3D], clip: vs.VideoNode, /, planes: PlanesT = None,
             *, arch: type[AbstractBM3D] = ..., gpu: bool = False,
-            sigma: SingleOrArr[float] = ..., radius: SingleOrArr[int] = 1,
+            sigma: SingleOrArr[float] = ..., tr: SingleOrArr[int] = 1,
             profile: Profile = ..., ref: vs.VideoNode | None = None, refine: int = 1
         ) -> vs.VideoNode:
             """
@@ -362,7 +362,7 @@ class Prefilter(PrefilterBase):
 
             :param clip:        Clip to be preprocessed.
             :param sigma:       Strength of denoising, valid range is [0, +inf].
-            :param radius:      Temporal radius, valid range is [1, 16].
+            :param tr:          Temporal radius, valid range is [1, 16].
             :param profile:     See :py:attr:`vsdenoise.bm3d.Profile`.
             :param ref:         Reference clip used in block-matching, replacing the basic estimation.
                                 If not specified, the input clip is used instead.

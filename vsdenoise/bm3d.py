@@ -281,7 +281,7 @@ class AbstractBM3D(vs_object):
     wclip: vs.VideoNode
 
     sigma: _Sigma
-    radius: _Radius
+    tr: _TemporalRadius
     profile: Profile.Config
 
     ref: vs.VideoNode | None
@@ -301,20 +301,20 @@ class AbstractBM3D(vs_object):
         u: float
         v: float
 
-    class _Radius(NamedTuple):
+    class _TemporalRadius(NamedTuple):
         basic: int
         final: int
 
     def __init__(
-        self, clip: vs.VideoNode, sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
+        self, clip: vs.VideoNode, sigma: SingleOrArr[float], tr: SingleOrArr[int] | None = None,
         profile: Profile | Profile.Config = Profile.FAST, ref: vs.VideoNode | None = None, refine: int = 1,
         matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
-        colorspace: Colorspace | None = None, fp32: bool = True
+        colorspace: Colorspace | None = None, fp32: bool = True, *, radius: SingleOrArr[int] | None = None
     ) -> None:
         """
         :param clip:            Source clip.
         :param sigma:           Strength of denoising, valid range is [0, +inf].
-        :param radius:          Temporal radius, valid range is [1, 16].
+        :param tr:              Temporal radius, valid range is [1, 16].
         :param profile:         Preset profile. See :py:attr:`vsdenoise.bm3d.Profile`.
                                 Default: Profile.FAST.
         :param ref:             Reference clip used in block-matching, replacing the basic estimation.
@@ -336,8 +336,13 @@ class AbstractBM3D(vs_object):
         """
         assert check_variable(clip, self.__class__)
 
+        if radius is not None:
+            import warnings
+            warnings.warn(f'{self.__class__.__name__}: radius is deprecated and will be removed. Use tr')
+            tr = radius
+
         self.sigma = self._Sigma(*normalize_seq(sigma, 3))
-        self.radius = self._Radius(*normalize_seq(radius or 0, 2))
+        self.tr = self._TemporalRadius(*normalize_seq(tr or 0, 2))
 
         _is_gray = clip.format.color_family == vs.GRAY
 
@@ -397,12 +402,12 @@ class AbstractBM3D(vs_object):
 
     @classmethod
     def denoise(
-        cls, clip: vs.VideoNode, sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
+        cls, clip: vs.VideoNode, sigma: SingleOrArr[float], tr: SingleOrArr[int] | None = None,
         refine: int = 1, profile: Profile | Profile.Config = Profile.FAST, ref: vs.VideoNode | None = None,
         matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
         colorspace: Colorspace | None = None, fp32: bool = True
     ) -> vs.VideoNode:
-        return cls(clip, sigma, radius, profile, ref, refine, matrix, range_in, colorspace, fp32).final()
+        return cls(clip, sigma, tr, profile, ref, refine, matrix, range_in, colorspace, fp32).final()
 
     def __post_init__(self) -> None:
         self._pre_clip = self.cspconfig.prepare_clip(self.cspconfig.clip)
@@ -420,14 +425,15 @@ class BM3D(AbstractBM3D):
     """BM3D implementation by mawen1250."""
 
     def __init__(
-        self, clip: vs.VideoNode, sigma: SingleOrArr[float], radius: SingleOrArr[int] | None = None,
+        self, clip: vs.VideoNode, sigma: SingleOrArr[float], tr: SingleOrArr[int] | None = None,
         profile: Profile | Profile.Config = Profile.FAST, pre: vs.VideoNode | None = None,
         ref: vs.VideoNode | None = None, refine: int = 1, matrix: MatrixT | None = None,
-        range_in: ColorRangeT | None = None, colorspace: Colorspace | None = None, fp32: bool = True
+        range_in: ColorRangeT | None = None, colorspace: Colorspace | None = None, fp32: bool = True,
+        *, radius: SingleOrArr[int] | None = None
     ) -> None:
         self.pre = pre and self.cspconfig.check_clip(pre, matrix, range_in, self.__class__)
 
-        super().__init__(clip, sigma, radius, profile, ref, refine, matrix, range_in, colorspace, fp32)
+        super().__init__(clip, sigma, tr, profile, ref, refine, matrix, range_in, colorspace, fp32, radius=radius)
 
     def __post_init__(self) -> None:
         self._pre_pre = self.cspconfig.prepare_clip(self.pre)
@@ -439,10 +445,10 @@ class BM3D(AbstractBM3D):
 
         kwargs = KwargsT(ref=self.pre, sigma=self.sigma, matrix=100, args=self.basic_args)
 
-        if self.radius.basic:
-            clip = clip.bm3d.VBasic(**self.profile.as_dict(**kwargs, radius=self.radius.basic))  # type: ignore
+        if self.tr.basic:
+            clip = clip.bm3d.VBasic(**self.profile.as_dict(**kwargs, radius=self.tr.basic))  # type: ignore
 
-            clip = clip.bm3d.VAggregate(self.radius.basic, self.cspconfig.fp32)
+            clip = clip.bm3d.VAggregate(self.tr.basic, self.cspconfig.fp32)
         else:
             clip = clip.bm3d.Basic(**self.profile.as_dict(**kwargs))  # type: ignore
 
@@ -461,9 +467,9 @@ class BM3D(AbstractBM3D):
         kwargs = KwargsT(ref=ref, sigma=self.sigma, matrix=100, args=self.final_args)
 
         for _ in range(refine or self.refine):
-            if self.radius.final:
-                clip = clip.bm3d.VFinal(**self.profile.as_dict(**kwargs, radius=self.radius.final))  # type: ignore
-                clip = clip.bm3d.VAggregate(self.radius.final, self.cspconfig.fp32)
+            if self.tr.final:
+                clip = clip.bm3d.VFinal(**self.profile.as_dict(**kwargs, radius=self.tr.final))  # type: ignore
+                clip = clip.bm3d.VAggregate(self.tr.final, self.cspconfig.fp32)
             else:
                 clip = clip.bm3d.Final(**self.profile.as_dict(**kwargs))  # type: ignore
 
@@ -488,7 +494,7 @@ class AbstractBM3DCuda(AbstractBM3D, metaclass=AbstractBM3DCudaMeta):
         clip = self.cspconfig.get_clip(self.cspconfig.clip, self._pre_clip, clip)
 
         kwargs = self.profile.as_dict(
-            self.plugin, True, False, self.basic_args, sigma=self.sigma, radius=self.radius.basic
+            self.plugin, True, False, self.basic_args, sigma=self.sigma, radius=self.tr.basic
         )
 
         if hasattr(self.plugin, 'BM3Dv2'):
@@ -496,8 +502,8 @@ class AbstractBM3DCuda(AbstractBM3D, metaclass=AbstractBM3DCudaMeta):
         else:
             clip = self.plugin.BM3D(clip, **kwargs)
 
-            if self.radius.basic:
-                clip = clip.bm3d.VAggregate(self.radius.basic, self.cspconfig.fp32)
+            if self.tr.basic:
+                clip = clip.bm3d.VAggregate(self.tr.basic, self.cspconfig.fp32)
 
         return clip if opp else self.cspconfig.post_processing(clip)
 
@@ -512,7 +518,7 @@ class AbstractBM3DCuda(AbstractBM3D, metaclass=AbstractBM3DCudaMeta):
             ref = self.basic(clip, True)
 
         kwargs = self.profile.as_dict(
-            self.plugin, False, True, self.final_args, sigma=self.sigma, radius=self.radius.final
+            self.plugin, False, True, self.final_args, sigma=self.sigma, radius=self.tr.final
         )
 
         if hasattr(self.plugin, 'BM3Dv2'):
@@ -522,8 +528,8 @@ class AbstractBM3DCuda(AbstractBM3D, metaclass=AbstractBM3DCudaMeta):
             for _ in range(refine or self.refine):
                 clip = self.plugin.BM3D(clip, ref, **kwargs)
 
-                if self.radius.final:
-                    clip = clip.bm3d.VAggregate(self.radius.final, self.cspconfig.fp32)
+                if self.tr.final:
+                    clip = clip.bm3d.VAggregate(self.tr.final, self.cspconfig.fp32)
 
         return self.cspconfig.post_processing(clip)
 
