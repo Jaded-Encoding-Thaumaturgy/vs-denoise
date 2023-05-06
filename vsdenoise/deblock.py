@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, SupportsFloat, cast
+from typing import Any, Literal, SupportsFloat, cast
 
 from vsexprtools import expr_func, norm_expr
 from vskernels import Catrom, Kernel, KernelT, Point
@@ -26,7 +26,8 @@ class _dpir(CustomStrEnum):
         ] = 10, matrix: MatrixT | None = None, cuda: bool | Literal['trt'] | None = None, i444: bool = False,
         tiles: int | tuple[int, int] | None = None, overlap: int | tuple[int, int] | None = 8,
         zones: list[tuple[FrameRangeN | FrameRangesN | None, SupportsFloat | vs.VideoNode | None]] | None = None,
-        fp16: bool | None = None, num_streams: int | None = None, device_id: int = 0, kernel: KernelT = Catrom
+        fp16: bool | None = None, num_streams: int | None = None, device_id: int = 0, kernel: KernelT = Catrom,
+        **kwargs: Any
     ) -> vs.VideoNode:
         func = 'dpir'
 
@@ -224,7 +225,7 @@ class _dpir(CustomStrEnum):
                 zoned_strength_clip = strength_clip.std.FrameEval(_select_sclip)
 
         backend: backendT
-        bkwargs = KwargsT(fp16=fp16, device_id=device_id)
+        bkwargs = kwargs | KwargsT(fp16=fp16, device_id=device_id)
 
         # All this will eventually be in vs-nn
         if cuda is None or trt_available:
