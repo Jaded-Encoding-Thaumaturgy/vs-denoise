@@ -203,7 +203,7 @@ def nl_means(
     clip: vs.VideoNode, strength: float | Sequence[float] = 1.2,
     tr: int | Sequence[int] = 1, sr: int | Sequence[int] = 2, simr: int | Sequence[int] = 4,
     device_type: DeviceType = DeviceType.AUTO, ref: vs.VideoNode | None = None,
-    wmode: WeightMode | WeightModeAndRef = WeightMode.BISQUARE_HR, planes: PlanesT = None,
+    wmode: WeightMode | WeightModeAndRef = WeightMode.WELSCH, planes: PlanesT = None,
     **kwargs: Any
 ) -> vs.VideoNode:
     """
