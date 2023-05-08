@@ -11,7 +11,8 @@ from typing import Any, Literal, NamedTuple, final, overload
 from vstools import (
     MISSING, ColorRange, ColorRangeT, Colorspace, ConstantFormatVideoNode, CustomIndexError, CustomStrEnum,
     CustomValueError, DitherType, FuncExceptT, FunctionUtil, KwargsT, Matrix, MatrixT, MissingT, PlanesT, Self,
-    SingleOrArr, check_variable, core, depth, get_video_format, join, normalize_seq, vs, vs_object)
+    SingleOrArr, check_variable, core, depth, get_video_format, get_y, join, normalize_seq, vs, vs_object
+)
 
 from .types import _Plugin_bm3dcpu_Core_Bound, _Plugin_bm3dcuda_Core_Bound, _Plugin_bm3dcuda_rtc_Core_Bound
 
@@ -408,16 +409,20 @@ class AbstractBM3D(vs_object):
     ) -> vs.VideoNode:
         func = FunctionUtil(clip, cls.denoise, planes)
 
-        sigma = func.norm_seq(sigma, 0.0)
+        sigma = func.norm_seq(sigma)
 
-        bm3d = cls(clip, sigma, tr, profile, ref, refine, matrix, range_in, colorspace, fp32)
+        ref = get_y(ref) if func.luma_only and ref else ref
 
-        if not refine:
-            return bm3d.basic(
+        bm3d = cls(func.work_clip, sigma, tr, profile, ref, refine, matrix, range_in, colorspace, fp32)
+
+        if refine:
+            denoise = bm3d.final()
+        else:
+            denoise = bm3d.basic(
                 bm3d.cspconfig.get_clip(bm3d.cspconfig.clip, bm3d._pre_clip, None)
             )
 
-        return bm3d.final()
+        return func.return_clip(denoise)
 
     def __post_init__(self) -> None:
         self._pre_clip = self.cspconfig.prepare_clip(self.cspconfig.clip)
