@@ -405,7 +405,7 @@ class AbstractBM3D(vs_object):
         cls, clip: vs.VideoNode, sigma: SingleOrArr[float], tr: SingleOrArr[int] | None = None,
         refine: int = 1, profile: Profile | Profile.Config = Profile.FAST, ref: vs.VideoNode | None = None,
         matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
-        colorspace: Colorspace | None = None, fp32: bool = True, planes: PlanesT = None
+        colorspace: Colorspace | None = None, fp32: bool = True, planes: PlanesT = None, **kwargs: Any
     ) -> vs.VideoNode:
         func = FunctionUtil(clip, cls.denoise, planes)
 
@@ -413,7 +413,7 @@ class AbstractBM3D(vs_object):
 
         ref = get_y(ref) if func.luma_only and ref else ref
 
-        bm3d = cls(func.work_clip, sigma, tr, profile, ref, refine, matrix, range_in, colorspace, fp32)
+        bm3d = cls(func.work_clip, sigma, tr, profile, ref, refine, matrix, range_in, colorspace, fp32, **kwargs)
 
         if refine:
             denoise = bm3d.final()
