@@ -412,7 +412,7 @@ class AbstractBM3D(vs_object):
 
         bm3d = cls(clip, sigma, tr, profile, ref, refine, matrix, range_in, colorspace, fp32)
 
-        if refine:
+        if not refine:
             return bm3d.basic(
                 bm3d.cspconfig.get_clip(bm3d.cspconfig.clip, bm3d._pre_clip, None)
             )
