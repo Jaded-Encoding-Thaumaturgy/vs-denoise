@@ -134,7 +134,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
             bm3d_args = dict[str, Any](sigma=sigmas, tr=1, profile=profile) | kwargs
 
-            return bm3d_arch(clip, **bm3d_args).final()
+            return bm3d_arch.denoise(clip, **bm3d_args)
 
         if pref_type == Prefilter.SCALEDBLUR:
             scale = kwargs.pop('scale', 2)
