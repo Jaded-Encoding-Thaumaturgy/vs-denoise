@@ -9,16 +9,21 @@ from dataclasses import dataclass
 from typing import Any, Literal, NamedTuple, final, overload
 
 from vstools import (
-    MISSING, ColorRange, ColorRangeT, Colorspace, ConstantFormatVideoNode, CustomIndexError, CustomStrEnum,
-    CustomValueError, DitherType, FuncExceptT, FunctionUtil, KwargsT, Matrix, MatrixT, MissingT, PlanesT, Self,
-    SingleOrArr, check_variable, core, depth, get_video_format, get_y, join, normalize_seq, vs, vs_object
+    MISSING, ColorRange, ColorRangeT, Colorspace, ConstantFormatVideoNode, CustomIndexError, CustomRuntimeError,
+    CustomStrEnum, CustomValueError, DitherType, FuncExceptT, FunctionUtil, KwargsT, Matrix, MatrixT, MissingT, PlanesT,
+    Self, SingleOrArr, check_variable, core, depth, get_video_format, get_y, join, normalize_seq, vs, vs_object
 )
 
 from .types import _Plugin_bm3dcpu_Core_Bound, _Plugin_bm3dcuda_Core_Bound, _Plugin_bm3dcuda_rtc_Core_Bound
 
 __all__ = [
     'Profile',
-    'BM3D', 'BM3DCuda', 'BM3DCudaRTC', 'BM3DCPU'
+
+    'BM3D',
+
+    'BM3DMawen',
+
+    'BM3DCuda', 'BM3DCudaRTC', 'BM3DCPU'
 ]
 
 
@@ -436,7 +441,7 @@ class AbstractBM3D(vs_object):
         self.final_args.clear()
 
 
-class BM3D(AbstractBM3D):
+class BM3DMawen(AbstractBM3D):
     """BM3D implementation by mawen1250."""
 
     def __init__(
@@ -558,4 +563,27 @@ class BM3DCudaRTC(AbstractBM3DCuda, plugin=core.lazy.bm3dcuda_rtc):
 
 
 class BM3DCPU(AbstractBM3DCuda, plugin=core.lazy.bm3dcpu):
+    ...
+
+
+class AutoBM3DMeta(ABCMeta):
+    def __new__(
+        __mcls: type[Self], __name: str, __bases: tuple[type, ...], __namespace: dict[str, Any], **kwargs: Any
+    ) -> type[AbstractBM3D]:
+        if hasattr(core, 'bm3dcuda_rtc'):
+            return BM3DCudaRTC
+
+        if hasattr(core, 'bm3dcuda'):
+            return BM3DCuda
+
+        if hasattr(core, 'bm3dcpu'):
+            return BM3DCPU
+
+        if hasattr(core, 'bm3d'):
+            return BM3DMawen
+
+        raise CustomRuntimeError('You have no bm3d plugin installed!')
+
+
+class BM3D(AbstractBM3D, metaclass=AutoBM3DMeta):
     ...
