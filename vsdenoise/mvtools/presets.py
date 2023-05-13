@@ -131,3 +131,18 @@ class MVToolsPresets:
         range_conversion=1.0
     )
     """CMDegrain from EoE."""
+
+    FAST = MVToolsPreset(
+        pel=1, prefilter=Prefilter.MINBLUR3, thSAD=60, block_size=32,
+        overlap=property(fget=lambda x: x.block_size // 2),
+        sad_mode=SADMode.SPATIAL.same_recalc, search=SearchMode.DIAMOND,
+        motion=MotionMode.HIGH_SAD, pel_type=PelType.BICUBIC, rfilter=2, sharp=2
+    )
+    """Fast preset"""
+
+    NOISY = MVToolsPreset(
+        pel=2, thSAD=100, block_size=32, overlap=property(fget=lambda x: x.block_size // 2),
+        motion=MotionMode.HIGH_SAD, prefilter=Prefilter.DFTTEST,
+        sad_mode=(SADMode.ADAPTIVE_SPATIAL_MIXED, SADMode.ADAPTIVE_SATD_MIXED)
+    )
+    """Preset for accurate estimation"""
