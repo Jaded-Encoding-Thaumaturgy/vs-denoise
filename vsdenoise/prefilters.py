@@ -353,7 +353,7 @@ class Prefilter(PrefilterBase):
         @overload
         def __call__(  # type: ignore
             self: Literal[Prefilter.BM3D], clip: vs.VideoNode, /, planes: PlanesT = None,
-            *, arch: type[AbstractBM3D] = ..., gpu: bool = False,
+            *, arch: type[AbstractBM3D] = ..., gpu: bool | None = None,
             sigma: SingleOrArr[float] = ..., tr: SingleOrArr[int] = 1,
             profile: Profile = ..., ref: vs.VideoNode | None = None, refine: int = 1
         ) -> vs.VideoNode:
