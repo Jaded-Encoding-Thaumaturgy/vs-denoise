@@ -8,23 +8,29 @@ from itertools import count, zip_longest
 from typing import Any, Callable, Iterable, cast
 
 from vskernels import Bilinear, Catrom, Scaler, ScalerT
-from vsrgtools import RemoveGrainMode, contrasharpening, contrasharpening_dehalo, removegrain
+from vsrgtools import RemoveGrainMode, RepairMode, contrasharpening, contrasharpening_dehalo, removegrain
 from vsrgtools.util import norm_rmode_planes
 from vstools import (
-    FunctionUtil, KwargsT, PlanesT, VSFunction, depth, expect_bits, fallback, get_h, get_w, normalize_planes, vs
+    ColorRangeT, FunctionUtil, KwargsT, MatrixT, PlanesT, SingleOrArr, VSFunction, depth, expect_bits, fallback, get_h,
+    get_w, normalize_planes, to_arr, vs
 )
 
+from .blockmatch import bmdegrain
+from .bm3d import BM3D, Profile
 from .limit import TemporalLimiter, TemporalLimiterConfig
-from .mvtools import MotionMode, MVTools, MVToolsPresets, SADMode, SearchMode
+from .mvtools import MotionMode, MVTools, MVToolsPreset, MVToolsPresets, SADMode, SearchMode
 from .mvtools.enums import SearchModeBase
 from .mvtools.utils import normalize_thscd
+from .nlm import WeightMode, WeightModeAndRef, nl_means
 from .postprocess import PostProcess, PostProcessConfig
 from .prefilters import PelType, Prefilter
 
 __all__ = [
     'mlm_degrain',
 
-    'temporal_degrain'
+    'temporal_degrain',
+
+    'schizo_denoise'
 ]
 
 
@@ -290,3 +296,61 @@ def temporal_degrain(
         sharpened = func.work_clip.std.Merge(sharpened, postConf.merge_strength / 100)
 
     return func.return_clip(sharpened)
+
+
+def schizo_denoise(
+    src: vs.VideoNode, sigma: SingleOrArr[float] = [0.8, 0.3], thSAD: int = 60,
+    tr: SingleOrArr[int] = 2, sr: SingleOrArr[int] = 2, block_size: int = 32,
+    profile: Profile | Profile.Config = Profile.FAST(bm_range=9),
+    preset: MVToolsPreset = MVToolsPresets.FAST,
+    prefilter: vs.VideoNode | Prefilter = Prefilter.DFTTEST,
+    smooth: bool | tuple[bool | int, bool | int] = True,
+    wmode: WeightMode | WeightModeAndRef = WeightMode.WELSCH,
+    contra: int | float | bool = False, aggressive: bool = False,
+    matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
+    **kwargs: Any
+) -> vs.VideoNode:
+    func = FunctionUtil(
+        src, schizo_denoise, None, vs.YUV, range(16, 32), True, matrix=matrix, range_in=range_in
+    )
+
+    ref_smooth, out_smooth = smooth if isinstance(smooth, tuple) else (smooth, False)
+
+    nlm = nl_means(
+        func.work_clip, sigma, tr, [0, *to_arr(sr)], wmode=wmode, planes=[1, 2]
+    )
+
+    ref = MVTools.denoise(
+        nlm, **preset(
+            thSAD=thSAD, prefilter=prefilter, block_size=block_size, planes=0,
+            overlap=block_size // 2, **kwargs
+        ), range_in=func.color_range
+    )
+
+    if aggressive:
+        main_clip, main_ref = ref, bmdegrain(
+            func.work_clip, [x * 3 for x in to_arr(sigma)], 1, 2,
+            block_size=block_size // 2, self_refine=True
+        )
+    else:
+        main_clip, main_ref = func.work_clip, ref
+
+    if ref_smooth:
+        main_ref = main_ref.ttmpsm.TTempSmooth(maxr=1, thresh=1, mdiff=0, strength=ref_smooth, planes=0)
+
+    main = BM3D.denoise(
+        main_clip, sigma, tr, 1, profile, main_ref, matrix, range_in, planes=0
+    )
+
+    if out_smooth:
+        main = main.ttmpsm.TTempSmooth(maxr=1, thresh=1, mdiff=0, strength=out_smooth, planes=0)
+
+    if not contra:
+        return main
+
+    if isinstance(contra, float):
+        return contrasharpening_dehalo(main, func.work_clip, contra, planes=0)
+
+    return contrasharpening(
+        main, func.work_clip, contra, RepairMode(3 if contra is True else contra), planes=0
+    )
