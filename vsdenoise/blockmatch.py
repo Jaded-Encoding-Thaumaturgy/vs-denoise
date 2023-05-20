@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import cast
 
 from vsexprtools import norm_expr
-from vstools import MISSING, FunctionUtil, KwargsT, MissingT, PlanesT, core, vs
+from vstools import MISSING, FunctionUtil, KwargsT, MissingT, PlanesT, check_ref_clip, core, depth, get_y, vs
 
 from .prefilters import Prefilter
 
@@ -126,6 +126,10 @@ def wnnm(
 
     if isinstance(ref, Prefilter):
         ref = ref(func.work_clip, planes)
+    elif ref is not None:
+        ref = depth(ref, 32)
+        ref = get_y(ref) if func.luma_only else ref
+        check_ref_clip(clip, ref, func.func)
 
     return func.return_clip(
         _recursive_denoise(
@@ -215,6 +219,10 @@ def bmdegrain(
 
     if isinstance(ref, Prefilter):
         ref = ref(func.work_clip, planes)
+    elif ref is not None:
+        ref = depth(ref, 32)
+        ref = get_y(ref) if func.luma_only else ref
+        check_ref_clip(clip, ref, func.func)
 
     return func.return_clip(
         _recursive_denoise(
