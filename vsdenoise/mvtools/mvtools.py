@@ -396,7 +396,7 @@ class MVTools:
         else:
             sad_mode, recalc_sad_mode = sad_mode, SADMode.SATD
 
-        supers = supers or self.get_supers(ref)
+        supers = supers or self.get_supers(ref, inplace=inplace)
 
         if self.params_curve:
             thSAD_recalc = round(exp(-101. / (thSAD * 0.83)) * 360)
@@ -480,7 +480,7 @@ class MVTools:
             chroma=self.chroma, pnew=motion.pnew, lambda_=motion.block_coherence(halfblocksize)
         ) | self.recalculate_args
 
-        supers = supers or self.get_supers(ref)
+        supers = supers or self.get_supers(ref, inplace=True)
 
         if self.mvtools is MVToolsPlugin.FLOAT_NEW:
             for i in range(refine):
@@ -609,7 +609,7 @@ class MVTools:
         ref = self.get_ref_clip(ref, self.compensate)
 
         thSCD1, thSCD2 = self.normalize_thscd(thSCD, thSAD, self.compensate)
-        supers = supers or self.get_supers(ref)
+        supers = supers or self.get_supers(ref, inplace=True)
 
         vect_b, vect_f = self.get_vectors_bf(self.vectors)
 
@@ -693,7 +693,7 @@ class MVTools:
             vectors = self.vectors
 
         vect_b, vect_f = self.get_vectors_bf(vectors, supers=supers, ref=ref)
-        supers = supers or self.get_supers(ref)
+        supers = supers or self.get_supers(ref, inplace=True)
 
         thSAD, thSADC = (thSAD if isinstance(thSAD, tuple) else (thSAD, None))
 
