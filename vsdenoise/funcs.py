@@ -12,7 +12,7 @@ from vsrgtools import RemoveGrainMode, RepairMode, contrasharpening, contrasharp
 from vsrgtools.util import norm_rmode_planes
 from vstools import (
     ColorRangeT, FunctionUtil, KwargsT, MatrixT, PlanesT, SingleOrArr, VSFunction, depth, expect_bits, fallback, get_h,
-    get_w, normalize_planes, to_arr, vs
+    get_w, join, normalize_planes, to_arr, vs
 )
 
 from .blockmatch import bmdegrain
@@ -308,7 +308,7 @@ def schizo_denoise(
     wmode: WeightMode | WeightModeAndRef = WeightMode.WELSCH,
     contra: int | float | bool = False, aggressive: bool = False,
     matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
-    **kwargs: Any
+    nlm_ref: vs.VideoNode | bool | None = None, **kwargs: Any
 ) -> vs.VideoNode:
     func = FunctionUtil(
         src, schizo_denoise, None, vs.YUV, range(16, 32), True, matrix=matrix, range_in=range_in
@@ -316,24 +316,27 @@ def schizo_denoise(
 
     ref_smooth, out_smooth = smooth if isinstance(smooth, tuple) else (smooth, False)
 
-    nlm = nl_means(
-        func.work_clip, sigma, tr, [0, *to_arr(sr)], wmode=wmode, planes=[1, 2]
-    )
-
-    ref = MVTools.denoise(
-        nlm, **preset(
+    luma_ref = MVTools.denoise(
+        func.work_clip, **preset(
             thSAD=thSAD, prefilter=prefilter, block_size=block_size, planes=0,
             overlap=block_size // 2, **kwargs
         ), range_in=func.color_range
     )
 
     if aggressive:
-        main_clip, main_ref = ref, bmdegrain(
+        main_clip, main_ref = luma_ref, bmdegrain(
             func.work_clip, [x * 3 for x in to_arr(sigma)], 1, 2,
             block_size=block_size // 2, self_refine=True
         )
     else:
-        main_clip, main_ref = func.work_clip, ref
+        main_clip, main_ref = func.work_clip, luma_ref
+
+    chroma_ref = nl_means(
+        func.work_clip, sigma, tr, [0, *to_arr(sr)], wmode=wmode, planes=[1, 2],
+        ref=nlm_ref if isinstance(nlm_ref, vs.VideoNode) else (main_ref if nlm_ref else None)  # type: ignore
+    )
+
+    main_clip, main_ref = join(main_clip, chroma_ref), join(main_ref, chroma_ref)
 
     if ref_smooth:
         main_ref = main_ref.ttmpsm.TTempSmooth(maxr=1, thresh=1, mdiff=0, strength=ref_smooth, planes=0)
