@@ -308,7 +308,7 @@ class MVTools:
             common_args |= dict(pelclip=pelclip)
             super_render_args |= dict(pelclip=pelclip2)
 
-        super_render = self.mvtools.Super(self.workclip, **super_render_args)
+        super_render = self.mvtools.Super(ref if inplace else self.workclip, **super_render_args)
         super_search = self.mvtools.Super(ref, **(dict(rfilter=rfilter) | common_args))
         super_recalc = self.refine and self.mvtools.Super(prefilter, **(dict(levels=1) | common_args)) or super_render
 
@@ -745,10 +745,7 @@ class MVTools:
         if self.supers and self.supers.base == ref:
             return self.supers
 
-        supers = self.super(ref=ref)
-
-        if not inplace:
-            self.supers = supers
+        supers = self.super(ref=ref, inplace=inplace)
 
         return supers
 
