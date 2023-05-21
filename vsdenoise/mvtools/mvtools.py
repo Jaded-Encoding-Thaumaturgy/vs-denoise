@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from itertools import chain
 from math import exp
-from typing import Any, Sequence
+from typing import Any, Callable, Concatenate, Sequence, overload
 
 from vstools import (
     ColorRange, ConstantFormatVideoNode, CustomOverflowError, CustomRuntimeError, FieldBased, FieldBasedT, FuncExceptT,
-    GenericVSFunction, InvalidColorFamilyError, KwargsT, PlanesT, check_ref_clip, check_variable, clamp, core, depth,
+    InvalidColorFamilyError, KwargsT, P, PlanesT, check_ref_clip, check_variable, clamp, core, depth,
     disallow_variable_format, disallow_variable_resolution, fallback, kwargs_fallback, normalize_planes, normalize_seq,
     scale_value, vs
 )
@@ -507,10 +507,12 @@ class MVTools:
                         ))
                     )
 
-    def compensate(
-        self, func: GenericVSFunction, thSAD: int = 150,
-        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
-        supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None, **kwargs: Any
+    @overload
+    def compensate(  # type: ignore
+        self, func: Callable[Concatenate[vs.VideoNode, P], vs.VideoNode],
+        thSAD: int = 150, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
+        **kwargs: P.kwargs
     ) -> vs.VideoNode:
         """
         At compensation stage, the plugin client functions read the motion vectors and use them to move blocks
@@ -525,33 +527,85 @@ class MVTools:
         This function is for using compensated and original frames to create an interleaved clip,
         denoising it with the external temporal filter `func`, and select central cleaned original frames for output.
 
-        :param func:     Temporal function to motion compensate.
-        :param thSAD:    This is the SAD threshold for safe (dummy) compensation.\n
-                         If block SAD is above thSAD, the block is bad, and we use source block
-                         instead of the compensated block.
-        :param thSCD:    The first value is a threshold for whether a block has changed
-                         between the previous frame and the current one.\n
-                         When a block has changed, it means that motion estimation for it isn't relevant.
-                         It, for example, occurs at scene changes, and is one of the thresholds used to
-                         tweak the scene changes detection engine.\n
-                         Raising it will lower the number of blocks detected as changed.\n
-                         It may be useful for noisy or flickered video. This threshold is compared to the SAD value.\n
-                         For exactly identical blocks we have SAD = 0, but real blocks are always different
-                         because of objects complex movement (zoom, rotation, deformation),
-                         discrete pixels sampling, and noise.\n
-                         Suppose we have two compared 8×8 blocks with every pixel different by 5.\n
-                         It this case SAD will be 8×8×5 = 320 (block will not detected as changed for thSCD1 = 400).\n
-                         Actually this parameter is scaled internally in MVTools,
-                         and it is always relative to 8x8 block size.\n
-                         The second value is a threshold of the percentage of how many blocks have to change for
-                         the frame to be considered as a scene change. It ranges from 0 to 100 %.
-        :param supers:   Custom super clips to be used for compensating.
-        :param ref:      Reference clip to use instead of main clip.
-        :param kwargs:   Keyword arguments passed to `func` to avoid using `partial`.
+        :param func:    Temporal function to motion compensate.
+        :param thSAD:   This is the SAD threshold for safe (dummy) compensation.\n
+                        If block SAD is above thSAD, the block is bad, and we use source block
+                        instead of the compensated block.
+        :param thSCD:   The first value is a threshold for whether a block has changed
+                        between the previous frame and the current one.\n
+                        When a block has changed, it means that motion estimation for it isn't relevant.
+                        It, for example, occurs at scene changes, and is one of the thresholds used to
+                        tweak the scene changes detection engine.\n
+                        Raising it will lower the number of blocks detected as changed.\n
+                        It may be useful for noisy or flickered video. This threshold is compared to the SAD value.\n
+                        For exactly identical blocks we have SAD = 0, but real blocks are always different
+                        because of objects complex movement (zoom, rotation, deformation),
+                        discrete pixels sampling, and noise.\n
+                        Suppose we have two compared 8×8 blocks with every pixel different by 5.\n
+                        It this case SAD will be 8×8×5 = 320 (block will not detected as changed for thSCD1 = 400).\n
+                        Actually this parameter is scaled internally in MVTools,
+                        and it is always relative to 8x8 block size.\n
+                        The second value is a threshold of the percentage of how many blocks have to change for
+                        the frame to be considered as a scene change. It ranges from 0 to 100 %.
+        :param supers:  Custom super clips to be used for compensating.
+        :param wargs:   Arguments passed to `func` to avoid using `partial`.
+        :param ref:     Reference clip to use instead of main clip.
+        :param kwargs:  Keyword arguments passed to `func` to avoid using `partial`.
 
-        :return:         Motion compensated output of `func`.
+        :return:        Motion compensated output of `func`.
         """
 
+    @overload
+    def compensate(
+        self, func: None,
+        thSAD: int = 150, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        supers: SuperClips | None = None, ref: vs.VideoNode | None = None
+    ) -> tuple[vs.VideoNode, tuple[int, int]]:
+        """
+        At compensation stage, the plugin client functions read the motion vectors and use them to move blocks
+        and form a motion compensated frame (or realize some other full- or partial motion compensation or
+        interpolation function).
+
+        Every block in this fully-compensated frame is placed in the same position as this block in current frame.
+
+        So, we may (for example) use strong temporal denoising even for quite fast moving objects without producing
+        annoying artefactes and ghosting (object's features and edges coincide if compensation is perfect).
+
+        This function is for using compensated and original frames to create an interleaved clip,
+        denoising it with the external temporal filter `func`, and select central cleaned original frames for output.
+
+        :param thSAD:   This is the SAD threshold for safe (dummy) compensation.\n
+                        If block SAD is above thSAD, the block is bad, and we use source block
+                        instead of the compensated block.
+        :param thSCD:   The first value is a threshold for whether a block has changed
+                        between the previous frame and the current one.\n
+                        When a block has changed, it means that motion estimation for it isn't relevant.
+                        It, for example, occurs at scene changes, and is one of the thresholds used to
+                        tweak the scene changes detection engine.\n
+                        Raising it will lower the number of blocks detected as changed.\n
+                        It may be useful for noisy or flickered video. This threshold is compared to the SAD value.\n
+                        For exactly identical blocks we have SAD = 0, but real blocks are always different
+                        because of objects complex movement (zoom, rotation, deformation),
+                        discrete pixels sampling, and noise.\n
+                        Suppose we have two compared 8×8 blocks with every pixel different by 5.\n
+                        It this case SAD will be 8×8×5 = 320 (block will not detected as changed for thSCD1 = 400).\n
+                        Actually this parameter is scaled internally in MVTools,
+                        and it is always relative to 8x8 block size.\n
+                        The second value is a threshold of the percentage of how many blocks have to change for
+                        the frame to be considered as a scene change. It ranges from 0 to 100 %.
+        :param supers:  Custom super clips to be used for compensating.
+        :param ref:     Reference clip to use instead of main clip.
+
+        :return:        A tuple of motion compensated clip, then a tuple of (cycle, offset) so that
+                        compensated.std.SelectEvery(cycle, offsets) will give the original clip.
+        """
+
+    def compensate(  # type: ignore
+        self, func: Callable[Concatenate[vs.VideoNode, P], vs.VideoNode] | None,
+        thSAD: int = 150, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
+        **kwargs: P.kwargs
+    ) -> vs.VideoNode | tuple[vs.VideoNode, tuple[int, int]]:
         ref = self.get_ref_clip(ref, self.compensate)
 
         thSCD1, thSCD2 = self.normalize_thscd(thSCD, thSAD, self.compensate)
@@ -572,12 +626,16 @@ class MVTools:
 
         comp_clips = [*comp_forw, ref, *comp_back]
         n_clips = len(comp_clips)
+        offset = (n_clips - 1) // 2
 
         interleaved = core.std.Interleave(comp_clips)
 
-        processed = func(interleaved, **kwargs)
+        if func:
+            processed = func(interleaved, *args, **kwargs)
 
-        return processed.std.SelectEvery(cycle=n_clips, offsets=(n_clips - 1) // 2)
+            return processed.std.SelectEvery(n_clips, offset)
+
+        return interleaved, (n_clips, offset)
 
     def degrain(
         self,
