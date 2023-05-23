@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from itertools import chain
 from math import exp
-from typing import Any, Callable, Concatenate, Sequence, overload
+from typing import Any, Callable, Concatenate, Sequence, Union, overload
 
 from vstools import (
     ColorRange, ConstantFormatVideoNode, CustomOverflowError, CustomRuntimeError, FieldBased, FieldBasedT, FuncExceptT,
@@ -509,8 +509,10 @@ class MVTools:
 
     @overload
     def compensate(  # type: ignore
-        self, func: Callable[Concatenate[vs.VideoNode, P], vs.VideoNode],
-        thSAD: int = 150, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        self, func: Union[
+            Callable[Concatenate[vs.VideoNode, P], vs.VideoNode],
+            Callable[Concatenate[list[vs.VideoNode], P], vs.VideoNode]
+        ], thSAD: int = 150, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
         **kwargs: P.kwargs
     ) -> vs.VideoNode:
@@ -601,8 +603,10 @@ class MVTools:
         """
 
     def compensate(  # type: ignore
-        self, func: Callable[Concatenate[vs.VideoNode, P], vs.VideoNode] | None,
-        thSAD: int = 150, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        self, func: Union[
+            Callable[Concatenate[vs.VideoNode, P], vs.VideoNode],
+            Callable[Concatenate[list[vs.VideoNode], P], vs.VideoNode]
+        ] | None, thSAD: int = 150, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
         **kwargs: P.kwargs
     ) -> vs.VideoNode | tuple[vs.VideoNode, tuple[int, int]]:
@@ -631,9 +635,12 @@ class MVTools:
         interleaved = core.std.Interleave(comp_clips)
 
         if func:
-            processed = func(interleaved, *args, **kwargs)
+            try:
+                processed = func(interleaved, *args, **kwargs)  # type: ignore
 
-            return processed.std.SelectEvery(n_clips, offset)
+                return processed.std.SelectEvery(n_clips, offset)
+            except Exception:
+                return func(comp_clips, *args, **kwargs)  # type: ignore
 
         return interleaved, (n_clips, offset)
 
