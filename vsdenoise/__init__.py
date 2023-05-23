@@ -4,6 +4,7 @@ from .bm3d import *
 from .ccd import *
 from .deblock import *
 from .fft import *
+from .freqs import *
 from .funcs import *
 from .limit import *
 from .mvtools import *
