@@ -5,14 +5,16 @@ from typing import Any, Literal, SupportsFloat, cast
 
 from vsexprtools import expr_func, norm_expr
 from vskernels import Catrom, Kernel, KernelT, Point
+from vsmasktools import FDoG, GenericMaskT, adg_mask, normalize_mask
+from vsrgtools import gauss_blur
 from vstools import (
-    CustomStrEnum, DependencyNotFoundError, DitherType, FrameRangeN, FrameRangesN, InvalidColorFamilyError, KwargsT,
-    LengthMismatchError, Matrix, MatrixT, UnsupportedVideoFormatError, check_variable, core, depth, fallback, get_depth,
-    get_nvidia_version, get_y, join, replace_ranges, vs
+    ColorRange, CustomStrEnum, DependencyNotFoundError, DitherType, FrameRangeN, FrameRangesN, InvalidColorFamilyError,
+    KwargsT, LengthMismatchError, Matrix, MatrixT, UnsupportedVideoFormatError, check_variable, core, depth, fallback,
+    get_depth, get_nvidia_version, get_y, join, replace_ranges, vs
 )
 
 __all__ = [
-    'dpir',
+    'dpir', 'dpir_mask'
 ]
 
 
@@ -298,3 +300,30 @@ class _dpir(CustomStrEnum):
 
 
 dpir = _dpir.DEBLOCK
+
+
+def dpir_mask(
+    clip: vs.VideoNode, low: float = 5, high: float = 10, lines: float | None = None,
+    luma_scaling: float = 12, linemask: GenericMaskT | bool = True, relative: bool = False
+) -> vs.VideoNode:
+    y = depth(get_y(clip), 32, range_out=ColorRange.FULL)
+
+    if linemask is True:
+        linemask = FDoG
+
+    mask = adg_mask(y, luma_scaling, relative, func=dpir_mask)
+
+    if relative:
+        mask = gauss_blur(mask, 1.5)
+
+    mask = norm_expr(mask, f'{high} 255 / x {low} 255 / * -')
+
+    if linemask:
+        lines = fallback(lines, high)
+        linemask = normalize_mask(linemask, y)
+
+        lines_clip = mask.std.BlankClip(color=lines / 255)
+
+        mask = mask.std.MaskedMerge(lines_clip, linemask)
+
+    return mask
