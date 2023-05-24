@@ -306,7 +306,7 @@ def schizo_denoise(
     prefilter: vs.VideoNode | Prefilter = Prefilter.DFTTEST,
     smooth: bool | tuple[bool | int, bool | int] = True,
     wmode: WeightMode | WeightModeAndRef = WeightMode.WELSCH,
-    contra: int | float | bool = False, aggressive: bool = False,
+    contra: int | float | bool = False, aggressive: vs.VideoNode | Prefilter | bool = False,
     matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
     nlm_ref: vs.VideoNode | bool | None = None, **kwargs: Any
 ) -> vs.VideoNode:
@@ -323,7 +323,11 @@ def schizo_denoise(
         ), range_in=func.color_range
     )
 
-    if aggressive:
+    if isinstance(aggressive, vs.VideoNode):
+        main_clip, main_ref = luma_ref, aggressive
+    elif isinstance(aggressive, Prefilter):
+        main_clip, main_ref = luma_ref, aggressive(func.work_clip)
+    elif aggressive:
         main_clip, main_ref = luma_ref, bmdegrain(
             func.work_clip, [x * 3 for x in to_arr(sigma)], 1, 2,
             block_size=block_size // 2, self_refine=True
