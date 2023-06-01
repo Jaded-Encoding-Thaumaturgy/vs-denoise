@@ -430,13 +430,14 @@ class AbstractBM3D(vs_object):
         return func.return_clip(denoise)
 
     def __post_init__(self) -> None:
+        super().__post_init__()
+
         self._pre_clip = self.cspconfig.prepare_clip(self.cspconfig.clip)
         self._pre_ref = self.cspconfig.prepare_clip(self.ref)
 
-        return super().__post_init__()
-
     def __vs_del__(self, core_id: int) -> None:
         del self.cspconfig, self.ref
+
         self.basic_args.clear()
         self.final_args.clear()
 
@@ -451,14 +452,14 @@ class BM3DMawen(AbstractBM3D):
         range_in: ColorRangeT | None = None, colorspace: Colorspace | None = None, fp32: bool = True,
         *, radius: SingleOrArr[int] | MissingT = MISSING
     ) -> None:
-        self.pre = pre and self.cspconfig.check_clip(pre, matrix, range_in, self.__class__)
-
         super().__init__(clip, sigma, tr, profile, ref, refine, matrix, range_in, colorspace, fp32, radius=radius)
 
-    def __post_init__(self) -> None:
-        self._pre_pre = self.cspconfig.prepare_clip(self.pre)
+        self.pre = pre and self.cspconfig.check_clip(pre, matrix, range_in, self.__class__)
 
-        return super().__post_init__()
+    def __post_init__(self) -> None:
+        super().__post_init__()
+
+        self._pre_pre = self.cspconfig.prepare_clip(self.pre)
 
     def basic(self, clip: vs.VideoNode | None = None, opp: bool = False) -> vs.VideoNode:
         clip = self.cspconfig.get_clip(self.cspconfig.clip, self._pre_clip, clip)
