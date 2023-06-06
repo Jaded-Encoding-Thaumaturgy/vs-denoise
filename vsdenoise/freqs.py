@@ -18,7 +18,7 @@ __all__ = [
 def frequency_merge(
     *_clips: vs.VideoNode | Iterable[vs.VideoNode], tr: int = 0,
     mode_high: MeanMode = MeanMode.LEHMER, mode_low: MeanMode = MeanMode.ARITHMETIC,
-    mode_tr: MeanMode | None = None, lowpass: GenericVSFunction | list[GenericVSFunction] = DFTTest(sigma=5).denoise,
+    mode_tr: MeanMode | None = None, lowpass: GenericVSFunction | list[GenericVSFunction] = DFTTest.denoise,
     mean_diff: bool = False, planes: PlanesT = None, mv_args: KwargsT | None = None,
     **kwargs: Any
 ) -> vs.VideoNode:
