@@ -761,9 +761,11 @@ class PrefilterPartial(PrefBase):  # type: ignore
         self.kwargs = kwargs
 
     def __call__(  # type: ignore
-        self, clip: vs.VideoNode, /, planes: PlanesT = None, **kwargs: Any
+        self, clip: vs.VideoNode, /, planes: PlanesT | MissingT = MISSING, **kwargs: Any
     ) -> vs.VideoNode:
-        return self.prefilter(clip, planes=fallback(planes, self.planes), **kwargs | self.kwargs)  # type: ignore
+        return self.prefilter(
+            clip, planes=self.planes if planes is MISSING else planes, **kwargs | self.kwargs
+        )
 
 
 class MultiPrefilter(PrefBase):  # type: ignore
