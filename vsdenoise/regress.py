@@ -229,7 +229,7 @@ class Regression:
         return Regression(Regression.BlurConf.from_param(func, *args, **kwargs))
 
     def linear(
-        self, clip: vs.VideoNode | Sequence[vs.VideoNode], *args: Any, **kwargs: Any
+        self, clip: vs.VideoNode | Sequence[vs.VideoNode], weight: float = 0.0, *args: Any, **kwargs: Any
     ) -> list[Regression.Linear]:
         """
         Perform a simple linear regression.
@@ -245,14 +245,21 @@ class Regression:
 
         (blur_x, *blur_ys), (var_x, *var_ys), var_mul = blur_conf.get_bases(clip)
 
+        if 0.0 > weight or weight >= 1.0:
+            raise CustomOverflowError(
+                '"weight" must be between 0.0 and 1.0 (exclusive)!', self.__class__.linear, weight
+            )
+
         cov_xys = [norm_expr([vm_y, blur_x, Ey], 'x y z * -') for vm_y, Ey in zip(var_mul, blur_ys)]
 
         slopes = [norm_expr([cov_xy, var_x], f'x y {self.eps} + /') for cov_xy in cov_xys]
 
         intercepts = [norm_expr([blur_y, slope, blur_x], 'x y z * -') for blur_y, slope in zip(blur_ys, slopes)]
 
+        weight_str = f'{1 - weight} - {weight} / dup 0 > swap 0 ?' if weight > 0.0 else ''
+
         corrs = [
-            norm_expr([cov_xy, var_x, var_y], f'x dup * y z * {self.eps} + / sqrt')
+            norm_expr([cov_xy, var_x, var_y], f'x dup * y z * {self.eps} + / sqrt {weight_str}')
             for cov_xy, var_y in zip(cov_xys, var_ys)
         ]
 
