@@ -214,51 +214,45 @@ class Regression:
     @classmethod
     def from_param(
         self, func: Callable[Concatenate[vs.VideoNode, P1], vs.VideoNode] | Regression.BlurConf,
-        eps: float = 1e-7,
         *args: P1.args, **kwargs: P1.kwargs
     ) -> Regression:
         """
         Get a :py:attr:`Regression` from generic parameters.
 
         :param func:        Function used for blurring or a preconfigured :py:attr:`Regression.BlurConf`.
-        :param eps:         Epsilon, used in expressions to avoid division by zero.
         :param args:        Positional arguments passed to the blurring function.
         :param kwargs:      Keyword arguments passed to the blurring function.
 
         :return:            :py:attr:`Regression` object.
         """
 
-        return Regression(
-            Regression.BlurConf.from_param(func, *args, **kwargs), eps
-        )
+        return Regression(Regression.BlurConf.from_param(func, *args, **kwargs))
 
     def linear(
-        self, clip: vs.VideoNode | Sequence[vs.VideoNode], eps: float | None = None, *args: Any, **kwargs: Any
+        self, clip: vs.VideoNode | Sequence[vs.VideoNode], *args: Any, **kwargs: Any
     ) -> list[Regression.Linear]:
         """
         Perform a simple linear regression.
 
         :param clip:        Clip or singular planes to be processed.
-        :param eps:         Epsilon, used in expressions to avoid division by zero.
         :param args:        Positional arguments passed to the blurring function.
         :param kwargs:      Keyword arguments passed to the blurring function.
 
         :return:            List of a :py:attr:`Regression.Linear` object for each plane.
         """
 
-        eps = eps or self.eps
         blur_conf = self.blur_conf.extend(*args, **kwargs)
 
         (blur_x, *blur_ys), (var_x, *var_ys), var_mul = blur_conf.get_bases(clip)
 
         cov_xys = [norm_expr([vm_y, blur_x, Ey], 'x y z * -') for vm_y, Ey in zip(var_mul, blur_ys)]
 
-        slopes = [norm_expr([cov_xy, var_x], f'x y {eps} + /') for cov_xy in cov_xys]
+        slopes = [norm_expr([cov_xy, var_x], f'x y {self.eps} + /') for cov_xy in cov_xys]
 
         intercepts = [norm_expr([blur_y, slope, blur_x], 'x y z * -') for blur_y, slope in zip(blur_ys, slopes)]
 
         corrs = [
-            norm_expr([cov_xy, var_x, var_y], f'x dup * y z * {eps} + / sqrt')
+            norm_expr([cov_xy, var_x, var_y], f'x dup * y z * {self.eps} + / sqrt')
             for cov_xy, var_y in zip(cov_xys, var_ys)
         ]
 
@@ -268,14 +262,13 @@ class Regression:
         ]
 
     def sloped_corr(
-        self, clip: vs.VideoNode | Sequence[vs.VideoNode], weight: float = 0.5,
-        eps: float | None = None, avg: bool = False, *args: Any, **kwargs: Any
+        self, clip: vs.VideoNode | Sequence[vs.VideoNode], weight: float = 0.5, avg: bool = False,
+        *args: Any, **kwargs: Any
     ) -> list[vs.VideoNode]:
         """
         Compute correlation of slopes of a simple regression.
 
         :param clip:        Clip or individual planes to be processed.
-        :param eps:         Epsilon, used in expressions to avoid division by zero.
         :param avg:         Average (blur) the final result.
         :param args:        Positional arguments passed to the blurring function.
         :param kwargs:      Keyword arguments passed to the blurring function.
@@ -283,7 +276,6 @@ class Regression:
         :return:            List of clips representing the correlation of slopes.
         """
 
-        eps = eps or self.eps
         blur_conf = self.blur_conf.extend(*args, **kwargs)
 
         (blur_x, *blur_ys), (var_x, *var_ys), var_mul = blur_conf.get_bases(clip)
@@ -298,10 +290,11 @@ class Regression:
         corr_slopes = [
             norm_expr(
                 [Exys_y, blur_x, Ex_y, var_x, var_y],
-                f'x y z * - XYS! XYS@ a {eps} + / XYS@ dup * a b * {eps} + / sqrt {coeff_x} - {coeff_y} / 0 max *'
+                f'x y z * - XYS! XYS@ a {self.eps} + / XYS@ dup * a b * '
+                f'{self.eps} + / sqrt {coeff_x} - {coeff_y} / 0 max *'
             ) if complexpr_available else norm_expr(
                 [norm_expr([Exys_y, blur_x, Ex_y], 'x y z * -'), var_x, var_y],
-                f'x y {eps} + / x dup * y z * {eps} + / sqrt {coeff_x} - {coeff_y} / 0 max *'
+                f'x y {self.eps} + / x dup * y z * {self.eps} + / sqrt {coeff_x} - {coeff_y} / 0 max *'
             )
             for Exys_y, Ex_y, var_y in zip(var_mul, blur_ys, var_ys)
         ]
@@ -321,7 +314,7 @@ def chroma_reconstruct(
     blur_conf: Callable[
         Concatenate[vs.VideoNode, P], vs.VideoNode
     ] | Regression.BlurConf = Regression.BlurConf(box_blur, radius=2),
-    eps: float = 1e-7, *args: P.args, **kwargs: P.kwargs
+    *args: P.args, **kwargs: P.kwargs
 ) -> vs.VideoNode:
     """
     Chroma reconstruction filter using :py:attr:`Regress`.
@@ -342,7 +335,6 @@ def chroma_reconstruct(
     :param scaler:      Scaler used to scale up chroma planes.
     :param downscaler:  Scaler used to downscale the luma plane. Defaults to :py:attr:`kernel`
     :param func:        Function used for blurring or a preconfigured :py:attr:`Regression.BlurConf`.
-    :param eps:         Epsilon, used in expressions to avoid division by zero.
     :param args:        Positional arguments passed to the blurring function.
     :param kwargs:      Keyword arguments passed to the blurring function.
 
@@ -360,7 +352,7 @@ def chroma_reconstruct(
     if subsampling not in {'420', '444'}:
         raise InvalidSubsamplingError(chroma_reconstruct, clip)
 
-    regression = Regression.from_param(blur_conf, eps, *args, **kwargs)
+    regression = Regression.from_param(blur_conf, *args, **kwargs)
 
     up, bits = expect_bits(clip, 32)
 
