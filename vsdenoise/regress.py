@@ -287,21 +287,22 @@ class Regression:
 
         (blur_x, *blur_ys), (var_x, *var_ys), var_mul = blur_conf.get_bases(clip)
 
-        if 0.0 >= weight or weight >= 1.0:
+        if 0.0 > weight or weight >= 1.0:
             raise CustomOverflowError(
                 '"weight" must be between 0.0 and 1.0 (exclusive)!', self.__class__.sloped_corr, weight
             )
 
         coeff_x, coeff_y = weight, 1.0 - weight
 
+        weight_str = f'{coeff_x} - {coeff_y} / 0 max' if coeff_x else ''
+
         corr_slopes = [
             norm_expr(
                 [Exys_y, blur_x, Ex_y, var_x, var_y],
-                f'x y z * - XYS! XYS@ a {self.eps} + / XYS@ dup * a b * '
-                f'{self.eps} + / sqrt {coeff_x} - {coeff_y} / 0 max *'
+                f'x y z * - XYS! XYS@ a {self.eps} + / XYS@ dup * a b * {self.eps} + / sqrt {weight_str} *'
             ) if complexpr_available else norm_expr(
                 [norm_expr([Exys_y, blur_x, Ex_y], 'x y z * -'), var_x, var_y],
-                f'x y {self.eps} + / x dup * y z * {self.eps} + / sqrt {coeff_x} - {coeff_y} / 0 max *'
+                f'x y {self.eps} + / x dup * y z * {self.eps} + / sqrt {weight_str} *'
             )
             for Exys_y, Ex_y, var_y in zip(var_mul, blur_ys, var_ys)
         ]
