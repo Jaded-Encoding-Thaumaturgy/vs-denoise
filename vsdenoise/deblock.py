@@ -48,6 +48,9 @@ class _dpir(CustomStrEnum):
 
         kernel = Kernel.ensure_obj(kernel)
 
+        if not strength:
+            return kernel.resample(clip, clip.format.replace(subsampling_w=0, subsampling_h=0)) if i444 else clip
+
         bit_depth = get_depth(clip)
         is_rgb, is_gray = (clip.format.color_family is f for f in (vs.RGB, vs.GRAY))
 
