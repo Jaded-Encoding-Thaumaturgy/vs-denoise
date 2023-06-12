@@ -19,8 +19,8 @@ __all__ = [
 
 
 class _dpir(CustomStrEnum):
-    DEBLOCK = 'deblock'
-    DENOISE = 'denoise'
+    DEBLOCK: _dpir = 'deblock'  # type: ignore
+    DENOISE: _dpir = 'denoise'  # type: ignore
 
     def __call__(
         self, clip: vs.VideoNode, strength: SupportsFloat | vs.VideoNode | None | tuple[
