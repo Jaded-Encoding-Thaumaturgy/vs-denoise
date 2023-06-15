@@ -410,6 +410,9 @@ class ChromaReconstruct(ABC):
     """
     Class to ease the creation and usage of chroma reconstruction
     based on linear regression between luma-demangled luma and chroma-demangled chroma.
+
+    The reconstruction depends on the following plugin:
+        - https://github.com/Irrational-Encoding-Wizardry/vapoursynth-reconstruct
     """
 
     kernel: KernelT = field(default=Catrom, kw_only=True)
