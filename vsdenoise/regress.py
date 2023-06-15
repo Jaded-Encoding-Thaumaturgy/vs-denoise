@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, ClassVar, Concatenate, Iterable, Sequence
+from typing import Any, Callable, ClassVar, Concatenate, Sequence
 
 from vsaa import Eedi3, Nnedi3, SangNom
 from vsexprtools import ExprOp, complexpr_available, norm_expr
-from vskernels import Bilinear, Catrom, Kernel, KernelT, Point, Scaler, ScalerT, Spline144
+from vskernels import Catrom, Kernel, KernelT, Point, Scaler, ScalerT
 from vsrgtools import box_blur, gauss_blur, limit_filter
 from vsscale import descale_args
 from vstools import (
@@ -664,16 +664,16 @@ class MissingFieldsChromaRecon(GenericChromaRecon):
     """
 
     dm_wscaler: ScalerT = Nnedi3
-    """Scaler used to interpolate the width."""
+    """Scaler used to interpolate the width/height."""
 
-    dm_hscaler: ScalerT = Nnedi3
+    dm_hscaler: ScalerT | None = Nnedi3
     """Scaler used to interpolate the height."""
 
     def __post_init__(self) -> None:
         super().__post_init__()
 
         self._dm_wscaler = Scaler.ensure_obj(self.dm_wscaler, self.__class__)
-        self._dm_hscaler = Scaler.ensure_obj(self.dm_hscaler, self.__class__)
+        self._dm_hscaler = self._dm_wscaler.ensure_obj(self.dm_hscaler, self.__class__)
 
 
 @dataclass
@@ -703,12 +703,9 @@ class PAWorksChromaRecon(MissingFieldsChromaRecon):
             In the case of luma, we also limit the mangling by clamping the difference of the
             demanglers to the original descaled luma or details would just get crushed.
 
-            For chroma, we also remove undershoot/overshoot and haloing from chroma interpolation
-            with reference scalers Spline144 (halo-y) and Bilinear (neutral).
-
     """
     dm_wscaler: ScalerT = field(default_factory=lambda: SangNom(128))
-    dm_hscaler: ScalerT = field(default_factory=lambda: Eedi3(0.35, 0.55, 20, 2, 10, vcheck=3, sclip_aa=Nnedi3))
+    dm_hscaler: ScalerT = Nnedi3
 
     def get_mangled_luma(self, clip: vs.VideoNode, y_base: vs.VideoNode) -> vs.VideoNode:
         cm_width, _ = get_plane_sizes(y_base, 1)
@@ -720,29 +717,20 @@ class PAWorksChromaRecon(MissingFieldsChromaRecon):
 
         return y_m
 
-    def _demangle_bases(self, mangled: vs.VideoNode, y_base: vs.VideoNode) -> Iterable[vs.VideoNode]:
-        shift = (self.src_top, self.src_left)
+    def demangle_chroma(self, mangled: vs.VideoNode, y_base: vs.VideoNode) -> vs.VideoNode:
         demangled = Point.scale(mangled, y_base.width // 2, mangled.height)
-        return (
-            scaler.scale(demangled, y_base.width, y_base.height, shift)
-            for scaler in (self._dm_wscaler, self._dm_hscaler)
-        )
+
+        demangled = self._dm_wscaler.scale(demangled, mangled.width, y_base.height, (self.src_top, 0))
+        demangled = self._dm_hscaler.scale(demangled, y_base.width, y_base.height, (0, self.src_left))
+
+        return demangled
 
     def demangle_luma(self, mangled: vs.VideoNode, y_base: vs.VideoNode) -> vs.VideoNode:
-        a, b = self._demangle_bases(mangled, y_base)
+        a = self.demangle_chroma(mangled, y_base)
+
         y_base = self._kernel.shift(y_base, self.src_top, self.src_left)
 
-        return limit_filter(a, y_base, b, thr=1, elast=4.5, bright_thr=1)
-
-    def demangle_chroma(self, mangled: vs.VideoNode, y_base: vs.VideoNode) -> vs.VideoNode:
-        a, b = self._demangle_bases(mangled, y_base)
-
-        ref, ref1 = (
-            x.scale(mangled, y_base.width, y_base.height, (self.src_top, self.src_left))
-            for x in (Spline144, Bilinear)
-        )
-
-        return norm_expr((a, b, ref, ref1), 'z 0 > y x y max ? A! x A@ a min max A@ a max min')
+        return limit_filter(a, y_base, a, thr=1, elast=4.5, bright_thr=10)
 
     @inject_self.init_kwargs
     def reconstruct(  # type: ignore
