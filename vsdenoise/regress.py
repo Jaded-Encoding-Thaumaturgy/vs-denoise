@@ -729,9 +729,10 @@ class PAWorksChromaRecon(MissingFieldsChromaRecon):
         )
 
     def demangle_luma(self, mangled: vs.VideoNode, y_base: vs.VideoNode) -> vs.VideoNode:
-        a, b = self._demangle_bases(mangled, y_base, 0.0)
+        a, b = self._demangle_bases(mangled, y_base, -self.src_left / 2)
+        base_shifted = self._kernel.shift(y_base, 0, -self.src_left / 2)
 
-        return limit_filter(a, y_base, b, thr=1, elast=4.5, bright_thr=1)
+        return limit_filter(a, base_shifted, b, thr=1, elast=4.5, bright_thr=1)
 
     def demangle_chroma(self, mangled: vs.VideoNode, y_base: vs.VideoNode) -> vs.VideoNode:
         a, b = self._demangle_bases(mangled, y_base, self.src_left)
