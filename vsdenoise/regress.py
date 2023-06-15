@@ -714,14 +714,14 @@ class PAWorksChromaRecon(MissingFieldsChromaRecon):
         cm_width, _ = get_plane_sizes(y_base, 1)
         c_width, c_height = get_plane_sizes(clip, 1)
 
-        y_m = Point.scale(y_base, cm_width, y_base.height, (0, -1))
+        y_m = Point.scale(y_base, cm_width // 2, y_base.height, (0, -1))
         y_m = Point.scale(y_m, c_width, y_base.height, (0, -0.25))
         y_m = Catrom.scale(y_m, c_width, c_height)
 
         return y_m
 
-    def _demangle_bases(self, mangled: vs.VideoNode, y_base: vs.VideoNode, left_shift: float) -> Iterable[vs.VideoNode]:
-        shift = (self.src_top, self.src_left - left_shift)
+    def _demangle_bases(self, mangled: vs.VideoNode, y_base: vs.VideoNode) -> Iterable[vs.VideoNode]:
+        shift = (self.src_top, self.src_left)
         demangled = Point.scale(mangled, y_base.width // 2, mangled.height)
         return (
             scaler.scale(demangled, y_base.width, y_base.height, shift)
@@ -729,16 +729,16 @@ class PAWorksChromaRecon(MissingFieldsChromaRecon):
         )
 
     def demangle_luma(self, mangled: vs.VideoNode, y_base: vs.VideoNode) -> vs.VideoNode:
-        a, b = self._demangle_bases(mangled, y_base, -self.src_left / 2)
-        base_shifted = self._kernel.shift(y_base, 0, -self.src_left / 2)
+        a, b = self._demangle_bases(mangled, y_base)
+        y_base = self._kernel.shift(y_base, self.src_top, self.src_left)
 
-        return limit_filter(a, base_shifted, b, thr=1, elast=4.5, bright_thr=1)
+        return limit_filter(a, y_base, b, thr=1, elast=4.5, bright_thr=1)
 
     def demangle_chroma(self, mangled: vs.VideoNode, y_base: vs.VideoNode) -> vs.VideoNode:
-        a, b = self._demangle_bases(mangled, y_base, self.src_left)
+        a, b = self._demangle_bases(mangled, y_base)
 
         ref, ref1 = (
-            x.scale(mangled, y_base.width, y_base.height, (self.src_top, self.src_left - 0.25))
+            x.scale(mangled, y_base.width, y_base.height, (self.src_top, self.src_left))
             for x in (Spline144, Bilinear)
         )
 
