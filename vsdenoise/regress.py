@@ -493,7 +493,7 @@ class ChromaReconstruct(ABC):
 
         return y, y_base, y_m, y_dm, chroma_base, chroma_dm
 
-    @inject_self
+    @inject_self.init_kwargs
     def debug(self, clip: vs.VideoNode, *args: Any, **kwargs: Any) -> tuple[vs.VideoNode, ...]:
         """
         In 'debug' mode you can see the various steps of mangled and demangled planes.
@@ -507,12 +507,13 @@ class ChromaReconstruct(ABC):
 
         return y, y_base, y_dm, *flatten(zip(chroma_base, chroma_dm))  # type: ignore
 
-    @inject_self
+    @inject_self.init_kwargs
     def reconstruct(
         self, clip: vs.VideoNode, sigma: float, radius: int,
         diff_mode: ReconDiffMode | ReconDiffModeConf,
         out_mode: ReconOutput | bool | None,
-        include_edges: bool, lin_cutoff: float = 0.0
+        include_edges: bool, lin_cutoff: float = 0.0,
+        **kwargs: Any
     ) -> vs.VideoNode:
         """
         Run the actual reconstructing implemented in this class.
@@ -615,12 +616,13 @@ class GenericChromaRecon(ChromaReconstruct):
         self.src_left = src_left
         return luma
 
-    @inject_self
+    @inject_self.init_kwargs
     def reconstruct(  # type: ignore
         self, clip: vs.VideoNode, sigma: float = 1.5, radius: int = 2,
         diff_mode: ReconDiffMode | ReconDiffModeConf = ReconDiffMode.MEAN,
         out_mode: ReconOutput | bool | None = ReconOutput.i420,
-        include_edges: bool = False, lin_cutoff: float = 0.0
+        include_edges: bool = False, lin_cutoff: float = 0.0,
+        **kwargs: Any
     ) -> vs.VideoNode:
         return super().reconstruct(clip, sigma, radius, diff_mode, out_mode, include_edges, lin_cutoff)
 
@@ -714,12 +716,13 @@ class PAWorksChromaRecon(MissingFieldsChromaRecon):
 
         return norm_expr((a, b, ref, ref1), 'z 0 > y x y max ? A! x A@ a min max A@ a max min')
 
-    @inject_self
+    @inject_self.init_kwargs
     def reconstruct(  # type: ignore
         self, clip: vs.VideoNode, sigma: float = 2.0, radius: int = 4,
         diff_mode: ReconDiffMode | ReconDiffModeConf = ReconDiffMode.MEDIAN,
         out_mode: ReconOutput | bool | None = ReconOutput.NATIVE,
-        include_edges: bool = True, lin_cutoff: float = 0.0
+        include_edges: bool = True, lin_cutoff: float = 0.0,
+        **kwargs: Any
     ) -> vs.VideoNode:
         return super().reconstruct(clip, sigma, radius, diff_mode, out_mode, include_edges, lin_cutoff)
 
@@ -739,11 +742,12 @@ class Point422ChromaRecon(MissingFieldsChromaRecon):
         demangled = self._dm_hscaler.scale(mangled, mangled.width, y_base.height)
         return self._dm_wscaler.scale(demangled, y_base.width, y_base.height, (self.src_top, self.src_left))
 
-    @inject_self
+    @inject_self.init_kwargs
     def reconstruct(  # type: ignore
         self, clip: vs.VideoNode, sigma: float = 1.5, radius: int = 2,
         diff_mode: ReconDiffMode | ReconDiffModeConf = ReconDiffMode.MEDIAN,
         out_mode: ReconOutput | bool | None = ReconOutput.i444,
-        include_edges: bool = True, lin_cutoff: float = 0.0
+        include_edges: bool = True, lin_cutoff: float = 0.0,
+        **kwargs: Any
     ) -> vs.VideoNode:
         return super().reconstruct(clip, sigma, radius, diff_mode, out_mode, include_edges, lin_cutoff)
