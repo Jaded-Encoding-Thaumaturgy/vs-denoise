@@ -18,6 +18,8 @@ from vstools import (
 __all__ = [
     'Regression',
 
+    'ReconOutput', 'ReconDiffMode',
+
     'ChromaReconstruct', 'GenericChromaRecon', 'MissingFieldsChromaRecon',
 
     'PAWorksChromaRecon',
