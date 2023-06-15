@@ -8,10 +8,11 @@ from vsaa import Eedi3, Nnedi3, SangNom
 from vsexprtools import ExprOp, complexpr_available, norm_expr
 from vskernels import Bilinear, Catrom, Kernel, KernelT, Point, Scaler, ScalerT, Spline144
 from vsrgtools import box_blur, gauss_blur, limit_filter
+from vsscale import descale_args
 from vstools import (
     P1, CustomIntEnum, CustomOverflowError, CustomStrEnum, FuncExceptT, InvalidColorFamilyError,
     InvalidSubsamplingError, P, VSFunction, complex_hash, depth, flatten, get_plane_sizes, get_subsampling, inject_self,
-    join, plane, split, vs
+    join, split, vs
 )
 
 __all__ = [
@@ -412,11 +413,15 @@ class ChromaReconstruct(ABC):
     kernel: KernelT = field(default=Catrom, kw_only=True)
     """Base kernel used to shift/scale luma and chroma planes."""
 
+    scaler: ScalerT | None = field(default=None, kw_only=True)
+    """Base kernel used to shift/scale luma and chroma planes."""
+
     _default_diff_sigma: ClassVar[float] = 0.5
     _default_inter_scale: ClassVar[float] = 0.0
 
     def __post_init__(self) -> None:
         self._kernel = Kernel.ensure_obj(self.kernel)
+        self._scaler = self._kernel.ensure_obj(self.scaler)
 
     @abstractmethod
     def get_base_clip(self, clip: vs.VideoNode) -> vs.VideoNode:
@@ -576,7 +581,7 @@ class ChromaReconstruct(ABC):
             if out_mode == ReconOutput.i420:
                 targ_sizes = tuple[int, int](targ_size // 2 for targ_size in targ_sizes)  # type: ignore
 
-            shifted_chroma = (self._kernel.scale(p, *targ_sizes) for p in shifted_chroma)
+            shifted_chroma = (self._scaler.scale(p, *targ_sizes) for p in shifted_chroma)
 
         return depth(join(y_base, *shifted_chroma), clip)
 
@@ -589,14 +594,37 @@ class GenericChromaRecon(ChromaReconstruct):
     Not reccomended to use without customizing the mangling/demangling.
     """
 
+    native_res: int | float | None = None
+    """Native resolution of the show."""
+
+    native_kernel: KernelT = Catrom
+    """Native kernel of the show."""
+
     src_left: float = field(default=0.5, kw_only=True)
     """Base left shift of the interpolator. If using base vsaa scaler, this will be interally compensated."""
 
     src_top: float = field(default=0.0, kw_only=True)
     """Base top shift of the interpolator."""
 
+    def __post_init__(self) -> None:
+        super().__post_init__()
+
+        self._native_kernel = Kernel.ensure_obj(self.native_kernel, self.__class__)
+
     def get_base_clip(self, clip: vs.VideoNode) -> vs.VideoNode:
-        return Catrom.resample(clip, vs.YUV444PS)
+        if self.native_res is None:
+            return self._kernel.resample(clip, vs.YUV444PS)
+
+        de_args = descale_args(clip, self.native_res)
+
+        descale = self._native_kernel.descale(
+            clip, de_args.width, de_args.height, **de_args.kwargs()
+        )
+
+        return join(
+            self._kernel.shift(descale, de_args.src_top / 2, -de_args.src_left / 2),
+            self._scaler.scale(clip, de_args.width, de_args.height, format=vs.YUV444PS)
+        )
 
     def get_mangled_luma(self, clip: vs.VideoNode, y_base: vs.VideoNode) -> vs.VideoNode:
         c_width, c_height = get_plane_sizes(clip, 1)
@@ -680,16 +708,13 @@ class PAWorksChromaRecon(MissingFieldsChromaRecon):
     dm_wscaler: ScalerT = field(default_factory=lambda: SangNom(128))
     dm_hscaler: ScalerT = field(default_factory=lambda: Eedi3(0.35, 0.55, 20, 2, 10, vcheck=3, sclip_aa=Nnedi3))
 
-    def get_base_clip(self, clip: vs.VideoNode) -> vs.VideoNode:
-        return join(
-            plane(clip, 0).descale.Debicubic(1280, 720),
-            Catrom.scale(clip, 1280, 720, format=vs.YUV444PS)
-        )
-
     def get_mangled_luma(self, clip: vs.VideoNode, y_base: vs.VideoNode) -> vs.VideoNode:
-        y_m = Point.scale(y_base, 640, 720, (0, -1))
-        y_m = Point.scale(y_m, 960, 720, (0, -0.25))
-        y_m = Catrom.scale(y_m, 960, 540)
+        cm_width, _ = get_plane_sizes(y_base, 1)
+        c_width, c_height = get_plane_sizes(clip, 1)
+
+        y_m = Point.scale(y_base, cm_width, y_base.height, (0, -1))
+        y_m = Point.scale(y_m, c_width, y_base.height, (0, -0.25))
+        y_m = Catrom.scale(y_m, c_width, c_height)
 
         return y_m
 
