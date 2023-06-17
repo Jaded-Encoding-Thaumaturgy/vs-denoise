@@ -78,9 +78,7 @@ class _dpir(CustomStrEnum):
         def _get_strength_clip(clip: vs.VideoNode, strength: SupportsFloat) -> vs.VideoNode:
             return clip.std.BlankClip(format=vs.GRAYH if fp16 else vs.GRAYS, color=float(strength) / 255, keep=True)
 
-        if isinstance(strength, vs.VideoNode):
-            str_clip: vs.VideoNode = strength  # type: ignore
-
+        def _norm_str_clip(str_clip: vs.VideoNode) -> vs.VideoNode:
             assert (fmt := str_clip.format)
 
             InvalidColorFamilyError.check(
@@ -100,7 +98,10 @@ class _dpir(CustomStrEnum):
             if str_clip.num_frames != clip.num_frames:
                 raise LengthMismatchError(func, '`strength` must be of the same length as \'clip\'')
 
-            strength = str_clip
+            return str_clip
+
+        if isinstance(strength, vs.VideoNode):
+            strength = _norm_str_clip(strength)  # type: ignore
         elif isinstance(strength, SupportsFloat):
             strength = float(strength)
         else:
@@ -188,7 +189,7 @@ class _dpir(CustomStrEnum):
                 rstr_clip: vs.VideoNode
 
                 if isinstance(zstr, vs.VideoNode):
-                    rstr_clip = zstr  # type: ignore
+                    rstr_clip = _norm_str_clip(zstr)  # type: ignore
                 else:
                     zstr = float(zstr)  # type: ignore
 
@@ -205,6 +206,10 @@ class _dpir(CustomStrEnum):
 
             if len(dpir_zones) <= 2:
                 for rrange, sclip in dpir_zones.items():
+                    if to_pad:
+                        sclip = Point(src_width=d_width, src_height=d_height).scale(
+                            sclip, d_width, d_height, (-mod_h, -mod_w)
+                        )
                     zoned_strength_clip = replace_ranges(zoned_strength_clip, sclip, rrange)
             else:
                 dpir_ranges_zones = {
