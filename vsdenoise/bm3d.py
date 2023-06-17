@@ -567,24 +567,20 @@ class BM3DCPU(AbstractBM3DCuda, plugin=core.lazy.bm3dcpu):
     ...
 
 
-class AutoBM3DMeta(ABCMeta):
-    def __new__(
-        __mcls: type[Self], __name: str, __bases: tuple[type, ...], __namespace: dict[str, Any], **kwargs: Any
-    ) -> type[AbstractBM3D]:
+class BM3D(AbstractBM3D):
+    def __new__(cls, *args: Any, **kwargs: Any) -> AbstractBM3D:  # type: ignore
+        new_cls: type[AbstractBM3D] | None = None
+
         if hasattr(core, 'bm3dcuda_rtc'):
-            return BM3DCudaRTC
+            new_cls = BM3DCudaRTC
+        elif hasattr(core, 'bm3dcuda'):
+            new_cls = BM3DCuda
+        elif hasattr(core, 'bm3dcpu'):
+            new_cls = BM3DCPU
+        elif hasattr(core, 'bm3d'):
+            new_cls = BM3DMawen
 
-        if hasattr(core, 'bm3dcuda'):
-            return BM3DCuda
+        if new_cls is None:
+            raise CustomRuntimeError('You have no bm3d plugin installed!')
 
-        if hasattr(core, 'bm3dcpu'):
-            return BM3DCPU
-
-        if hasattr(core, 'bm3d'):
-            return BM3DMawen
-
-        raise CustomRuntimeError('You have no bm3d plugin installed!')
-
-
-class BM3D(AbstractBM3D, metaclass=AutoBM3DMeta):
-    ...
+        return new_cls(*args, **kwargs)
