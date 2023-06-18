@@ -12,7 +12,7 @@ from vsscale import descale_args
 from vstools import (
     P1, CustomIntEnum, CustomOverflowError, CustomStrEnum, FuncExceptT, InvalidColorFamilyError,
     InvalidSubsamplingError, P, VSFunction, complex_hash, depth, flatten, get_plane_sizes, get_subsampling, inject_self,
-    join, split, vs
+    join, split, vs, vs_object
 )
 
 __all__ = [
@@ -28,9 +28,12 @@ __all__ = [
 ]
 
 
-_cached_blurs = dict[int, list[tuple[vs.VideoNode, vs.VideoNode]]]()
+class _CachedBlurs(vs_object, dict[int, list[tuple[vs.VideoNode, vs.VideoNode]]]):
+    def __vs_del__(self, core_id: int) -> None:
+        self.clear()
 
-vs.register_on_destroy(_cached_blurs.clear)
+
+_cached_blurs = _CachedBlurs()
 
 
 @dataclass
