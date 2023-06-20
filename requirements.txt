@@ -1,8 +1,8 @@
-VapourSynth>=60
-vstools>=2.1.0
-vskernels>=2.4.0
-vsexprtools>=1.4.4
-vsrgtools>=1.4.4
-vsmasktools>=1.0.0
-vsaa>=1.7.0
-vsscale>=1.8.0
+VapourSynth>=63
+vstools>=2.3.0
+vskernels>=2.4.1
+vsexprtools>=1.4.6
+vsrgtools>=1.5.1
+vsmasktools>=1.1.2
+vsaa>=1.8.2
+vsscale>=1.9.1
