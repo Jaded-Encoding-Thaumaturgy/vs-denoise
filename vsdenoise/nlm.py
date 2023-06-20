@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import warnings
 from enum import auto
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Sequence, overload
+from typing import TYPE_CHECKING, Any, Callable, Literal, NamedTuple, Sequence, overload
 
 from vstools import (
     CustomEnum, CustomIntEnum, CustomValueError, KwargsT, PlanesT, check_variable, core, join, normalize_planes,
@@ -127,15 +127,34 @@ class DeviceTypeWithInfo(str):
     ) -> vs.VideoNode:
         if self == DeviceType.AUTO and hasattr(core, 'nlm_cuda'):
             self = DeviceType.CUDA
-        elif self == DeviceType.CUDA and not hasattr(core, 'nlm_cuda'):
+
+        if self == DeviceType.CUDA and not hasattr(core, 'nlm_cuda'):
             raise CustomValueError("You can't use cuda device type, you are missing the nlm_cuda plugin!")
 
-        if self == DeviceType.CUDA:
-            return core.nlm_cuda.NLMeans(  # type: ignore
-                clip, d, a, s, h, channels, wmode, wref, ref, **(self.kwargs | kwargs)
-            )
+        funcs = list[Callable[..., vs.VideoNode]]()
 
-        return core.knlm.KNLMeansCL(clip, d, a, s, h, channels, wmode, wref, ref, **(self.kwargs | kwargs))
+        if self == DeviceType.CUDA:
+            funcs.append(core.proxied.nlm_cuda.NLMeans)
+        else:
+            funcs.extend([core.proxied.knlm.KNLMeansCL, core.proxied.nlm_ispc.NLMeans])
+
+        exceptions = list[Exception]()
+
+        for func in funcs:
+            try:
+                return func(clip, d, a, s, h, channels, wmode, wref, ref, **(self.kwargs | kwargs))
+            except Exception as _e:
+                exceptions.append(_e)
+
+        for x in (True, False):
+            for e in exceptions:
+                if not isinstance(e, AttributeError):
+                    if 'no compatible opencl' not in str(e):
+                        if x:
+                            continue
+                    raise e from None
+
+        raise next(iter(exceptions))
 
 
 class DeviceType(DeviceTypeWithInfo, CustomEnum):
