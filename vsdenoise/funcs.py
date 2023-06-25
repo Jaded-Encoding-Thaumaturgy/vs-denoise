@@ -212,7 +212,7 @@ def temporal_degrain(
     thSCD = normalize_thscd(thSCD, ([192, 192, 192, 256, 320, 384][grain_level], 50), temporal_degrain, scale=False)
 
     if post is None:
-        post = PostProcess.DFTTEST
+        post = PostProcess.REPAIR
 
     postConf = post if isinstance(post, PostProcessConfig) else post()
 
@@ -266,7 +266,7 @@ def temporal_degrain(
         overlap=property(lambda self: self.block_size // 2), analyze_args=dict(chroma=chroma_motion),
         search=search_mode, super_args=dict(chroma=chroma_motion), planes=func.norm_planes, motion=MotionModeCustom(
             truemotion, motion_lambda, motion_ref.sad_limit, 50 if truemotion else 25, motion_ref.plevel, global_motion
-        )
+        ), sad_mode=sad_mode,
     )
 
     maxMV = MVTools(func.work_clip, **preset(tr=max(tr, postConf.tr), **kwargs)).analyze()
