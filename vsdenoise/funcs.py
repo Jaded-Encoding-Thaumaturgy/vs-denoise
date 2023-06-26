@@ -330,7 +330,7 @@ def schizo_denoise(
     elif aggressive:
         main_clip, main_ref = luma_ref, bmdegrain(
             func.work_clip, [x * 3 for x in to_arr(sigma)], 1, 2,
-            block_size=block_size // 2, self_refine=True
+            block_size=max(block_size // 2, 8), self_refine=True
         )
     else:
         main_clip, main_ref = func.work_clip, luma_ref
