@@ -453,7 +453,7 @@ class MotionMode:
         Note that vector length is smaller at lower level.
         """
 
-        pglobal: bool
+        pglobal: int
         """
         Relative penalty (scaled to 8 bit) to SAD cost for global predictor vector.\n
         Coherence is not used for global vector.
@@ -475,7 +475,7 @@ class MotionMode:
     class _CustomConfig:
         def __call__(
             self, coherence: int | None = None, sad_limit: int | None = None,
-            pnew: int | None = None, plevel: int | None = None, pglobal: bool | None = None,
+            pnew: int | None = None, plevel: int | None = None, pglobal: int | None = None,
             truemotion: bool = True
         ) -> MotionMode.Config:
             """
