@@ -59,6 +59,10 @@ def frequency_merge(
         mv.analyze()
 
         low_freqs = mv.degrain(ref=low_freqs)
-        high_freqs = mv.compensate(mode_high, ref=high_freqs)  # type: ignore
+
+        if mode_high is MeanMode.ARITHMETIC:
+            high_freqs = mv.degrain(ref=high_freqs)
+        else:
+            high_freqs = mv.compensate(mode_high, ref=high_freqs)  # type: ignore
 
     return low_freqs.std.MergeDiff(high_freqs)
