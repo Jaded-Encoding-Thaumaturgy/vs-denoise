@@ -341,11 +341,6 @@ class AbstractBM3D(vs_object):
         """
         assert check_variable(clip, self.__class__)
 
-        if radius is not MISSING:
-            import warnings
-            warnings.warn(f'{self.__class__.__name__}: radius is deprecated and will be removed. Use tr')
-            tr = radius
-
         self.sigma = self._Sigma(*normalize_seq(sigma, 3))
         self.tr = self._TemporalRadius(*normalize_seq(tr or 0, 2))
 

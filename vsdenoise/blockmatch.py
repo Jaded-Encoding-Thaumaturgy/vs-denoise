@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import cast
 
 from vsexprtools import norm_expr
-from vstools import MISSING, FunctionUtil, KwargsT, MissingT, PlanesT, check_ref_clip, core, depth, get_y, vs
+from vstools import FunctionUtil, KwargsT, PlanesT, check_ref_clip, core, depth, get_y, vs
 
 from .prefilters import Prefilter
 
@@ -42,8 +42,7 @@ def wnnm(
     block_size: int = 8, block_step: int = 8, group_size: int = 8,
     bm_range: int = 7, ps_num: int = 2, ps_range: int = 4,
     residual: bool = False, adaptive_aggregation: bool = True,
-    merge_factor: float = 0.1, self_refine: bool = False, planes: PlanesT = None,
-    *, radius: int | MissingT = MISSING, rclip: vs.VideoNode | Prefilter | MissingT = MISSING
+    merge_factor: float = 0.1, self_refine: bool = False, planes: PlanesT = None
 ) -> vs.VideoNode:
     """
     Weighted Nuclear Norm Minimization Denoise algorithm.
@@ -112,16 +111,6 @@ def wnnm(
     """
     func = FunctionUtil(clip, wnnm, planes, bitdepth=32)
 
-    if radius is not MISSING:
-        import warnings
-        warnings.warn('wnnm: radius is deprecated and will be removed. Use tr')
-        tr = radius
-
-    if rclip is not MISSING:
-        import warnings
-        warnings.warn('wnnm: rclip is deprecated and will be removed. Use ref')
-        ref = rclip
-
     sigma = func.norm_seq(sigma)
 
     if isinstance(ref, Prefilter):
@@ -148,8 +137,7 @@ def bmdegrain(
     refine: int = 0, tr: int = 0, ref: vs.VideoNode | Prefilter | None = None,
     block_size: int = 8, block_step: int = 8, group_size: int = 8,
     bm_range: int = 7, ps_num: int = 2, ps_range: int = 4,
-    merge_factor: float = 0.1, self_refine: bool = False, planes: PlanesT = None,
-    *, radius: int | MissingT = MISSING, rclip: vs.VideoNode | Prefilter | MissingT = MISSING
+    merge_factor: float = 0.1, self_refine: bool = False, planes: PlanesT = None
 ) -> vs.VideoNode:
     """
     BM3D and mvtools inspired denoiser.
@@ -204,16 +192,6 @@ def bmdegrain(
     """
 
     func = FunctionUtil(clip, wnnm, planes, bitdepth=32)
-
-    if radius is not MISSING:
-        import warnings
-        warnings.warn('bmdegrain: radius is deprecated and will be removed. Use tr')
-        tr = radius
-
-    if rclip is not MISSING:
-        import warnings
-        warnings.warn('bmdegrain: rclip is deprecated and will be removed. Use ref')
-        ref = rclip
 
     sigma = func.norm_seq(sigma)
 
