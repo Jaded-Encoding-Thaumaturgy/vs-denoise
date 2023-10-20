@@ -10,9 +10,11 @@ from typing import Any, Callable, Iterable, cast
 from vskernels import Bilinear, Catrom, Scaler, ScalerT
 from vsrgtools import RemoveGrainMode, RepairMode, contrasharpening, contrasharpening_dehalo, removegrain
 from vsrgtools.util import norm_rmode_planes
+from vsscale import Waifu2x
+from vsscale.scale import BaseWaifu2x
 from vstools import (
-    ColorRangeT, FunctionUtil, KwargsT, MatrixT, PlanesT, SingleOrArr, VSFunction, depth, expect_bits, fallback, get_h,
-    get_w, join, normalize_planes, to_arr, vs
+    ColorRangeT, CustomIndexError, FunctionUtil, KwargsT, MatrixT, PlanesT, SingleOrArr, VSFunction, depth, expect_bits,
+    fallback, get_h, get_w, join, normalize_planes, to_arr, vs
 )
 
 from .blockmatch import bmdegrain
@@ -30,7 +32,9 @@ __all__ = [
 
     'temporal_degrain',
 
-    'schizo_denoise'
+    'schizo_denoise',
+
+    'waifu2x_denoise'
 ]
 
 
@@ -361,3 +365,15 @@ def schizo_denoise(
     return contrasharpening(
         main, func.work_clip, contra, RepairMode(3 if contra is True else contra), planes=0
     )
+
+
+def waifu2x_denoise(
+    clip: vs.VideoNode, noise: int = 1, model: type[BaseWaifu2x] = Waifu2x.Cunet, **kwargs: Any
+) -> vs.VideoNode:
+    if noise < 0 or noise > 3:
+        raise CustomIndexError('"noise" must be in range 0-3 (inclusive).')
+
+    if not isinstance(model, type):
+        model = model.__class__  # type: ignore
+
+    return model(**kwargs).scale(clip, clip.width, clip.height, _static_args=dict(scale=1, noise=noise, force=True))
