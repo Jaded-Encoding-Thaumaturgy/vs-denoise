@@ -86,7 +86,7 @@ def decrease_size(
     pre = get_y(clip)
 
     if isinstance(mask, vs.VideoNode):
-        InvalidColorFamilyError.check(mask, vs.GRAY, decrease_size)  # type: ignore
+        InvalidColorFamilyError.check(mask, vs.GRAY, decrease_size)
         check_ref_clip(pre, mask)  # type: ignore
     else:
         pm_min, pm_max, *emask = mask  # type: ignore
