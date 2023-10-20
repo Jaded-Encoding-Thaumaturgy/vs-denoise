@@ -27,7 +27,7 @@ setuptools.setup(
         'Contact': 'https://discord.gg/qxTxVJGtst',
     },
     install_requires=requirements,
-    python_requires='>=3.10',
+    python_requires='>=3.11',
     packages=[
         package_name, f'{package_name}.mvtools'
     ],
