@@ -16,7 +16,7 @@ from vsrgtools import bilateral, blur, gauss_blur, min_blur, replace_low_frequen
 from vstools import (
     MISSING, ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, DitherType, MissingT, PlanesT,
     SingleOrArr, SingleOrArrOpt, check_variable, clamp, core, depth, disallow_variable_format,
-    disallow_variable_resolution, fallback, get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes,
+    disallow_variable_resolution, get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes,
     normalize_seq, scale_8bit, scale_value, split, vs
 )
 
@@ -74,7 +74,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
         if pref_type == Prefilter.MINBLURFLUX:
             temp_thr, spat_thr = kwargs.get('temp_thr', 2), kwargs.get('spat_thr', 2)
-            return min_blur(clip, 2, planes).flux.SmoothST(temp_thr, spat_thr, planes)
+            return min_blur(clip, 2, planes).flux.SmoothST(temp_thr, spat_thr, planes)  # type: ignore
 
         if pref_type == Prefilter.DFTTEST_SMOOTH:
             sigma = kwargs.get('sigma', 128.0)
