@@ -1,6 +1,6 @@
 """VapourSynth denoising functions"""
 
-__version__ = '2.4.0'
+__version__ = '2.5.0'
 
 __author_name__, __author_email__ = 'Irrational Encoding Wizardry', 'wizards@encode.moe'
 __maintainer_name__, __maintainer_email__ = 'Setsugennoao', 'setsugen@setsugen.dev'
