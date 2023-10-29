@@ -53,7 +53,8 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
         ...
 
     def __call__(  # type: ignore
-        self: Prefilter, clip: vs.VideoNode | MissingT = MISSING, /, planes: PlanesT = None, full_range: bool | float = False, **kwargs: Any
+        self: Prefilter, clip: vs.VideoNode | MissingT = MISSING, /,
+        planes: PlanesT = None, full_range: bool | float = False, **kwargs: Any
     ) -> vs.VideoNode | PrefilterPartial:
         def _run(clip: vs.VideoNode, planes: PlanesT, **kwargs: Any) -> vs.VideoNode:
             assert check_variable(clip, self)
@@ -128,7 +129,9 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
                 else:
                     raise ValueError
 
-                sigmas = kwargs.pop('sigma', [sigma if 0 in planes else 0, sigma if (1 in planes or 2 in planes) else 0])
+                sigmas = kwargs.pop(
+                    'sigma', [sigma if 0 in planes else 0, sigma if (1 in planes or 2 in planes) else 0]
+                )
 
                 bm3d_args = dict[str, Any](sigma=sigmas, tr=1, profile=profile) | kwargs
 
@@ -295,7 +298,8 @@ class Prefilter(PrefilterBase):
 
         @overload  # type: ignore
         def __call__(
-            self: Literal[Prefilter.MINBLURFLUX], clip: vs.VideoNode, /, planes: PlanesT = None, full_range: bool | float = False,
+            self: Literal[Prefilter.MINBLURFLUX], clip: vs.VideoNode, /,
+            planes: PlanesT = None, full_range: bool | float = False,
             *, temp_thr: int = 2, spat_thr: int = 2
         ) -> vs.VideoNode:
             """
@@ -529,7 +533,9 @@ class Prefilter(PrefilterBase):
             """
 
         @overload
-        def __call__(self, clip: vs.VideoNode, /, planes: PlanesT = None, full_range: bool | float = False, **kwargs: Any) -> vs.VideoNode:
+        def __call__(
+            self, clip: vs.VideoNode, /, planes: PlanesT = None, full_range: bool | float = False, **kwargs: Any
+        ) -> vs.VideoNode:
             """
             Run the selected filter.
 
@@ -543,7 +549,8 @@ class Prefilter(PrefilterBase):
 
         @overload  # type: ignore
         def __call__(
-            self: Literal[Prefilter.MINBLURFLUX], *, planes: PlanesT = None, full_range: bool | float = False, temp_thr: int = 2, spat_thr: int = 2
+            self: Literal[Prefilter.MINBLURFLUX], *,
+            planes: PlanesT = None, full_range: bool | float = False, temp_thr: int = 2, spat_thr: int = 2
         ) -> PrefilterPartial:
             """
             :py:attr:`MINBLUR2` with temporal/spatial average.
@@ -756,7 +763,9 @@ class Prefilter(PrefilterBase):
             """
 
         @overload
-        def __call__(self, *, planes: PlanesT = None, full_range: bool | float = False, **kwargs: Any) -> PrefilterPartial:
+        def __call__(
+            self, *, planes: PlanesT = None, full_range: bool | float = False, **kwargs: Any
+        ) -> PrefilterPartial:
             """
             Run the selected filter.
 
@@ -780,7 +789,8 @@ class Prefilter(PrefilterBase):
             ...
 
         def __call__(  # type: ignore
-            self, clip: vs.VideoNode | MissingT = MISSING, /, planes: PlanesT = None, full_range: bool | float = False, **kwargs: Any
+            self, clip: vs.VideoNode | MissingT = MISSING, /,
+            planes: PlanesT = None, full_range: bool | float = False, **kwargs: Any
         ) -> vs.VideoNode | PrefilterPartial:
             ...
 
