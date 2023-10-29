@@ -415,7 +415,7 @@ class ChromaReconstruct(ABC):
     based on linear regression between luma-demangled luma and chroma-demangled chroma.
 
     The reconstruction depends on the following plugin:
-        - https://github.com/Irrational-Encoding-Wizardry/vapoursynth-reconstruct
+        - https://github.com/Rational-Encoding-Thaumaturgy/vapoursynth-reconstruct
     """
 
     kernel: KernelT = field(default=Catrom, kw_only=True)

@@ -11,13 +11,13 @@ vsdenoise Documentation
     :target: https://pypi.org/project/vsdenoise/
 
 .. image:: https://img.shields.io/github/commits-since/Setsugennoao/vs-denoise/latest
-    :target: https://github.com/Irrational-Encoding-Wizardry/vs-denoise/commits/master
+    :target: https://github.com/Setsugennoao/vs-denoise/commits/master
 
 .. image:: https://img.shields.io/pypi/l/vsdenoise
-    :target: https://github.com/Irrational-Encoding-Wizardry/vs-denoise/blob/master/LICENSE
+    :target: https://github.com/Setsugennoao/vs-denoise/blob/master/LICENSE
 
 .. image:: https://img.shields.io/discord/856381934052704266?label=discord
-    :target: https://discord.gg/qxTxVJGtst
+    :target: https://discord.gg/setsugen
 
 .. image:: https://static.pepy.tech/personalized-badge/vsdenoise?period=total&units=international_system&left_color=grey&right_color=blue&left_text=downloads
     :target: https://pepy.tech/project/vsdenoise
@@ -61,7 +61,7 @@ Check out the `how to contribute <contribute>` section!
 Special Credits
 ---------------
 | A special thanks to every contributor who has contributed to vsdenoise.
-| `A comprehensive list of contributors can be found here. <https://github.com/Irrational-Encoding-Wizardry/vs-denoise/graphs/contributors>`_
+| `A comprehensive list of contributors can be found here. <https://github.com/Setsugennoao/vs-denoise/graphs/contributors>`_
 
 
 .. toctree::
