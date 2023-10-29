@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Callable, Concatenate, Literal, overload
 from vsrgtools import LimitFilterMode, limit_filter
 from vstools import CustomIntEnum, P, PlanesT, VSFunction, vs
 
-from .fft import fft3d, DFTTest
+from .fft import DFTTest, fft3d
 from .mvtools import MotionVectors, MVTools, MVToolsPreset, MVToolsPresets
 
 __all__ = [

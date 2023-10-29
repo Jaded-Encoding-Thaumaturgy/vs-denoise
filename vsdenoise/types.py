@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from vapoursynth import VideoNode, Plugin
+from vapoursynth import Plugin, VideoNode
 from vstools import SimpleByteDataArray, SingleOrSeq, SingleOrSeqOpt
 
 __all__ = [
