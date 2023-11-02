@@ -141,7 +141,7 @@ class MVToolsPresets:
     """Fast preset"""
 
     NOISY = MVToolsPreset(
-        pel=2, thSAD=100, block_size=32, overlap=property(fget=lambda x: x.block_size // 2),
+        pel=2, thSAD=100, block_size=16, overlap=property(fget=lambda x: x.block_size // 2),
         motion=MotionMode.HIGH_SAD, prefilter=Prefilter.DFTTEST,
         sad_mode=(SADMode.ADAPTIVE_SPATIAL_MIXED, SADMode.ADAPTIVE_SATD_MIXED)
     )
