@@ -118,7 +118,7 @@ def wnnm(
     elif ref is not None:
         ref = depth(ref, 32)
         ref = get_y(ref) if func.luma_only else ref
-        check_ref_clip(clip, ref, func.func)
+        check_ref_clip(func.work_clip, ref, func.func)
 
     return func.return_clip(
         _recursive_denoise(
