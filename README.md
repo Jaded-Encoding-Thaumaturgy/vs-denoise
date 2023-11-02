@@ -45,5 +45,5 @@ denoise = BM3DCuda.denoise(
     clip, sigma=0.8, tr=2, profile=Profile.NORMAL, ref=ref, planes=0
 )
 
-denoise = nl_means(denoise, tr=2, strength=0.6, ref=ref, planes=[1, 2])
+denoise = nl_means(denoise, tr=2, strength=0.2, ref=ref, planes=[1, 2])
 ```
