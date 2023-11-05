@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 from vsaa import Nnedi3
 from vsexprtools import ExprOp, complexpr_available, norm_expr
-from vskernels import Bicubic, BicubicZopti, Bilinear, Scaler, ScalerT
+from vskernels import Bicubic, Bilinear, Scaler, ScalerT
 from vsmasktools import retinex
 from vsrgtools import bilateral, blur, gauss_blur, min_blur, replace_low_frequencies
 from vstools import (
@@ -915,7 +915,7 @@ else:
             self.scaler.scale(clip, width, height, shift, **kwargs)
 
     BICUBIC = CUSTOM(Bicubic)
-    WIENER = CUSTOM(BicubicZopti)
+    WIENER = CUSTOM(Bicubic(b=-0.6, c=0.4))
 
     PelTypeBase.CUSTOM = CUSTOM
     PelTypeBase.BICUBIC = BICUBIC
@@ -954,7 +954,7 @@ class PelType(int, PelTypeBase):
         """Performs scaling with default bicubic values (:py:class:`vskernels.Catrom`)."""
 
         WIENER: CUSTOM
-        """Performs scaling with the wiener filter (:py:class:`BicubicZopti`)."""
+        """Performs scaling with the wiener filter (:py:class:`Bicubic(b=-0.6, c=0.4)`)."""
 
         def __new__(cls, value: int) -> PelType:
             ...
