@@ -13,7 +13,7 @@ from vskernels import Bicubic, Point
 from vsscale import SSIM
 from vstools import (
     CustomIndexError, CustomIntEnum, InvalidColorFamilyError, Matrix, MatrixT, PlanesT, UnsupportedSubsamplingError,
-    check_ref_clip, get_peak_value, join, normalize_planes, plane, shift_clip, split, vs
+    check_ref_clip, fallback, get_peak_value, join, normalize_planes, plane, shift_clip, split, vs
 )
 
 __all__ = [
@@ -142,9 +142,9 @@ def ccd(
     if mode is not None and not is_subsampled:
         raise UnsupportedSubsamplingError(f'{mode} is available only for subsampled video!', ccd)
 
-    mode = CCDMode.from_param(mode) or CCDMode.CHROMA_ONLY
+    mode = fallback(CCDMode.from_param(mode), CCDMode.CHROMA_ONLY)
     if not isinstance(ref_points, int):
-        ref_points = (CCDPoints.from_param(ref_points) or CCDPoints.MEDIUM).value
+        ref_points = fallback(CCDPoints.from_param(ref_points), CCDPoints.MEDIUM).value
 
     src_width, src_height = src.width, src.height
     src444_format = src.format.replace(subsampling_w=0, subsampling_h=0)

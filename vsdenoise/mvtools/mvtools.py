@@ -175,8 +175,8 @@ class MVTools:
         if self.refine > 6:
             raise CustomOverflowError(f'Refine > 6 is not supported! ({refine})', self.__class__)
 
-        self.source_type = FieldBased.from_param(source_type, MVTools) or FieldBased.from_video(self.clip)
-        self.range_in = range_in or ColorRange.from_video(self.clip, False, self.__class__)
+        self.source_type = FieldBased.from_param_or_video(source_type, self.clip, False, self.__class__)
+        self.range_in = ColorRange.from_param_or_video(range_in, self.clip, False, self.__class__)
 
         self.pel = fallback(pel, 1 + int(not self.is_hd))
 
@@ -305,8 +305,8 @@ class MVTools:
         super_render_args = common_args | dict(levels=1, hpad=self.hpad, vpad=self.vpad, chroma=not self.is_gray)
 
         if pelclip or pelclip2:
-            common_args |= dict(pelclip=pelclip)
-            super_render_args |= dict(pelclip=pelclip2)
+            common_args |= dict(pelclip=pelclip)  # type: ignore
+            super_render_args |= dict(pelclip=pelclip2)  # type: ignore
 
         super_render = self.mvtools.Super(ref if inplace else self.workclip, **super_render_args)
         super_search = self.mvtools.Super(ref, **(dict(rfilter=rfilter) | common_args))

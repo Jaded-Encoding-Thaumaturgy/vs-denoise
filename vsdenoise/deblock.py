@@ -108,7 +108,7 @@ class _dpir(CustomStrEnum):
             raise UnsupportedVideoFormatError('`strength` must be a float or a GRAYS clip', func)
 
         if not is_rgb:
-            targ_matrix = Matrix.from_param(matrix) or Matrix.from_video(clip)
+            targ_matrix = Matrix.from_param_or_video(matrix, clip)
         else:
             targ_matrix = Matrix.RGB
 
