@@ -80,6 +80,7 @@ class _dpir(CustomStrEnum):
 
         def _norm_str_clip(str_clip: vs.VideoNode) -> vs.VideoNode:
             assert (fmt := str_clip.format)
+            fmt_name = fmt.name.upper()
 
             InvalidColorFamilyError.check(
                 fmt, vs.GRAY, func, '"strength" must be of {correct} color family, not {wrong}!'
@@ -88,7 +89,7 @@ class _dpir(CustomStrEnum):
             if fmt.id == vs.GRAY8:
                 str_clip = expr_func(str_clip, 'x 255 /', vs.GRAYH if fp16 else vs.GRAYS)
             elif fmt.id not in {vs.GRAYH, vs.GRAYS}:
-                raise UnsupportedVideoFormatError('`strength` must be GRAY8, GRAYH or GRAYS!', func)
+                raise UnsupportedVideoFormatError(f'`strength` must be GRAY8, GRAYH, or GRAYS, not {fmt_name}!', func)
             elif fp16 and fmt.id != vs.GRAYH:
                 str_clip = depth(str_clip, 16, vs.FLOAT)
 
@@ -96,7 +97,7 @@ class _dpir(CustomStrEnum):
                 str_clip = kernel.scale(str_clip, clip.width, clip.height)  # type: ignore
 
             if str_clip.num_frames != clip.num_frames:
-                raise LengthMismatchError(func, '`strength` must be of the same length as \'clip\'')
+                raise LengthMismatchError(func, '`strength` must be the same length as \'clip\'')
 
             return str_clip
 
