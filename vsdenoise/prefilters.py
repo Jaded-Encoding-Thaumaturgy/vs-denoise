@@ -31,6 +31,10 @@ __all__ = [
     'PelType'
 ]
 
+__abstract__ = [
+    'CUSTOM'
+]
+
 
 class PrefilterMeta(EnumMeta):
     def __instancecheck__(cls: EnumMeta, instance: Any) -> bool:
@@ -913,6 +917,10 @@ else:
             self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
         ) -> vs.VideoNode:
             self.scaler.scale(clip, width, height, shift, **kwargs)
+
+        @property
+        def kernel_radius(self) -> int:
+            return self.scaler.kernel_radius
 
     BICUBIC = CUSTOM(Bicubic)
     WIENER = CUSTOM(Bicubic(b=-0.6, c=0.4))
