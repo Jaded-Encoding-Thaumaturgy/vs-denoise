@@ -191,7 +191,7 @@ def bmdegrain(
     :return:                        Denoised clip.
     """
 
-    func = FunctionUtil(clip, wnnm, planes, bitdepth=32)
+    func = FunctionUtil(clip, bmdegrain, planes, bitdepth=32)
 
     sigma = func.norm_seq(sigma)
 
