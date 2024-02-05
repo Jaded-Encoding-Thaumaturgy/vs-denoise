@@ -252,7 +252,7 @@ class _dpir(CustomStrEnum):
                     use_cuda_graph=True, use_cublas=True, use_cudnn=True,
                     use_edge_mask_convolutions=True, use_jit_convolutions=True,
                     static_shape=True, heuristic=True, output_format=int(fp16),
-                    tf32=not fp16, force_fp16=fp16, num_streams=def_num_streams
+                    tf32=not fp16, num_streams=def_num_streams
                 ) | bkwargs
 
                 streams_info = 'OK' if bkwargs['num_streams'] == def_num_streams else 'MISMATCH'
