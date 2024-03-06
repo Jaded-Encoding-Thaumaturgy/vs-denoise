@@ -17,7 +17,7 @@ __all__ = [
 
 def frequency_merge(
     *_clips: vs.VideoNode | Iterable[vs.VideoNode], tr: int = 0,
-    mode_high: MeanMode = MeanMode.LEHMER, mode_low: MeanMode = MeanMode.ARITHMETIC,
+    mode_high: MeanMode | vs.VideoNode = MeanMode.LEHMER, mode_low: MeanMode | vs.VideoNode = MeanMode.ARITHMETIC,
     mode_tr: MeanMode | None = None, lowpass: GenericVSFunction | list[GenericVSFunction] = DFTTest.denoise,
     mean_diff: bool = False, planes: PlanesT = None, mv_args: KwargsT | None = None,
     **kwargs: Any
@@ -26,7 +26,7 @@ def frequency_merge(
     n_clips = len(clips)
 
     mv_args = mv_args or KwargsT()
-    mode_tr = fallback(mode_tr, mode_high)
+    mode_tr = fallback(mode_tr, MeanMode.LEHMER if isinstance(mode_high, vs.VideoNode) else mode_high)
 
     if not lowpass:
         raise CustomValueError('You must pass at least one lowpass filter!', frequency_merge)
@@ -39,20 +39,23 @@ def frequency_merge(
     blurred_clips = []
     for clip, filt in zip(clips, normalize_seq(lowpass, n_clips)):
         try:
-            blurred_clips.append(filt(clip, planes=planes, **kwargs))
+            blurred_clips.append(clip if not filt else filt(clip, planes=planes, **kwargs))
         except Exception:
-            blurred_clips.append(filt(clip, **kwargs))
+            blurred_clips.append(clip if not filt else filt(clip, **kwargs))
 
-    low_freqs = mode_low(blurred_clips)
+    if isinstance(mode_low, vs.VideoNode):
+        low_freqs = blurred_clips[clips.index(mode_low)]
+    else:
+        low_freqs = mode_low(blurred_clips)
 
-    to_diff_clips = normalize_seq(low_freqs if mean_diff else blurred_clips, n_clips)
+    diffed_clips = []
+    for clip, blur in zip(clips, normalize_seq(low_freqs if mean_diff else blurred_clips, n_clips)):
+        diffed_clips.append(None if clip == blur else clip.std.MakeDiff(blur))
 
-    diffed_clips = [
-        clip.std.MakeDiff(blur)
-        for clip, blur in zip(clips, to_diff_clips)
-    ]
-
-    high_freqs = mode_high(diffed_clips)
+    if isinstance(mode_high, vs.VideoNode):
+        high_freqs = diffed_clips[clips.index(mode_high)]
+    else:
+        high_freqs = mode_high([clip for clip in diffed_clips if clip])
 
     if tr:
         mv = MVTools(clip, tr, **mv_args)
