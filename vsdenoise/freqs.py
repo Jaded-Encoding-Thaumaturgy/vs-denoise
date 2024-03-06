@@ -26,7 +26,7 @@ def frequency_merge(
     n_clips = len(clips)
 
     mv_args = mv_args or KwargsT()
-    mode_tr = fallback(mode_tr, mode_low)
+    mode_tr = fallback(mode_tr, mode_high)
 
     if not lowpass:
         raise CustomValueError('You must pass at least one lowpass filter!', frequency_merge)
@@ -60,9 +60,9 @@ def frequency_merge(
 
         low_freqs = mv.degrain(ref=low_freqs)
 
-        if mode_high is MeanMode.ARITHMETIC:
+        if mode_tr is MeanMode.ARITHMETIC:
             high_freqs = mv.degrain(ref=high_freqs)
         else:
-            high_freqs = mv.compensate(mode_high, ref=high_freqs)  # type: ignore
+            high_freqs = mv.compensate(mode_tr, ref=high_freqs)  # type: ignore
 
     return low_freqs.std.MergeDiff(high_freqs)
