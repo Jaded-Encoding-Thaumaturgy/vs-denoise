@@ -8,7 +8,7 @@ from vskernels import Catrom, Kernel, KernelT, Point
 from vsmasktools import FDoG, GenericMaskT, adg_mask, normalize_mask
 from vsrgtools import gauss_blur
 from vstools import (
-    ColorRange, CustomStrEnum, DependencyNotFoundError, DitherType, FrameRangeN, FrameRangesN, InvalidColorFamilyError,
+    ColorRange, CustomStrEnum, DependencyNotFoundError, FrameRangeN, FrameRangesN, InvalidColorFamilyError,
     KwargsT, LengthMismatchError, Matrix, MatrixT, UnsupportedVideoFormatError, check_variable, core, depth, fallback,
     get_depth, get_nvidia_version, get_y, join, replace_ranges, vs
 )
@@ -115,7 +115,7 @@ class _dpir(CustomStrEnum):
 
         targ_format = clip.format.replace(subsampling_w=0, subsampling_h=0) if i444 else clip.format
 
-        clip_upsample = depth(clip, 16 if fp16 else 32, vs.FLOAT, dither_type=DitherType.ERROR_DIFFUSION)
+        clip_upsample = depth(clip, 16 if fp16 else 32, vs.FLOAT)
 
         if is_rgb or is_gray:
             clip_rgb = clip_upsample

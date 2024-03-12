@@ -10,7 +10,7 @@ from typing import Any, Literal, NamedTuple, final, overload
 
 from vstools import (
     MISSING, ColorRange, ColorRangeT, Colorspace, ConstantFormatVideoNode, CustomIndexError, CustomRuntimeError,
-    CustomStrEnum, CustomValueError, DitherType, FuncExceptT, FunctionUtil, KwargsT, Matrix, MatrixT, MissingT, PlanesT,
+    CustomStrEnum, CustomValueError, FuncExceptT, FunctionUtil, KwargsT, Matrix, MatrixT, MissingT, PlanesT,
     Self, SingleOrArr, check_variable, core, depth, get_video_format, get_y, join, normalize_seq, vs, vs_object
 )
 
@@ -91,13 +91,11 @@ class BM3DColorspaceConfig:
     def post_processing(self, clip: vs.VideoNode) -> vs.VideoNode:
         assert clip.format
 
-        dither = DitherType.ERROR_DIFFUSION if DitherType.should_dither(self.clip.format, clip) else DitherType.NONE
-
         if self.clip.format.color_family is vs.YUV:
             if clip.format.color_family is vs.GRAY:
                 clip = join(depth(clip, self.clip), self.clip)
             else:
-                clip = self.csp.to_yuv(clip, self.fp32, format=self.clip.format, matrix=self.matrix, dither_type=dither)
+                clip = self.csp.to_yuv(clip, self.fp32, format=self.clip.format, matrix=self.matrix)
         elif self.clip.format.color_family is vs.RGB:
             clip = self.csp.to_rgb(clip, self.fp32)
 

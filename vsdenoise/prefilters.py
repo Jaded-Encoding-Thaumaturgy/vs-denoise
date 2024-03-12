@@ -14,7 +14,7 @@ from vskernels import Bicubic, Bilinear, Scaler, ScalerT
 from vsmasktools import retinex
 from vsrgtools import bilateral, blur, gauss_blur, min_blur, replace_low_frequencies
 from vstools import (
-    MISSING, ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, DitherType, MissingT, PlanesT,
+    MISSING, ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, MissingT, PlanesT,
     SingleOrArr, SingleOrArrOpt, check_variable, clamp, core, depth, disallow_variable_format,
     disallow_variable_resolution, get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes,
     normalize_seq, scale_8bit, scale_value, split, vs
@@ -884,9 +884,7 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
     elif range_conversion > 0.0:
         pref_full = retinex(work_clip, upper_thr=range_conversion, fast=False)
     else:
-        pref_full = depth(
-            work_clip, bits, range_out=ColorRange.FULL, range_in=ColorRange.LIMITED, dither_type=DitherType.NONE
-        )
+        pref_full = depth(work_clip, bits, range_out=ColorRange.FULL, range_in=ColorRange.LIMITED)
 
     if chroma:
         return join(pref_full, *chroma, family=pref.format.color_family)
