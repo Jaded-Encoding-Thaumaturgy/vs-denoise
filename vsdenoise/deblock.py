@@ -239,13 +239,11 @@ class _dpir(CustomStrEnum):
         bkwargs = kwargs | KwargsT(fp16=fp16, device_id=device_id)
 
         # All this will eventually be in vs-nn
-        if cuda is None or trt_available:
+        if cuda == 'trt':
             try:
                 data: KwargsT = core.trt.DeviceProperties(device_id)  # type: ignore
                 memory = data.get('total_global_memory', 0)
                 def_num_streams = data.get('async_engine_count', 1)
-
-                cuda = 'trt'
 
                 bkwargs = KwargsT(
                     workspace=memory / (1 << 22) if memory else None,
