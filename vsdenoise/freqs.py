@@ -34,7 +34,7 @@ def frequency_merge(
     :param mode_tr:     The mode to use for temporal mean.
                         If None, it defaults to the value of mode_high.
     :param lowpass:     The lowpass filter to used to extract high frequency components.
-                            Example: `lowpass= lambda i: core.std.BoxBlur(i)`
+                            Example: `lowpass = lambda i: vsrgtools.box_blur(i, passes=3)`
     :param mean_diff:   Whether to use the mean of the lowpass filter and the original clip to
                         extract the low frequency components. Default is False.
     :param planes:      The planes to process. If None, all planes will be processed.
