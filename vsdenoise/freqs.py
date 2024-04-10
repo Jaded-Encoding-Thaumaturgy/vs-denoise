@@ -27,9 +27,12 @@ def frequency_merge(
     
     :param _clips:      The clips to merge.
     :param tr:          The temporal radius to use for motion compensation.
-    :param mode_high:   The mode to use for the high frequency components. Or specifying the clip with the high frequency components.
-    :param mode_low:    The mode to use for the low frequency components. Or specifying the clip with the low frequency components.
-    :param mode_tr:     The mode to use for motion compensation. If None, it defaults to the value of mode_high.
+    :param mode_high:   The mode to use for the high frequency components or
+                        specifying the clip with the high frequency components.
+    :param mode_low:    The mode to use for the low frequency components or
+                        specifying the clip with the low frequency components.
+    :param mode_tr:     The mode to use for motion compensation.
+                        If None, it defaults to the value of mode_high.
     :param lowpass:     The lowpass filter to used to extract low frequency components.
                             Example: 
                                 ```
@@ -45,7 +48,8 @@ def frequency_merge(
                                             fh=[1 / 1.25, 1 / 1.375],
                                         )
                                 ```
-    :param mean_diff:   Whether to use the mean of the lowpass filter and the original clip to extract the low frequency components. Default is False.
+    :param mean_diff:   Whether to use the mean of the lowpass filter and the original clip to
+                        extract the low frequency components. Default is False.
     :param planes:      The planes to process. If None, all planes will be processed.
     :param mv_args:     The arguments to pass to the MVTools class.
     """
