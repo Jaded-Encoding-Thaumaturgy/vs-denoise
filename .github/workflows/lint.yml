@@ -13,11 +13,12 @@ jobs:
           - "3.11"
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
@@ -27,5 +28,5 @@ jobs:
       - name: Running flake8
         run: flake8 vsdenoise
       - name: Running mypy
-        if: steps.dependencies.outcome == 'success'
         run: mypy vsdenoise
+        continue-on-error: true
