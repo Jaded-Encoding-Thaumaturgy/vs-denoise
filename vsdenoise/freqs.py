@@ -24,7 +24,6 @@ def frequency_merge(
 ) -> vs.VideoNode:
     """
     Merges the frequency components of the input clips.
-    
     :param _clips:      The clips to merge.
     :param tr:          The temporal radius to use for temporal mean mode.
     :param mode_high:   The mean mode to use for the high frequency components or
