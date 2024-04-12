@@ -4,38 +4,27 @@ from typing import Any, Iterable
 
 from vsrgtools import MeanMode
 from vstools import (
-    CustomValueError,
-    GenericVSFunction,
-    KwargsT,
-    PlanesT,
-    fallback,
-    flatten_vnodes,
-    get_video_format,
-    normalize_seq,
-    vs,
+    CustomValueError, GenericVSFunction, KwargsT, PlanesT, fallback, flatten_vnodes, get_video_format, normalize_seq, vs
 )
 
 from .fft import DFTTest
 from .mvtools import MVTools
 
-__all__ = ["frequency_merge"]
+__all__ = [
+    'frequency_merge'
+]
 
 
 def frequency_merge(
-    *_clips: vs.VideoNode | Iterable[vs.VideoNode],
-    tr: int = 0,
-    mode_high: MeanMode | vs.VideoNode = MeanMode.LEHMER,
-    mode_low: MeanMode | vs.VideoNode = MeanMode.ARITHMETIC,
-    mode_tr: MeanMode | None = None,
-    lowpass: GenericVSFunction | list[GenericVSFunction] = DFTTest.denoise,
-    mean_diff: bool = False,
-    planes: PlanesT = None,
-    mv_args: KwargsT | None = None,
-    **kwargs: Any,
+    *_clips: vs.VideoNode | Iterable[vs.VideoNode], tr: int = 0,
+    mode_high: MeanMode | vs.VideoNode = MeanMode.LEHMER, mode_low: MeanMode | vs.VideoNode = MeanMode.ARITHMETIC,
+    mode_tr: MeanMode | None = None, lowpass: GenericVSFunction | list[GenericVSFunction] = DFTTest.denoise,
+    mean_diff: bool = False, planes: PlanesT = None, mv_args: KwargsT | None = None,
+    **kwargs: Any
 ) -> vs.VideoNode:
     """
     Merges the frequency components of the input clips.
-
+    
     :param _clips:      The clips to merge.
     :param tr:          The temporal radius to use for temporal mean mode.
     :param mode_high:   The mean mode to use for the high frequency components or
@@ -56,26 +45,20 @@ def frequency_merge(
     n_clips = len(clips)
 
     mv_args = mv_args or KwargsT()
-    mode_tr = fallback(
-        mode_tr, MeanMode.LEHMER if isinstance(mode_high, vs.VideoNode) else mode_high
-    )
+    mode_tr = fallback(mode_tr, MeanMode.LEHMER if isinstance(mode_high, vs.VideoNode) else mode_high)
 
     if not lowpass:
-        raise CustomValueError(
-            "You must pass at least one lowpass filter!", frequency_merge
-        )
+        raise CustomValueError('You must pass at least one lowpass filter!', frequency_merge)
 
     formats = {get_video_format(clip).id for clip in clips}
 
     if len(formats) > 1:
-        raise CustomValueError("All clips must have the same format!", frequency_merge)
+        raise CustomValueError('All clips must have the same format!', frequency_merge)
 
     blurred_clips = []
     for clip, filt in zip(clips, normalize_seq(lowpass, n_clips)):
         try:
-            blurred_clips.append(
-                clip if not filt else filt(clip, planes=planes, **kwargs)
-            )
+            blurred_clips.append(clip if not filt else filt(clip, planes=planes, **kwargs))
         except Exception:
             blurred_clips.append(clip if not filt else filt(clip, **kwargs))
 
@@ -85,9 +68,7 @@ def frequency_merge(
         low_freqs = mode_low(blurred_clips)
 
     diffed_clips = []
-    for clip, blur in zip(
-        clips, normalize_seq(low_freqs if mean_diff else blurred_clips, n_clips)
-    ):
+    for clip, blur in zip(clips, normalize_seq(low_freqs if mean_diff else blurred_clips, n_clips)):
         diffed_clips.append(None if clip == blur else clip.std.MakeDiff(blur))
 
     if isinstance(mode_high, vs.VideoNode):
