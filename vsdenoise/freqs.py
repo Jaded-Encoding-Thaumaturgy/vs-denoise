@@ -4,7 +4,7 @@ from typing import Any, Iterable
 
 from vsrgtools import MeanMode
 from vstools import (
-    CustomValueError, GenericVSFunction, KwargsT, PlanesT, fallback, flatten_vnodes, get_video_format, normalize_seq, vs
+    CustomValueError, GenericVSFunction, KwargsT, PlanesT, fallback, flatten_vnodes, get_video_format, normalize_planes, normalize_seq, vs
 )
 
 from .fft import DFTTest
@@ -43,7 +43,9 @@ def frequency_merge(
     clips = flatten_vnodes(_clips)
     n_clips = len(clips)
 
-    mv_args = mv_args or KwargsT()
+    planes = normalize_planes(clips[0], planes)
+
+    mv_args = (mv_args or KwargsT()) | KwargsT(planes=planes)
     mode_tr = fallback(mode_tr, MeanMode.LEHMER if isinstance(mode_high, vs.VideoNode) else mode_high)
 
     if not lowpass:
@@ -64,16 +66,16 @@ def frequency_merge(
     if isinstance(mode_low, vs.VideoNode):
         low_freqs = blurred_clips[clips.index(mode_low)]
     else:
-        low_freqs = mode_low(blurred_clips)
+        low_freqs = mode_low(blurred_clips, planes=planes, func=frequency_merge)
 
     diffed_clips = []
     for clip, blur in zip(clips, normalize_seq(low_freqs if mean_diff else blurred_clips, n_clips)):
-        diffed_clips.append(None if clip == blur else clip.std.MakeDiff(blur))
+        diffed_clips.append(None if clip == blur else clip.std.MakeDiff(blur, planes))
 
     if isinstance(mode_high, vs.VideoNode):
         high_freqs = diffed_clips[clips.index(mode_high)]
     else:
-        high_freqs = mode_high([clip for clip in diffed_clips if clip])
+        high_freqs = mode_high([clip for clip in diffed_clips if clip], planes=planes, func=frequency_merge)
 
     if tr:
         mv = MVTools(clip, tr, **mv_args)
@@ -86,4 +88,4 @@ def frequency_merge(
         else:
             high_freqs = mv.compensate(mode_tr, ref=high_freqs)  # type: ignore
 
-    return low_freqs.std.MergeDiff(high_freqs)
+    return low_freqs.std.MergeDiff(high_freqs, planes)
