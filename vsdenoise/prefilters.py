@@ -920,10 +920,12 @@ else:
         def kernel_radius(self) -> int:
             return self.scaler.kernel_radius
 
+    BILINEAR = CUSTOM(Bilinear)
     BICUBIC = CUSTOM(Bicubic)
     WIENER = CUSTOM(Bicubic(b=-0.6, c=0.4))
 
     PelTypeBase.CUSTOM = CUSTOM
+    PelTypeBase.BILINEAR = BILINEAR
     PelTypeBase.BICUBIC = BICUBIC
     PelTypeBase.WIENER = WIENER
 
@@ -955,6 +957,9 @@ class PelType(int, PelTypeBase):
                 self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
             ) -> vs.VideoNode:
                 ...
+
+        BILINEAR: CUSTOM
+        """Performs scaling with the bilinear filter (:py:class:`vskernels.Bilinear`)."""
 
         BICUBIC: CUSTOM
         """Performs scaling with default bicubic values (:py:class:`vskernels.Catrom`)."""
@@ -999,9 +1004,11 @@ class PelType(int, PelTypeBase):
             else:
                 val = 1 << 3 - ceil(clip.height / 1000)
 
-                if val <= 1:
+                if val < 1:
+                    pel_type = PelType.BILINEAR
+                elif val < 2:
                     pel_type = PelType.BICUBIC
-                elif val == 2:
+                elif val < 3:
                     pel_type = PelType.WIENER
                 else:
                     pel_type = PelType.NNEDI3
