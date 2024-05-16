@@ -14,10 +14,10 @@ from vskernels import Bicubic, Bilinear, Scaler, ScalerT
 from vsmasktools import retinex
 from vsrgtools import bilateral, blur, gauss_blur, min_blur, replace_low_frequencies
 from vstools import (
-    MISSING, ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, MissingT, PlanesT,
-    SingleOrArr, SingleOrArrOpt, check_variable, clamp, core, depth, disallow_variable_format,
-    disallow_variable_resolution, get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes,
-    normalize_seq, scale_8bit, scale_value, split, vs
+    MISSING, ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, MissingT, PlanesT, SingleOrArr,
+    SingleOrArrOpt, check_variable, clamp, core, depth, disallow_variable_format, disallow_variable_resolution,
+    get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes, normalize_seq, scale_8bit, scale_value,
+    split, vs
 )
 
 from .bm3d import BM3D as BM3DM
@@ -914,9 +914,11 @@ else:
             return PelType.__call__(self.scaler, clip, pel, default, **(self.kwargs | kwargs))
 
         def scale(
-            self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
+            self, clip: vs.VideoNode, width: int | None = None, height: int | None = None,
+            shift: tuple[float, float] = (0, 0), **kwargs: Any
         ) -> vs.VideoNode:
-            self.scaler.scale(clip, width, height, shift, **kwargs)
+            width, height = Scaler._wh_norm(clip, width, height)
+            return self.scaler.scale(clip, width, height, shift, **kwargs)
 
         @property
         def kernel_radius(self) -> int:
@@ -956,7 +958,8 @@ class PelType(int, PelTypeBase):
                 """
 
             def scale(  # type: ignore
-                self, clip: vs.VideoNode, width: int, height: int, shift: tuple[float, float] = (0, 0), **kwargs: Any
+                self, clip: vs.VideoNode, width: int | None = None, height: int | None = None,
+                shift: tuple[float, float] = (0, 0), **kwargs: Any
             ) -> vs.VideoNode:
                 ...
 
