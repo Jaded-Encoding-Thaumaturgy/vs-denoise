@@ -77,7 +77,9 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
             if pref_type == Prefilter.MINBLURFLUX:
                 temp_thr, spat_thr = kwargs.get('temp_thr', 2), kwargs.get('spat_thr', 2)
-                return min_blur(clip, 2, planes).flux.SmoothST(scale_8bit(clip, temp_thr), scale_8bit(clip, spat_thr), planes)  # type: ignore
+                return min_blur(clip, 2, planes).flux.SmoothST(  # type: ignore
+                    scale_8bit(clip, temp_thr), scale_8bit(clip, spat_thr), planes
+                )
 
             if pref_type == Prefilter.DFTTEST_SMOOTH:
                 sigma = kwargs.get('sigma', 128.0)

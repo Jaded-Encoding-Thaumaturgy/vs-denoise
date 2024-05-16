@@ -4,7 +4,8 @@ from typing import Any, Iterable
 
 from vsrgtools import MeanMode
 from vstools import (
-    CustomValueError, GenericVSFunction, KwargsT, PlanesT, fallback, flatten_vnodes, get_video_format, normalize_planes, normalize_seq, vs
+    CustomValueError, GenericVSFunction, KwargsT, PlanesT, fallback, flatten_vnodes, get_video_format, normalize_planes,
+    normalize_seq, vs
 )
 
 from .fft import DFTTest
