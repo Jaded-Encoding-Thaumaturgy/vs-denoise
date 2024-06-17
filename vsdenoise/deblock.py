@@ -4,13 +4,13 @@ from pathlib import Path
 from typing import Any, Literal, SupportsFloat, cast
 
 from vsexprtools import expr_func, norm_expr
-from vskernels import Catrom, Kernel, KernelT, Point
+from vskernels import Catrom, Kernel, KernelT
 from vsmasktools import FDoG, GenericMaskT, adg_mask, normalize_mask
 from vsrgtools import gauss_blur
 from vstools import (
-    ColorRange, CustomStrEnum, DependencyNotFoundError, FrameRangeN, FrameRangesN, InvalidColorFamilyError,
-    KwargsT, LengthMismatchError, Matrix, MatrixT, UnsupportedVideoFormatError, check_variable, core, depth, fallback,
-    get_depth, get_nvidia_version, get_y, join, replace_ranges, vs
+    ColorRange, CustomStrEnum, DependencyNotFoundError, FrameRangeN, FrameRangesN, InvalidColorFamilyError, KwargsT,
+    LengthMismatchError, Matrix, MatrixT, UnsupportedVideoFormatError, check_variable, core, depth, fallback, get_depth,
+    get_nvidia_version, get_y, join, padder, replace_ranges, vs
 )
 
 __all__ = [
@@ -134,21 +134,13 @@ class _dpir(CustomStrEnum):
         else:
             overlap_w, overlap_h = overlap
 
-        multiple = 8
+        padding = padder.mod_padding((clip_rgb.width, clip_rgb.height), multiple := 8, 0)
 
-        mod_w, mod_h = clip_rgb.width % multiple, clip_rgb.height % multiple
-
-        if to_pad := any({mod_w, mod_h}):
-            d_width, d_height = clip_rgb.width + mod_w, clip_rgb.height + mod_h
-
-            clip_rgb = Point(src_width=d_width, src_height=d_height).scale(
-                clip_rgb, d_width, d_height, (-mod_h, -mod_w)
-            )
+        if (to_pad := any(padding)):
+            clip_rgb = padder.MIRROR(clip_rgb, *padding)
 
             if isinstance(strength, vs.VideoNode):
-                strength = Point(src_width=d_width, src_height=d_height).scale(
-                    strength, d_width, d_height, (-mod_h, -mod_w)  # type: ignore
-                )
+                strength = padder.MIRROR(strength, *padding)
 
         if isinstance(tiles, tuple):
             tilesize = tiles
@@ -208,9 +200,7 @@ class _dpir(CustomStrEnum):
             if len(dpir_zones) <= 2:
                 for rrange, sclip in dpir_zones.items():
                     if to_pad:
-                        sclip = Point(src_width=d_width, src_height=d_height).scale(
-                            sclip, d_width, d_height, (-mod_h, -mod_w)
-                        )
+                        sclip = padder.MIRROR(sclip, *padding)
                     zoned_strength_clip = replace_ranges(zoned_strength_clip, sclip, rrange)
             else:
                 dpir_ranges_zones = {
@@ -298,7 +288,7 @@ class _dpir(CustomStrEnum):
             run_dpir = replace_ranges(run_dpir, clip_rgb, no_dpir_zones)
 
         if to_pad:
-            run_dpir = run_dpir.std.Crop(0, mod_w, mod_h, 0)
+            run_dpir = run_dpir.std.Crop(0, *padding)
 
         if is_rgb or is_gray:
             return depth(run_dpir, bit_depth)
