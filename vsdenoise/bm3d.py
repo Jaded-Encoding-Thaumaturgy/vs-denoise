@@ -83,10 +83,7 @@ class BM3DColorspaceConfig:
 
         assert check_variable(clip, self.prepare_clip)
 
-        if clip.format.color_family is vs.RGB:
-            return self.csp.resampler.rgb2csp(clip, self.fp32, self.prepare_clip, matrix=self.matrix)
-
-        return self.csp.resampler.yuv2csp(clip, self.fp32, self.prepare_clip, matrix_in=self.matrix)
+        return self.csp.from_clip(clip, self.fp32, self.prepare_clip)
 
     def post_processing(self, clip: vs.VideoNode) -> vs.VideoNode:
         assert clip.format
@@ -95,9 +92,9 @@ class BM3DColorspaceConfig:
             if clip.format.color_family is vs.GRAY:
                 clip = join(depth(clip, self.clip), self.clip)
             else:
-                clip = self.csp.to_yuv(clip, self.fp32, format=self.clip.format, matrix=self.matrix)
+                clip = self.csp.to_yuv(clip, self.fp32, self.post_processing, self.clip, matrix=self.matrix)
         elif self.clip.format.color_family is vs.RGB:
-            clip = self.csp.to_rgb(clip, self.fp32)
+            clip = self.csp.to_rgb(clip, self.fp32, self.post_processing, self.clip)
 
         if self.chroma_only:
             clip = join(self.clip, clip)
@@ -356,10 +353,7 @@ class AbstractBM3D(vs_object):
 
         matrix = Matrix.from_param(matrix)
 
-        self.cspconfig = BM3DColorspaceConfig(
-            colorspace, clip, matrix or (Matrix.from_video(clip) if clip.format.color_family is vs.YUV else None),
-            self.sigma.y == 0, fp32
-        )
+        self.cspconfig = BM3DColorspaceConfig(colorspace, clip, matrix, self.sigma.y == 0, fp32)
 
         self.cspconfig.clip = self.cspconfig.check_clip(clip, matrix, range_in, self.__class__)
 
