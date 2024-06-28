@@ -493,6 +493,11 @@ class BackendInfo(KwargsT):
         if backend is Backend.NEO:
             return core.neo_dfttest.DFTTest(clip, **dft_args)  # type: ignore
 
+        if any(hasattr(core, x) for x in ('dfttest2_cpu', 'dfttest2_cuda', 'dfttest2_nvrtc')):
+            raise CustomRuntimeError(
+                'dfttest2 plugin is installed but is missing the python package, please install it.', self.__class__
+            )
+
         raise CustomRuntimeError(
             'No implementation of DFTTest could be found, please install one. dfttest2 is recommended.', self.__class__
         )
