@@ -150,7 +150,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
                 downscale = downscaler.scale(clip, clip.width // scale, clip.height // scale)
 
-                boxblur = blur(downscale, kwargs.pop('radius', 1), kwargs.pop('mode', ConvMode.SQUARE), planes)
+                boxblur = blur(downscale, kwargs.pop('radius', 1), kwargs.pop('mode', ConvMode.HV), planes)
 
                 return upscaler.scale(boxblur, clip.width, clip.height)
 
@@ -169,7 +169,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
                 return replace_low_frequencies(dgd, clip, clip.width / 2)
 
             if pref_type in {Prefilter.GAUSSBLUR1, Prefilter.GAUSSBLUR2}:
-                boxblur = blur(clip, kwargs.pop('radius', 1), kwargs.get('mode', ConvMode.SQUARE), planes=planes)
+                boxblur = blur(clip, kwargs.pop('radius', 1), kwargs.get('mode', ConvMode.HV), planes=planes)
 
                 if 'sharp' not in kwargs and 'sigma' not in kwargs:
                     kwargs |= dict(sigma=1.75)
@@ -406,7 +406,7 @@ class Prefilter(PrefilterBase):
         def __call__(  # type: ignore
             self: Literal[Prefilter.SCALEDBLUR], clip: vs.VideoNode, /,
             planes: PlanesT = None, full_range: bool | float = False, *,
-            scale: int = 2, radius: int = 1, mode: ConvMode = ConvMode.SQUARE,
+            scale: int = 2, radius: int = 1, mode: ConvMode = ConvMode.HV,
             downscaler: ScalerT = Bilinear, upscaler: ScalerT | None = None
         ) -> vs.VideoNode:
             """
@@ -430,7 +430,7 @@ class Prefilter(PrefilterBase):
         def __call__(  # type: ignore
             self: Literal[Prefilter.GAUSSBLUR], clip: vs.VideoNode, /,
             planes: PlanesT = None, full_range: bool | float = False, *,
-            sigma: float | None = 1.0, sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
+            sigma: float | None = 1.0, sharp: float | None = None, mode: ConvMode = ConvMode.HV
         ) -> vs.VideoNode:
             """
             Gaussian blurred, then postprocessed to remove low frequencies.
@@ -451,7 +451,7 @@ class Prefilter(PrefilterBase):
             self: Literal[Prefilter.GAUSSBLUR1], clip: vs.VideoNode, /,
             planes: PlanesT = None, full_range: bool | float = False, *,
             radius: int = 1, strength: int = 90, sigma: float | None = 1.75,
-            sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
+            sharp: float | None = None, mode: ConvMode = ConvMode.HV
         ) -> vs.VideoNode:
             """
             Clamped gaussian/box blurring with edge preservation.
@@ -475,7 +475,7 @@ class Prefilter(PrefilterBase):
             self: Literal[Prefilter.GAUSSBLUR2], clip: vs.VideoNode, /,
             planes: PlanesT = None, full_range: bool | float = False, *,
             radius: int = 1, strength: int = 50, sigma: float | None = 1.75,
-            sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
+            sharp: float | None = None, mode: ConvMode = ConvMode.HV
         ) -> vs.VideoNode:
             """
             Clamped gaussian/box blurring.
@@ -647,7 +647,7 @@ class Prefilter(PrefilterBase):
         @overload
         def __call__(  # type: ignore
             self: Literal[Prefilter.SCALEDBLUR], *, planes: PlanesT = None, full_range: bool | float = False,
-            scale: int = 2, radius: int = 1, mode: ConvMode = ConvMode.SQUARE,
+            scale: int = 2, radius: int = 1, mode: ConvMode = ConvMode.HV,
             downscaler: ScalerT = Bilinear, upscaler: ScalerT | None = None
         ) -> PrefilterPartial:
             """
@@ -669,7 +669,7 @@ class Prefilter(PrefilterBase):
         @overload
         def __call__(  # type: ignore
             self: Literal[Prefilter.GAUSSBLUR], *, planes: PlanesT = None, full_range: bool | float = False,
-            sigma: float | None = 1.0, sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
+            sigma: float | None = 1.0, sharp: float | None = None, mode: ConvMode = ConvMode.HV
         ) -> PrefilterPartial:
             """
             Gaussian blurred, then postprocessed to remove low frequencies.
@@ -688,7 +688,7 @@ class Prefilter(PrefilterBase):
         def __call__(  # type: ignore
             self: Literal[Prefilter.GAUSSBLUR1], *, planes: PlanesT = None, full_range: bool | float = False,
             radius: int = 1, strength: int = 90, sigma: float | None = 1.75,
-            sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
+            sharp: float | None = None, mode: ConvMode = ConvMode.HV
         ) -> PrefilterPartial:
             """
             Clamped gaussian/box blurring with edge preservation.
@@ -710,7 +710,7 @@ class Prefilter(PrefilterBase):
         def __call__(  # type: ignore
             self: Literal[Prefilter.GAUSSBLUR2], *, planes: PlanesT = None, full_range: bool | float = False,
             radius: int = 1, strength: int = 50, sigma: float | None = 1.75,
-            sharp: float | None = None, mode: ConvMode = ConvMode.SQUARE
+            sharp: float | None = None, mode: ConvMode = ConvMode.HV
         ) -> PrefilterPartial:
             """
             Clamped gaussian/box blurring.
