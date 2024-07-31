@@ -14,7 +14,7 @@ __all__ = [
 
     'MVToolsPlugin',
 
-    'SADMode', 'SearchMode', 'MotionMode'
+    'SADMode', 'SearchMode', 'MotionMode', 'FlowMode'
 ]
 
 
@@ -67,6 +67,14 @@ class MVToolsPlugin(CustomIntEnum):
     @property
     def Compensate(self) -> VSFunctionKwArgs:
         return cast(VSFunctionKwArgs, self.namespace.Compensate)
+
+    @property
+    def Flow(self) -> VSFunctionKwArgs:
+        return cast(VSFunctionKwArgs, self.namespace.Flow)
+
+    @property
+    def FlowInter(self) -> VSFunctionKwArgs:
+        return cast(VSFunctionKwArgs, self.namespace.FlowInter)
 
     @property
     def Mask(self) -> VSFunctionKwArgs:
@@ -510,3 +518,13 @@ class MotionMode:
         """
 
         return MotionMode.VECT_COHERENCE if truemotion else MotionMode.HIGH_SAD
+
+
+class FlowMode(CustomIntEnum):
+    """Decide where from the pixels be taken from the two frames when calculating the "flow" of the vector."""
+
+    ABSOLUTE = 0
+    """Fetch pixels to every place of destination."""
+
+    RELATIVE = 1
+    """Shift pixels from every place of source"""

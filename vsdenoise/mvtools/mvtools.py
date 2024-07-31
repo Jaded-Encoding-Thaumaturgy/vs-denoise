@@ -12,7 +12,7 @@ from vstools import (
 )
 
 from ..prefilters import PelType, Prefilter, prefilter_to_full_range
-from .enums import MotionMode, MVDirection, MVToolsPlugin, SADMode, SearchMode
+from .enums import MotionMode, MVDirection, MVToolsPlugin, SADMode, SearchMode, FlowMode
 from .motion import MotionVectors, SuperClips
 from .utils import normalize_thscd, planes_to_mvtools
 
@@ -60,6 +60,7 @@ class MVTools:
         analyze_args: KwargsT | None = None,
         recalculate_args: KwargsT | None = None,
         compensate_args: KwargsT | None = None,
+        flow_args: KwargsT | None = None,
         # super kwargs
         range_conversion: float | None = None, sharp: int | None = None,
         rfilter: int | None = None, prefilter: Prefilter | vs.VideoNode | None = None,
@@ -119,6 +120,7 @@ class MVTools:
         :param analyze_args:        Arguments passed to all the :py:attr:`MVToolsPlugin.Analyze` calls.
         :param recalculate_args:    Arguments passed to all the :py:attr:`MVToolsPlugin.Recalculate` calls.
         :param compensate_args:     Arguments passed to all the :py:attr:`MVToolsPlugin.Compensate` calls.
+        :param flow_args:           Arguments passed to all the :py:attr:`MVToolsPlugin.Flow` calls.
 
         :param block_size:          Block size to be used as smallest portion of the picture for analysis.
         :param overlap:             N block overlap value. Must be even to or lesser than the block size.\n
@@ -194,6 +196,7 @@ class MVTools:
         self.analyze_args = fallback(analyze_args, KwargsT())
         self.recalculate_args = fallback(recalculate_args, KwargsT())
         self.compensate_args = fallback(compensate_args, KwargsT())
+        self.flow_args = fallback(flow_args, KwargsT())
 
         self.hpad = fallback(hpad, 8 if self.is_hd else 16)
         self.hpad_uhd = self.hpad // 2 if self.is_uhd else self.hpad
@@ -644,6 +647,70 @@ class MVTools:
 
         return interleaved, (n_clips, offset)
 
+    @overload
+    def flow(  # type: ignore
+        self, func: Union[
+            Callable[Concatenate[vs.VideoNode, P], vs.VideoNode],
+            Callable[Concatenate[list[vs.VideoNode], P], vs.VideoNode]
+        ], time: float = 100, mode: FlowMode = FlowMode.ABSOLUTE,
+        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
+        **kwargs: P.kwargs
+    ) -> vs.VideoNode:
+        ...
+
+    @overload
+    def flow(
+        self, func: None, time: float = 100, mode: FlowMode = FlowMode.ABSOLUTE,
+        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
+        **kwargs: P.kwargs
+    ) -> tuple[vs.VideoNode, tuple[int, int]]:
+        ...
+
+    def flow(  # type: ignore
+        self, func: Union[
+            Callable[Concatenate[vs.VideoNode, P], vs.VideoNode],
+            Callable[Concatenate[list[vs.VideoNode], P], vs.VideoNode]
+        ] | None, time: float = 100, mode: FlowMode = FlowMode.ABSOLUTE,
+        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
+        **kwargs: P.kwargs
+    ) -> vs.VideoNode | tuple[vs.VideoNode, tuple[int, int]]:
+        ref = self.get_ref_clip(ref, self.flow)
+
+        thSCD1, thSCD2 = self.normalize_thscd(thSCD, 150, self.flow)
+        supers = supers or self.get_supers(ref, inplace=True)
+
+        vect_b, vect_f = self.get_vectors_bf(self.vectors)
+
+        flow_args = dict(
+            super=supers.render, time=time, mode=mode,
+            thscd1=thSCD1, thscd2=thSCD2,
+            tff=self.source_type.is_inter and self.source_type.value or None
+        ) | self.flow_args
+
+        flow_back, flow_forw = [
+            [self.mvtools.Flow(ref, vectors=vect, **flow_args) for vect in vectors]
+            for vectors in (reversed(vect_b), vect_f)
+        ]
+
+        flow_clips = [*flow_forw, ref, *flow_back]
+        n_clips = len(flow_clips)
+        offset = (n_clips - 1) // 2
+
+        interleaved = core.std.Interleave(flow_clips)
+
+        if func:
+            try:
+                processed = func(interleaved, *args, **kwargs)  # type: ignore
+
+                return processed.std.SelectEvery(n_clips, offset)
+            except Exception:
+                return func(flow_clips, *args, **kwargs)  # type: ignore
+
+        return interleaved, (n_clips, offset)
+
     def degrain(
         self,
         thSAD: int | tuple[int | None, int | None] | None = None,
@@ -736,6 +803,21 @@ class MVTools:
             )
 
         return output.std.DoubleWeave(self.source_type.value) if self.source_type.is_inter else output
+
+    def flow_interpolate(
+        self,
+        time: float = 50, mask_scale: float = 100, blend: bool = False,
+        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
+    ) -> vs.VideoNode:
+        ref = self.get_ref_clip(ref, self.flow_interpolate)
+
+        thSCD1, thSCD2 = self.normalize_thscd(thSCD, 150, self.flow_interpolate)
+        supers = supers or self.get_supers(ref, inplace=True)
+
+        (vect_b, *_), (vect_f, *_) = self.get_vectors_bf(self.vectors)
+
+        return self.mvtools.FlowInter(ref, supers.render, vect_b, vect_f, time, mask_scale, blend, thSCD1, thSCD2)
 
     def get_supers(self, ref: vs.VideoNode, *, inplace: bool = False) -> SuperClips:
         """
