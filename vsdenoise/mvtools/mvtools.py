@@ -1,18 +1,19 @@
 from __future__ import annotations
 
+from fractions import Fraction
 from itertools import chain
 from math import exp
 from typing import Any, Callable, Concatenate, Sequence, Union, overload
 
 from vstools import (
     ColorRange, ConstantFormatVideoNode, CustomOverflowError, CustomRuntimeError, FieldBased, FieldBasedT, FuncExceptT,
-    InvalidColorFamilyError, KwargsT, P, PlanesT, check_ref_clip, check_variable, clamp, core, depth,
-    disallow_variable_format, disallow_variable_resolution, fallback, kwargs_fallback, normalize_planes, normalize_seq,
-    scale_value, vs
+    InvalidColorFamilyError, Keyframes, KwargsT, P, PlanesT, SceneChangeMode, Sentinel, check_ref_clip, check_variable,
+    clamp, clip_async_render, core, depth, disallow_variable_format, disallow_variable_resolution, fallback,
+    kwargs_fallback, normalize_planes, normalize_seq, scale_value, vs
 )
 
 from ..prefilters import PelType, Prefilter, prefilter_to_full_range
-from .enums import MotionMode, MVDirection, MVToolsPlugin, SADMode, SearchMode, FlowMode
+from .enums import FlowMode, MotionMode, MVDirection, MVToolsPlugin, SADMode, SearchMode
 from .motion import MotionVectors, SuperClips
 from .utils import normalize_thscd, planes_to_mvtools
 
@@ -660,7 +661,7 @@ class MVTools:
         ...
 
     @overload
-    def flow(
+    def flow(  # type: ignore
         self, func: None, time: float = 100, mode: FlowMode = FlowMode.ABSOLUTE,
         thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
@@ -684,7 +685,7 @@ class MVTools:
 
         vect_b, vect_f = self.get_vectors_bf(self.vectors)
 
-        flow_args = dict(
+        flow_args = KwargsT(  # type: ignore
             super=supers.render, time=time, mode=mode,
             thscd1=thSCD1, thscd2=thSCD2,
             tff=self.source_type.is_inter and self.source_type.value or None
@@ -810,14 +811,95 @@ class MVTools:
         thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
-        ref = self.get_ref_clip(ref, self.flow_interpolate)
-
-        thSCD1, thSCD2 = self.normalize_thscd(thSCD, 150, self.flow_interpolate)
+        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.flow_interpolate)
         supers = supers or self.get_supers(ref, inplace=True)
+
+        return self.mvtools.FlowInter(
+            ref, supers.render, vect_b, vect_f, time, mask_scale, blend, thSCD1, thSCD2
+        )
+
+    def flow_blur(
+        self,
+        blur: float = 50, pixel_precision: int = 1,
+        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
+    ) -> vs.VideoNode:
+        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.flow_blur)
+        supers = supers or self.get_supers(ref, inplace=True)
+
+        return self.mvtools.FlowBlur(
+            ref, supers.render, vect_b, vect_f, blur, pixel_precision, thSCD1, thSCD2
+        )
+
+    def flow_fps(
+        self,
+        fps: Fraction, mask_type: int = 2, mask_scale: float = 100, blend: bool = False,
+        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
+    ) -> vs.VideoNode:
+        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.flow_fps)
+        supers = supers or self.get_supers(ref, inplace=True)
+
+        return self.mvtools.FlowFPS(
+            ref, supers.render, vect_b, vect_f, fps.numerator, fps.denominator,
+            mask_type, mask_scale, blend, thSCD1, thSCD2
+        )
+
+    def block_fps(
+        self,
+        fps: Fraction, mask_type: int = 3, mask_scale: float = 100, blend: bool = False,
+        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
+    ) -> vs.VideoNode:
+        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.block_fps)
+        supers = supers or self.get_supers(ref, inplace=True)
+
+        return self.mvtools.BlockFPS(
+            ref, supers.render, vect_b, vect_f, fps.numerator, fps.denominator,
+            mask_type, mask_scale, blend, thSCD1, thSCD2
+        )
+
+    def mask(
+        self,
+        mask_type: int = 0, mask_scale: float = 100, gamma: float = 1.0,
+        scenechange_y: int = 0, time: float = 100, fwd: bool = True,
+        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        *, ref: vs.VideoNode | None = None
+    ) -> vs.VideoNode:
+        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.mask)
+
+        return self.mvtools.Mask(
+            ref, vect_f if fwd else vect_b, mask_scale, gamma, mask_type,
+            time, scenechange_y, thSCD1, thSCD2
+        )
+
+    def sc_detection(
+        self,
+        fwd: bool = True,
+        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        *, ref: vs.VideoNode | None = None
+    ) -> Keyframes:
+        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.sc_detection)
+
+        sc_detect = self.mvtools.SCDetection(ref, vect_f if fwd else vect_b, thSCD1, thSCD2)
+        sc_detect = SceneChangeMode.SCXVID._prepare_akarin(sc_detect, [sc_detect])
+
+        frames = clip_async_render(
+            sc_detect, None, 'Detecting scene changes with MVTools...', SceneChangeMode.SCXVID.lambda_cb()
+        )
+
+        return Keyframes(Sentinel.filter(frames))
+
+    def _get_rad1_mv(
+        self, thSCD: int | tuple[int | None, int | None] | None, ref: vs.VideoNode | None, func: FuncExceptT
+    ) -> tuple[vs.VideoNode, int, int, vs.VideoNode, vs.VideoNode]:
+        ref = self.get_ref_clip(ref, func)
+
+        thSCD1, thSCD2 = self.normalize_thscd(thSCD, 150, func)
 
         (vect_b, *_), (vect_f, *_) = self.get_vectors_bf(self.vectors)
 
-        return self.mvtools.FlowInter(ref, supers.render, vect_b, vect_f, time, mask_scale, blend, thSCD1, thSCD2)
+        return ref, thSCD1, thSCD2, vect_b, vect_f
 
     def get_supers(self, ref: vs.VideoNode, *, inplace: bool = False) -> SuperClips:
         """
@@ -834,9 +916,7 @@ class MVTools:
         if self.supers and self.supers.base == ref:
             return self.supers
 
-        supers = self.super(ref=ref, inplace=inplace)
-
-        return supers
+        return self.super(ref=ref, inplace=inplace)
 
     def get_vectors_bf(
         self, vectors: MotionVectors, *, supers: SuperClips | None = None,
@@ -948,10 +1028,10 @@ class MVTools:
             recalculate_args=recalculate_args, compensate_args=compensate_args
         )
 
-        if isinstance(thSAD, Sequence):
-            thSADA, thSADD = thSAD  # type: ignore
-        else:
+        if not isinstance(thSAD, Sequence):
             thSADA = thSADD = thSAD
+        else:
+            thSADA, thSADD = thSAD  # type: ignore
 
         supers = supers or mvtools.super(
             range_conversion, sharp, rfilter, prefilter, pel_type, inplace=True

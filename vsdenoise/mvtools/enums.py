@@ -69,16 +69,32 @@ class MVToolsPlugin(CustomIntEnum):
         return cast(VSFunctionKwArgs, self.namespace.Compensate)
 
     @property
-    def Flow(self) -> VSFunctionKwArgs:
-        return cast(VSFunctionKwArgs, self.namespace.Flow)
+    def Flow(self) -> VSFunctionAllArgs:
+        return cast(VSFunctionAllArgs, self.namespace.Flow)
 
     @property
-    def FlowInter(self) -> VSFunctionKwArgs:
-        return cast(VSFunctionKwArgs, self.namespace.FlowInter)
+    def FlowInter(self) -> VSFunctionAllArgs:
+        return cast(VSFunctionAllArgs, self.namespace.FlowInter)
 
     @property
-    def Mask(self) -> VSFunctionKwArgs:
-        return cast(VSFunctionKwArgs, self.namespace.Mask)
+    def FlowBlur(self) -> VSFunctionAllArgs:
+        return cast(VSFunctionAllArgs, self.namespace.FlowBlur)
+
+    @property
+    def FlowFPS(self) -> VSFunctionAllArgs:
+        return cast(VSFunctionAllArgs, self.namespace.FlowFPS)
+
+    @property
+    def BlockFPS(self) -> VSFunctionAllArgs:
+        return cast(VSFunctionAllArgs, self.namespace.BlockFPS)
+
+    @property
+    def Mask(self) -> VSFunctionAllArgs:
+        return cast(VSFunctionAllArgs, self.namespace.Mask)
+
+    @property
+    def SCDetection(self) -> VSFunctionAllArgs:
+        return cast(VSFunctionAllArgs, self.namespace.SCDetection)
 
     def Degrain(self, radius: int | None = None) -> VSFunctionAllArgs:
         if radius is None and self is not MVToolsPlugin.FLOAT_NEW:
