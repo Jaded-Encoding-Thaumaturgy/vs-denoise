@@ -13,7 +13,7 @@ from vstools import (
 )
 
 from ..prefilters import PelType, Prefilter, prefilter_to_full_range
-from .enums import FlowMode, MotionMode, MVDirection, MVToolsPlugin, SADMode, SearchMode
+from .enums import FinestMode, FlowMode, MotionMode, MVDirection, MVToolsPlugin, SADMode, SearchMode
 from .motion import MotionVectors, SuperClips
 from .utils import normalize_thscd, planes_to_mvtools
 
@@ -70,7 +70,7 @@ class MVTools:
         block_size: int | None = None, overlap: int | None = None,
         thSAD: int | None = None, search: SearchMode | SearchMode.Config | None = None,
         sad_mode: SADMode | tuple[SADMode, SADMode] | None = None,
-        motion: MotionMode.Config | None = None,
+        motion: MotionMode.Config | None = None, finest_mode: FinestMode = FinestMode.NONE
     ) -> None:
         """
         MVTools is a wrapper around the Motion Vector Tools plugin for VapourSynth,
@@ -228,6 +228,13 @@ class MVTools:
             overlap=overlap, search=search, block_size=block_size, sad_mode=sad_mode,
             motion=motion, thSAD=thSAD
         )
+
+        self.finest_mode = finest_mode
+
+        if self.mvtools is MVToolsPlugin.INTEGER and self.finest_mode is not FinestMode.NONE:
+            raise CustomRuntimeError(
+                'finest_mode != NONE is only supported in the float plugin!', reason=dict(finest_mode=self.finest_mode)
+            )
 
         if isinstance(vectors, MVTools):
             self.vectors = vectors.vectors
@@ -420,7 +427,7 @@ class MVTools:
             vectors.vmulti = self.mvtools.Analyse(supers.search, radius=t2, **analyze_args)
         else:
             for i in range(1, t2 + 1):
-                vectors.calculate_vectors(i, self.mvtools, supers, False, **analyze_args)
+                vectors.calculate_vectors(i, self.mvtools, supers, False, self.finest_mode, **analyze_args)
 
         if self.refine:
             self.recalculate(
@@ -505,7 +512,7 @@ class MVTools:
                     recalc_blksize = clamp(blocksize / 2 ** j, 4, 128)
 
                     vectors.calculate_vectors(
-                        i, self.mvtools, supers, True, **(recalc_args | dict(
+                        i, self.mvtools, supers, True, self.finest_mode, **(recalc_args | dict(
                             blksize=recalc_blksize, overlap=recalc_blksize // 2,
                             lambda_=motion.block_coherence(recalc_blksize)
                         ))
@@ -900,6 +907,9 @@ class MVTools:
         (vect_b, *_), (vect_f, *_) = self.get_vectors_bf(self.vectors)
 
         return ref, thSCD1, thSCD2, vect_b, vect_f
+
+    def finest(self) -> None:
+        self.analyze().finest(self.mvtools)
 
     def get_supers(self, ref: vs.VideoNode, *, inplace: bool = False) -> SuperClips:
         """

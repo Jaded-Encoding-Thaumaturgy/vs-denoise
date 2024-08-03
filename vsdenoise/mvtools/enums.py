@@ -14,7 +14,7 @@ __all__ = [
 
     'MVToolsPlugin',
 
-    'SADMode', 'SearchMode', 'MotionMode', 'FlowMode'
+    'SADMode', 'SearchMode', 'MotionMode', 'FlowMode', 'FinestMode'
 ]
 
 
@@ -95,6 +95,10 @@ class MVToolsPlugin(CustomIntEnum):
     @property
     def SCDetection(self) -> VSFunctionAllArgs:
         return cast(VSFunctionAllArgs, self.namespace.SCDetection)
+
+    @property
+    def Finest(self) -> VSFunctionAllArgs:
+        return cast(VSFunctionAllArgs, self.namespace.Finest)
 
     def Degrain(self, radius: int | None = None) -> VSFunctionAllArgs:
         if radius is None and self is not MVToolsPlugin.FLOAT_NEW:
@@ -544,3 +548,27 @@ class FlowMode(CustomIntEnum):
 
     RELATIVE = 1
     """Shift pixels from every place of source"""
+
+
+class FinestMode(CustomIntEnum):
+    """Decide when to calculate Finest type of a vector"""
+
+    NONE = 0
+    """Disabled"""
+
+    ANALYZE = 1
+    """After Analyze"""
+
+    RECALCULATE = 2
+    """After recalculation"""
+
+    BOTH = 3
+    """Every step"""
+
+    @property
+    def after_analyze(self) -> bool:
+        return self in {self.ANALYZE, self.BOTH}
+
+    @property
+    def after_recalculate(self) -> bool:
+        return self in {self.RECALCULATE, self.BOTH}

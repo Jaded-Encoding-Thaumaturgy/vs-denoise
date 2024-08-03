@@ -4,7 +4,7 @@ from typing import Any, NamedTuple
 
 from vstools import vs
 
-from .enums import MVDirection, MVToolsPlugin
+from .enums import MVDirection, MVToolsPlugin, FinestMode
 
 __all__ = [
     'MotionVectors',
@@ -81,17 +81,29 @@ class MotionVectors:
         self._init_vects()
 
     def calculate_vectors(
-        self, delta: int, mvtools: MVToolsPlugin, supers: SuperClips, recalc: bool, **kwargs: Any
+        self, delta: int, mvtools: MVToolsPlugin, supers: SuperClips, recalc: bool, finest: FinestMode, **kwargs: Any
     ) -> None:
         for direction in MVDirection:
             if not recalc:
                 vect = mvtools.Analyse(supers.search, isb=direction.isb, delta=delta, **kwargs)
+                if finest.after_analyze:
+                    vect = mvtools.Finest(vect)
             else:
                 vect = mvtools.Recalculate(
                     supers.recalculate, self.get_mv(direction, delta), **kwargs
                 )
+                if finest.after_recalculate:
+                    vect = mvtools.Finest(vect)
 
             self.set_mv(direction, delta, vect)
+
+    def finest(self, mvtools: MVToolsPlugin) -> None:
+        self.temporal_vectors = {
+            direction: {
+                delta: mvtools.Finest(vect)
+                for delta, vect in vectors.items()
+            } for direction, vectors in self.temporal_vectors.items()
+        }
 
 
 class SuperClips(NamedTuple):
