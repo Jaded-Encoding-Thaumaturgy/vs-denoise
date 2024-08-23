@@ -23,7 +23,7 @@ from .limit import TemporalLimiter, TemporalLimiterConfig
 from .mvtools import MotionMode, MVTools, MVToolsPreset, MVToolsPresets, SADMode, SearchMode
 from .mvtools.enums import SearchModeBase
 from .mvtools.utils import normalize_thscd
-from .nlm import WeightMode, WeightModeAndRef, nl_means
+from .nlm import NLMWeightMode, NLMWeightModeAndRef, nl_means
 from .postprocess import PostProcess, PostProcessConfig
 from .prefilters import PelType, Prefilter
 
@@ -309,7 +309,7 @@ def schizo_denoise(
     preset: MVToolsPreset = MVToolsPresets.FAST,
     prefilter: vs.VideoNode | Prefilter = Prefilter.DFTTEST,
     smooth: bool | tuple[bool | int, bool | int] = True,
-    wmode: WeightMode | WeightModeAndRef = WeightMode.WELSCH,
+    wmode: NLMWeightMode | NLMWeightModeAndRef = NLMWeightMode.WELSCH,
     contra: int | float | bool = False, aggressive: vs.VideoNode | Prefilter | bool = False,
     matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
     nlm_ref: vs.VideoNode | bool | None = None, **kwargs: Any

@@ -14,7 +14,7 @@ from vstools import (
 )
 
 __all__ = [
-    'ChannelMode', 'DeviceType', 'WeightMode',
+    'ChannelMode', 'DeviceType', 'NLMWeightMode',
 
     'nl_means'
 ]
@@ -180,7 +180,7 @@ class DeviceType(DeviceTypeWithInfo, CustomEnum):
             return DeviceTypeWithInfo(str(self), **kwargs)
 
 
-class WeightMode(CustomIntEnum):
+class NLMWeightMode(CustomIntEnum):
     WELSCH = 0
     """
     Welsch weighting function has a faster decay, but still assigns positive weights to dissimilar blocks.
@@ -203,18 +203,18 @@ class WeightMode(CustomIntEnum):
     Modified Bisquare weighting function to be even more robust.
     """
 
-    def __call__(self, weight_ref: float = 1.0) -> WeightModeAndRef:
+    def __call__(self, weight_ref: float = 1.0) -> NLMWeightModeAndRef:
         """
         :param weight_ref:  Amount of original pixel to contribute to the filter output,
                             relative to the weight of the most similar pixel found.
 
         :return:            Config with weight mode and ref.
         """
-        return WeightModeAndRef(self, weight_ref)
+        return NLMWeightModeAndRef(self, weight_ref)
 
 
-class WeightModeAndRef(NamedTuple):
-    weight_mode: WeightMode
+class NLMWeightModeAndRef(NamedTuple):
+    weight_mode: NLMWeightMode
     weight_ref: float
 
 
@@ -222,7 +222,7 @@ def nl_means(
     clip: vs.VideoNode, strength: float | Sequence[float] = 1.2,
     tr: int | Sequence[int] = 1, sr: int | Sequence[int] = 2, simr: int | Sequence[int] = 4,
     device_type: DeviceType = DeviceType.AUTO, ref: vs.VideoNode | None = None,
-    wmode: WeightMode | WeightModeAndRef = WeightMode.WELSCH, planes: PlanesT = None,
+    wmode: NLMWeightMode | NLMWeightModeAndRef = NLMWeightMode.WELSCH, planes: PlanesT = None,
     **kwargs: Any
 ) -> vs.VideoNode:
     """
@@ -260,7 +260,7 @@ def nl_means(
 
     nstrength, ntr, nsr, nsimr = to_arr(strength), to_arr(tr), to_arr(sr), to_arr(simr)
 
-    wmoder, wref = wmode if isinstance(wmode, WeightModeAndRef) else wmode()
+    wmoder, wref = wmode if isinstance(wmode, NLMWeightModeAndRef) else wmode()
 
     kwargs.update(ref=ref, wmode=wmoder.value, wref=wref)
 
