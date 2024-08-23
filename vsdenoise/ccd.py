@@ -8,12 +8,13 @@ from math import sin, sqrt
 from typing import Any
 
 from vsaa import Nnedi3
-from vsexprtools import EXPR_VARS, complexpr_available, norm_expr
+from vsexprtools import complexpr_available, norm_expr
 from vskernels import Bicubic, Point
 from vsscale import SSIM
 from vstools import (
-    CustomIndexError, CustomIntEnum, InvalidColorFamilyError, Matrix, MatrixT, PlanesT, UnsupportedSubsamplingError,
-    check_ref_clip, fallback, get_peak_value, join, normalize_planes, plane, shift_clip, split, vs
+    EXPR_VARS, CustomIndexError, CustomIntEnum, InvalidColorFamilyError, Matrix, MatrixT, PlanesT,
+    UnsupportedSubsamplingError, check_ref_clip, fallback, get_peak_value, join, normalize_planes, plane, shift_clip,
+    split, vs
 )
 
 __all__ = [
