@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable
 
-from vsexprtools import norm_expr
 from vsrgtools import MeanMode
 from vstools import (
     CustomValueError, GenericVSFunction, KwargsT, PlanesT, fallback, flatten_vnodes,
-     get_video_format, normalize_planes, normalize_seq, vs
+    get_video_format, normalize_planes, normalize_seq, vs
 )
 
 from .fft import DFTTest

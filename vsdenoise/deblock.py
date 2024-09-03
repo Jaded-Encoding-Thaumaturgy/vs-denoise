@@ -6,11 +6,11 @@ from typing import Any, Literal, SupportsFloat, cast
 from vsexprtools import expr_func, norm_expr
 from vskernels import Catrom, Kernel, KernelT
 from vsmasktools import FDoG, GenericMaskT, adg_mask, normalize_mask
-from vsrgtools import gauss_blur, MeanMode
+from vsrgtools import gauss_blur
 from vstools import (
-    Align, FunctionUtil, ColorRange, CustomStrEnum, DependencyNotFoundError, FrameRangeN, FrameRangesN, InvalidColorFamilyError, KwargsT,
-    PlanesT, LengthMismatchError, Matrix, MatrixT, UnsupportedVideoFormatError, check_variable, core, depth, fallback, get_depth,
-    get_nvidia_version, get_y, join, padder, get_plane_sizes, to_arr, replace_ranges, vs
+    FunctionUtil, ColorRange, CustomStrEnum, DependencyNotFoundError, FrameRangeN, FrameRangesN, Matrix, MatrixT,
+    Align, KwargsT, PlanesT, InvalidColorFamilyError, LengthMismatchError, UnsupportedVideoFormatError, check_variable,
+    core, depth, fallback, get_depth, get_nvidia_version, get_y, join, padder, get_plane_sizes, replace_ranges, vs
 )
 
 __all__ = [
