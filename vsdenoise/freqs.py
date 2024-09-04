@@ -5,7 +5,7 @@ from typing import Any, Iterable
 from vsrgtools import MeanMode
 from vstools import (
     CustomValueError, GenericVSFunction, KwargsT, PlanesT, fallback, flatten_vnodes,
-    get_video_format, normalize_planes, normalize_seq, vs
+    normalize_planes, normalize_seq, vs, FormatsMismatchError
 )
 
 from .fft import DFTTest
@@ -52,10 +52,7 @@ def frequency_merge(
     if not lowpass:
         raise CustomValueError('You must pass at least one lowpass filter!', frequency_merge)
 
-    formats = {get_video_format(clip).id for clip in clips}
-
-    if len(formats) > 1:
-        raise CustomValueError('All clips must have the same format!', frequency_merge)
+    FormatsMismatchError.check(frequency_merge, *clips)
 
     blurred_clips = []
     for clip, filt in zip(clips, normalize_seq(lowpass, n_clips)):
