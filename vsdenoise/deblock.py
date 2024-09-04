@@ -8,13 +8,15 @@ from vskernels import Catrom, Kernel, KernelT
 from vsmasktools import FDoG, GenericMaskT, adg_mask, normalize_mask
 from vsrgtools import gauss_blur
 from vstools import (
-    ColorRange, CustomStrEnum, DependencyNotFoundError, FrameRangeN, FrameRangesN, InvalidColorFamilyError, KwargsT,
-    LengthMismatchError, Matrix, MatrixT, UnsupportedVideoFormatError, check_variable, core, depth, fallback, get_depth,
-    get_nvidia_version, get_y, join, padder, replace_ranges, vs
+    FunctionUtil, ColorRange, CustomStrEnum, DependencyNotFoundError, FrameRangeN, FrameRangesN, Matrix, MatrixT,
+    Align, KwargsT, PlanesT, InvalidColorFamilyError, LengthMismatchError, UnsupportedVideoFormatError, check_variable,
+    core, depth, fallback, get_depth, get_nvidia_version, get_y, join, padder, get_plane_sizes, replace_ranges, vs
 )
 
 __all__ = [
-    'dpir', 'dpir_mask'
+    'dpir', 'dpir_mask',
+
+    'deblock_qed'
 ]
 
 
@@ -324,3 +326,82 @@ def dpir_mask(
         mask = mask.std.MaskedMerge(lines_clip, linemask)
 
     return mask
+
+
+def deblock_qed(
+    clip: vs.VideoNode,
+    quant_edge: int = 24,
+    quant_inner: int = 26,
+    alpha_edge: int = 1, beta_edge: int = 2,
+    alpha_inner: int = 1, beta_inner: int = 2,
+    chroma_mode: int = 0,
+    align: Align = Align.TOP_LEFT,
+    planes: PlanesT = None
+) -> vs.VideoNode:
+    """
+    A postprocessed Deblock: Uses full frequencies of Deblock's changes on block borders,
+    but DCT-lowpassed changes on block interiours.
+
+    :param clip:            Clip to process.
+    :param quant_edge:      Strength of block edge deblocking.
+    :param quant_inner:     Strength of block internal deblocking.
+    :param alpha_edge:      Halfway "sensitivity" and halfway a strength modifier for borders.
+    :param beta_edge:       "Sensitivity to detect blocking" for borders.
+    :param alpha_inner:     Halfway "sensitivity" and halfway a strength modifier for block interiors.
+    :param beta_inner:      "Sensitivity to detect blocking" for block interiors.
+    :param chroma_mode:      Chroma deblocking behaviour.
+                            - 0 = use proposed method for chroma deblocking
+                            - 1 = directly use chroma deblock from the normal Deblock
+                            - 2 = directly use chroma deblock from the strong Deblock
+    :param align:           Where to align the blocks for eventual padding.
+    :param planes:          What planes to process.
+
+    :return:                Deblocked clip
+    """
+    func = FunctionUtil(clip, deblock_qed, planes)
+    if not func.chroma:
+        chroma_mode = 0
+
+    with padder.ctx(8, align=align) as p8:
+        clip = p8.MIRROR(func.work_clip)
+
+        block = padder.COLOR(
+            clip.std.BlankClip(
+                width=6, height=6, length=1, color=0,
+                format=func.work_clip.format.replace(color_family=vs.GRAY, subsampling_w=0, subsampling_h=0)
+            ), 1, 1, 1, 1, True
+        )
+        block = core.std.StackHorizontal([block] * (clip.width // block.width))
+        block = core.std.StackVertical([block] * (clip.height // block.height))
+
+        if func.chroma:
+            blockc = block.std.CropAbs(*get_plane_sizes(clip, 1))
+            block = join(block, blockc, blockc)
+
+        block = block * clip.num_frames
+
+        normal, strong = (
+            clip.deblock.Deblock(quant_edge, alpha_edge, beta_edge, func.norm_planes if chroma_mode < 2 else 0),
+            clip.deblock.Deblock(quant_inner, alpha_inner, beta_inner, func.norm_planes if chroma_mode != 1 else 0)
+        )
+
+        normalD2, strongD2 = (
+            norm_expr([clip, dclip, block], 'z x y - 0 ? range_diff +', planes)
+            for dclip in (normal, strong)
+        )
+
+        with padder.ctx(16, align=align) as p16:
+            strongD2 = p16.CROP(
+                norm_expr(p16.MIRROR(strongD2), 'x range_diff - 1.01 * range_diff +', planes)
+                .dctf.DCTFilter([1, 1, 0, 0, 0, 0, 0, 0], planes)
+            )
+
+        strongD4 = norm_expr([strongD2, normalD2], 'y range_diff = x y ?', planes)
+        deblocked = clip.std.MakeDiff(strongD4, planes)
+
+        if func.chroma and chroma_mode:
+            deblocked = join([deblocked, strong if chroma_mode == 2 else normal])
+
+        deblocked = p8.CROP(deblocked)
+
+    return func.return_clip(deblocked)
