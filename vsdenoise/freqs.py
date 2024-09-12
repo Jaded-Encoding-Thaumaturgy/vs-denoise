@@ -20,7 +20,7 @@ def frequency_merge(
     *_clips: vs.VideoNode | Iterable[vs.VideoNode], tr: int = 0,
     mode_high: MeanMode | vs.VideoNode = MeanMode.LEHMER, mode_low: MeanMode | vs.VideoNode = MeanMode.ARITHMETIC,
     mode_tr: MeanMode | None = None, lowpass: GenericVSFunction | list[GenericVSFunction] = DFTTest.denoise,
-    mean_diff: bool = False, planes: PlanesT = None, mv_args: KwargsT | None = None,
+    planes: PlanesT = None, mv_args: KwargsT | None = None,
     **kwargs: Any
 ) -> vs.VideoNode:
     """
@@ -35,8 +35,6 @@ def frequency_merge(
                         If None, it defaults to the value of mode_high.
     :param lowpass:     The lowpass filter to used to extract high frequency components.
                             Example: `lowpass = lambda i: vsrgtools.box_blur(i, passes=3)`
-    :param mean_diff:   Whether to use the mean of the lowpass filter and the original clip to
-                        extract the low frequency components. Default is False.
     :param planes:      The planes to process. If None, all planes will be processed.
     :param mv_args:     The arguments to pass to the MVTools class.
     """
@@ -67,7 +65,7 @@ def frequency_merge(
         low_freqs = mode_low(blurred_clips, planes=planes, func=frequency_merge)
 
     diffed_clips = []
-    for clip, blur in zip(clips, normalize_seq(low_freqs if mean_diff else blurred_clips, n_clips)):
+    for clip, blur in zip(clips, normalize_seq(blurred_clips, n_clips)):
         diffed_clips.append(None if clip == blur else clip.std.MakeDiff(blur, planes))
 
     if isinstance(mode_high, vs.VideoNode):
