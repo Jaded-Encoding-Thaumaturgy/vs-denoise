@@ -16,8 +16,7 @@ from vsrgtools import bilateral, blur, gauss_blur, min_blur, replace_low_frequen
 from vstools import (
     MISSING, ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, MissingT, PlanesT, SingleOrArr,
     SingleOrArrOpt, check_variable, clamp, core, depth, disallow_variable_format, disallow_variable_resolution,
-    get_depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes, normalize_seq, scale_8bit, scale_value,
-    split, vs
+    get_neutral_value, get_peak_value, get_y, join, normalize_planes, normalize_seq, scale_8bit, split, vs
 )
 
 from .bm3d import BM3D as BM3DM
@@ -65,7 +64,6 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
             pref_type = Prefilter.MINBLUR3 if self == Prefilter.AUTO else self
 
-            bits = get_depth(clip)
             peak = get_peak_value(clip)
             planes = normalize_planes(clip, planes)
 
@@ -98,7 +96,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             if pref_type == Prefilter.DFTTEST:
                 dftt = DFTTest(sloc={0.0: 4, 0.2: 9, 1.0: 15}, tr=0).denoise(clip, **kwargs)
 
-                i, j = (scale_value(x, 8, bits, range_out=ColorRange.FULL) for x in (16, 75))
+                i, j = (scale_8bit(clip, x) for x in (16, 75))
 
                 pref_mask = norm_expr(
                     get_y(clip),
@@ -855,7 +853,6 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
 
     assert (fmt := work_clip.format) and pref.format
 
-    bits = get_depth(pref)
     is_integer = fmt.sample_type == vs.INTEGER
 
     # Luma expansion TV->PC (up to 16% more values for motion estimation)
@@ -886,7 +883,7 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
     elif range_conversion > 0.0:
         pref_full = retinex(work_clip, upper_thr=range_conversion, fast=False)
     else:
-        pref_full = depth(work_clip, bits, range_out=ColorRange.FULL, range_in=ColorRange.LIMITED)
+        pref_full = depth(work_clip, pref, range_out=ColorRange.FULL, range_in=ColorRange.LIMITED)
 
     if chroma:
         return join(pref_full, *chroma, family=pref.format.color_family)
