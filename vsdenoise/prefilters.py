@@ -253,13 +253,13 @@ class Prefilter(PrefilterBase):
     """Don't do any prefiltering. Returns the clip as-is."""
 
     MINBLUR1 = 0
-    """A gaussian/temporal median merge with a radius of 1."""
+    """Minimum difference of a gaussian/median blur with a radius of 1."""
 
     MINBLUR2 = 1
-    """A gaussian/temporal median merge with a radius of 2."""
+    """Minimum difference of a gaussian/median blur with a radius of 2."""
 
     MINBLUR3 = 2
-    """A gaussian/temporal median merge with a radius of 3."""
+    """Minimum difference of a gaussian/median blur with a radius of 3."""
 
     MINBLURFLUX = 3
     """:py:attr:`MINBLUR2` with temporal/spatial average."""
@@ -271,19 +271,19 @@ class Prefilter(PrefilterBase):
     """Denoising like in DFTTEST but with high defaults for lower frequencies."""
 
     NLMEANS = 5
-    """Denoising with NLMeans, then postprocessed to remove low frequencies."""
+    """Denoising with NLMeans, then postprocessed to restore low frequencies."""
 
     BM3D = 6
     """Normal spatio-temporal denoising using BM3D."""
 
     SCALEDBLUR = 7
-    """Perform blurring at a scaled-down resolution, then scale it back up."""
+    """Perform blurring at a scaled-down resolution, then scaled back up."""
 
     GAUSS = 13
-    """Simply Gaussian blur."""
+    """Gaussian blur."""
 
     GAUSSBLUR = 8
-    """Gaussian blurred, then postprocessed to remove low frequencies."""
+    """Gaussian blurred, then postprocessed to restore low frequencies."""
 
     GAUSSBLUR1 = 9
     """Clamped gaussian/box blurring."""
@@ -352,7 +352,7 @@ class Prefilter(PrefilterBase):
             simr: SingleOrArr[int] = 2, device_type: DeviceType = DeviceType.AUTO, **kwargs: Any
         ) -> vs.VideoNode:
             """
-            Denoising with NLMeans, then postprocessed to remove low frequencies.
+            Denoising with NLMeans, then postprocessed to restore low frequencies.
 
             :param clip:            Source clip.
             :param strength:        Controls the strength of the filtering.\n
@@ -408,7 +408,7 @@ class Prefilter(PrefilterBase):
             downscaler: ScalerT = Bilinear, upscaler: ScalerT | None = None
         ) -> vs.VideoNode:
             """
-            Perform blurring at a scaled-down resolution, then scale it back up.
+            Perform blurring at a scaled-down resolution, then scaled back up.
 
             :param clip:        Clip to be preprocessed.
             :param planes:      Planes to be preprocessed.
@@ -431,7 +431,7 @@ class Prefilter(PrefilterBase):
             sigma: float | None = 1.0, sharp: float | None = None, mode: ConvMode = ConvMode.HV
         ) -> vs.VideoNode:
             """
-            Gaussian blurred, then postprocessed to remove low frequencies.
+            Gaussian blurred, then postprocessed to restore low frequencies.
 
             :param clip:        Clip to be preprocessed.
             :param planes:      Planes to be preprocessed.
@@ -597,7 +597,7 @@ class Prefilter(PrefilterBase):
             simr: SingleOrArr[int] = 2, device_type: DeviceType = DeviceType.AUTO, **kwargs: Any
         ) -> PrefilterPartial:
             """
-            Denoising with NLMeans, then postprocessed to remove low frequencies.
+            Denoising with NLMeans, then postprocessed to restore low frequencies.
 
             :param planes:          Set the clip planes to be processed.
             :param strength:        Controls the strength of the filtering.\n
@@ -649,7 +649,7 @@ class Prefilter(PrefilterBase):
             downscaler: ScalerT = Bilinear, upscaler: ScalerT | None = None
         ) -> PrefilterPartial:
             """
-            Perform blurring at a scaled-down resolution, then scale it back up.
+            Perform blurring at a scaled-down resolution, then scaled back up.
 
             :param planes:      Planes to be preprocessed.
             :param full_range:  Whether to return a prefiltered clip in full range.
@@ -670,7 +670,7 @@ class Prefilter(PrefilterBase):
             sigma: float | None = 1.0, sharp: float | None = None, mode: ConvMode = ConvMode.HV
         ) -> PrefilterPartial:
             """
-            Gaussian blurred, then postprocessed to remove low frequencies.
+            Gaussian blurred, then postprocessed to restore low frequencies.
 
             :param planes:      Planes to be preprocessed.
             :param full_range:  Whether to return a prefiltered clip in full range.
