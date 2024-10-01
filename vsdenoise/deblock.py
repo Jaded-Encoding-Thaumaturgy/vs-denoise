@@ -290,7 +290,7 @@ class _dpir(CustomStrEnum):
             run_dpir = replace_ranges(run_dpir, clip_rgb, no_dpir_zones)
 
         if to_pad:
-            run_dpir = run_dpir.std.Crop(0, *padding)
+            run_dpir = run_dpir.std.Crop(*padding)
 
         if is_rgb or is_gray:
             return depth(run_dpir, bit_depth)
