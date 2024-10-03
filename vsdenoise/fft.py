@@ -663,6 +663,8 @@ class DFTTest:
 
 
 def fft3d(clip: vs.VideoNode, func: FuncExceptT | None = None, **kwargs: Any) -> vs.VideoNode:
+    kwargs |= dict(interlaced=FieldBased.from_video(clip, False, fft3d).is_inter)
+
     if hasattr(core, 'fft3dfilter'):
         # fft3dfilter requires sigma values to be scaled to bit depth
         # https://github.com/myrsloik/VapourSynth-FFT3DFilter/blob/master/doc/fft3dfilter.md#scaling-parameters-according-to-bit-depth
