@@ -7,7 +7,7 @@ from typing import Any, Callable, Concatenate, Sequence, Union, overload
 
 from vstools import (
     ColorRange, ConstantFormatVideoNode, CustomOverflowError, CustomRuntimeError, FieldBased, FieldBasedT, FuncExceptT,
-    InvalidColorFamilyError, Keyframes, KwargsT, P, PlanesT, SceneChangeMode, Sentinel, UnsupportedFieldBasedError,
+    InvalidColorFamilyError, Keyframes, KwargsT, OutdatedPluginError, P, PlanesT, SceneChangeMode, Sentinel,
     check_ref_clip, check_variable, clamp, clip_async_render, core, depth, disallow_variable_format,
     disallow_variable_resolution, fallback, kwargs_fallback, normalize_planes, normalize_seq, scale_8bit, vs
 )
@@ -169,9 +169,6 @@ class MVTools:
         self.clip = clip
         self.workclip = self.clip
 
-        if (fb := FieldBased.from_video(clip, False, self.__class__)).is_inter:
-            raise UnsupportedFieldBasedError('Interlaced input is not supported!', self.__class__, fb)
-
         self.is_hd = clip.width >= 1100 or clip.height >= 600
         self.is_uhd = self.clip.width >= 2600 or self.clip.height >= 1500
 
@@ -184,6 +181,9 @@ class MVTools:
 
         self.source_type = FieldBased.from_param_or_video(source_type, self.clip, False, self.__class__)
         self.range_in = ColorRange.from_param_or_video(range_in, self.clip, False, self.__class__)
+
+        if self.source_type.is_inter:
+            self.workclip = self.workclip.std.SeparateFields(self.source_type.is_tff)
 
         self.pel = fallback(pel, 1 + int(not self.is_hd))
 
@@ -215,6 +215,14 @@ class MVTools:
             self.workclip = depth(self.workclip, 32)
 
         self.mvtools = MVToolsPlugin.from_video(self.workclip)
+
+        if self.source_type.is_inter:
+            if self.mvtools is MVToolsPlugin.INTEGER:
+                if 'time' not in str(core.mv.Compensate.signature):
+                    raise OutdatedPluginError(self.__class__, f'{self.__class__.__name__} {self.mvtools.name}')
+            elif self.mvtools in (MVToolsPlugin.FLOAT_OLD, MVToolsPlugin.FLOAT_NEW):
+                if not hasattr(self.mvtools.namespace, 'Flow'):
+                    raise OutdatedPluginError(self.__class__, f'{self.__class__.__name__} {self.mvtools.name}')
 
         self.super_func_kwargs = dict(
             rfilter=rfilter, range_conversion=range_conversion, sharp=sharp,
@@ -420,6 +428,7 @@ class MVTools:
             truemotion=motion.truemotion, searchparam=search.param, chroma=self.chroma,
             plevel=motion.plevel, pglobal=motion.pglobal, pnew=motion.pnew,
             lambda_=motion.block_coherence(blocksize), lsad=motion.sad_limit,
+            fields=self.source_type.is_inter
         ) | self.analyze_args
 
         if self.mvtools is MVToolsPlugin.FLOAT_NEW:
@@ -487,7 +496,8 @@ class MVTools:
         recalc_args = KwargsT(
             search=search.recalc_mode, dct=sad_mode, thsad=thSAD, blksize=halfblocksize,
             overlap=overlap, truemotion=motion.truemotion, searchparam=search.param_recalc,
-            chroma=self.chroma, pnew=motion.pnew, lambda_=motion.block_coherence(halfblocksize)
+            chroma=self.chroma, pnew=motion.pnew, lambda_=motion.block_coherence(halfblocksize),
+            fields=self.source_type.is_inter
         ) | self.recalculate_args
 
         supers = supers or self.get_supers(ref, inplace=True)
@@ -630,7 +640,8 @@ class MVTools:
         compensate_args = dict(
             super=supers.render, thsad=thSAD,
             thscd1=thSCD1, thscd2=thSCD2,
-            tff=self.source_type.is_inter and self.source_type.value or None
+            fields=self.source_type.is_inter,
+            tff=self.source_type.is_inter and self.source_type.is_tff or None
         ) | self.compensate_args
 
         comp_back, comp_forw = [
@@ -694,7 +705,8 @@ class MVTools:
         flow_args = KwargsT(  # type: ignore
             super=supers.render, time=time, mode=mode,
             thscd1=thSCD1, thscd2=thSCD2,
-            tff=self.source_type.is_inter and self.source_type.value or None
+            fields=self.source_type.is_inter,
+            tff=self.source_type.is_inter and self.source_type.is_tff or None
         ) | self.flow_args
 
         flow_back, flow_forw = [
@@ -809,7 +821,10 @@ class MVTools:
                 ref, supers.render, *chain.from_iterable(zip(vect_b, vect_f)), **degrain_args
             )
 
-        return output
+        if not self.source_type.is_inter:
+            return output
+
+        return output.std.DoubleWeave(self.source_type.is_tff)[::2]
 
     def flow_interpolate(
         self,
