@@ -7,9 +7,9 @@ from typing import Any, Callable, Concatenate, Sequence, Union, overload
 
 from vstools import (
     ColorRange, ConstantFormatVideoNode, CustomOverflowError, CustomRuntimeError, FieldBased, FieldBasedT, FuncExceptT,
-    InvalidColorFamilyError, Keyframes, KwargsT, P, PlanesT, SceneChangeMode, Sentinel, check_ref_clip, check_variable,
-    clamp, clip_async_render, core, depth, disallow_variable_format, disallow_variable_resolution, fallback,
-    kwargs_fallback, normalize_planes, normalize_seq, scale_8bit, vs
+    InvalidColorFamilyError, Keyframes, KwargsT, P, PlanesT, SceneChangeMode, Sentinel, UnsupportedFieldBasedError,
+    check_ref_clip, check_variable, clamp, clip_async_render, core, depth, disallow_variable_format,
+    disallow_variable_resolution, fallback, kwargs_fallback, normalize_planes, normalize_seq, scale_8bit, vs
 )
 
 from ..prefilters import PelType, Prefilter, prefilter_to_full_range
@@ -167,6 +167,10 @@ class MVTools:
         InvalidColorFamilyError.check(clip, (vs.GRAY, vs.YUV), self.__class__)
 
         self.clip = clip
+        self.workclip = self.clip
+
+        if (fb := FieldBased.from_video(clip, False, self.__class__)).is_inter:
+            raise UnsupportedFieldBasedError('Interlaced input is not supported!', self.__class__, fb)
 
         self.is_hd = clip.width >= 1100 or clip.height >= 600
         self.is_uhd = self.clip.width >= 2600 or self.clip.height >= 1500
@@ -204,11 +208,6 @@ class MVTools:
 
         self.vpad = fallback(vpad, 8 if self.is_hd else 16)
         self.vpad_half = self.vpad // 2 if self.is_uhd else self.vpad
-
-        if self.source_type.is_inter:
-            self.workclip = self.clip.std.SeparateFields(self.source_type.is_tff)
-        else:
-            self.workclip = self.clip
 
         self.high_precision = high_precision
 
@@ -810,7 +809,7 @@ class MVTools:
                 ref, supers.render, *chain.from_iterable(zip(vect_b, vect_f)), **degrain_args
             )
 
-        return output.std.DoubleWeave(self.source_type.value)[::2] if self.source_type.is_inter else output
+        return output
 
     def flow_interpolate(
         self,

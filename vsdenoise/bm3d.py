@@ -10,8 +10,9 @@ from typing import Any, Literal, NamedTuple, final, overload
 
 from vstools import (
     MISSING, ColorRange, ColorRangeT, Colorspace, ConstantFormatVideoNode, CustomIndexError, CustomRuntimeError,
-    CustomStrEnum, CustomValueError, FuncExceptT, FunctionUtil, KwargsT, Matrix, MatrixT, MissingT, PlanesT,
-    Self, SingleOrArr, check_variable, core, depth, get_video_format, get_y, join, normalize_seq, vs, vs_object
+    CustomStrEnum, CustomValueError, FieldBased, FuncExceptT, FunctionUtil, KwargsT, Matrix, MatrixT, MissingT, PlanesT,
+    Self, SingleOrArr, check_variable, core, depth, get_video_format, get_y, join, normalize_seq, vs, vs_object,
+    UnsupportedFieldBasedError
 )
 
 from .types import _Plugin_bm3dcpu_Core_Bound, _Plugin_bm3dcuda_Core_Bound, _Plugin_bm3dcuda_rtc_Core_Bound
@@ -352,6 +353,9 @@ class AbstractBM3D(vs_object):
             colorspace = Colorspace.OPP_BM3D
 
         matrix = Matrix.from_param(matrix)
+
+        if (fb := FieldBased.from_video(clip, False, self.__class__)).is_inter:
+            raise UnsupportedFieldBasedError('Interlaced input is not supported!', self.__class__, fb)
 
         self.cspconfig = BM3DColorspaceConfig(colorspace, clip, matrix, self.sigma.y == 0, fp32)
 

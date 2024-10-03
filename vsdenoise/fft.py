@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any, Iterator, Literal, Mapping, NamedTuple, S
 
 from vstools import (
     CustomEnum, CustomImportError, CustomIntEnum, CustomOverflowError, CustomRuntimeError, CustomValueError,
-    DependencyNotFoundError, FuncExceptT, KwargsNotNone, KwargsT, PlanesT, SupportsFloatOrIndex, check_variable, core,
-    flatten, get_depth, get_sample_type, inject_self, vs
+    DependencyNotFoundError, FieldBased, FuncExceptT, KwargsNotNone, KwargsT, PlanesT, SupportsFloatOrIndex,
+    UnsupportedFieldBasedError, check_variable, core, flatten, get_depth, get_sample_type, inject_self, vs
 )
 
 __all__ = [
@@ -567,6 +567,10 @@ class DFTTest:
         sloc: SLocT | None = None, **kwargs: Any
     ) -> None:
         self.clip = clip
+
+        if (fb := FieldBased.from_video(clip, False, self.__class__)).is_inter:
+            raise UnsupportedFieldBasedError('Interlaced input is not supported!', self.__class__, fb)
+
         self.plugin = BackendInfo.from_param(plugin)
 
         self.default_args = kwargs.copy()
@@ -616,6 +620,9 @@ class DFTTest:
 
             clip = self.clip
             nsloc = self.default_slocation
+
+            if (fb := FieldBased.from_video(clip, False, self.denoise)).is_inter:
+                raise UnsupportedFieldBasedError('Interlaced input is not supported!', self.denoise, fb)
 
             if ref is not None:
                 if isinstance(ref, vs.VideoNode):
