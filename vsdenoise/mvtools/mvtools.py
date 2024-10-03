@@ -205,7 +205,7 @@ class MVTools:
         self.vpad = fallback(vpad, 8 if self.is_hd else 16)
         self.vpad_half = self.vpad // 2 if self.is_uhd else self.vpad
 
-        if self.source_type is not FieldBased.PROGRESSIVE:
+        if self.source_type.is_inter:
             self.workclip = self.clip.std.SeparateFields(self.source_type.is_tff)
         else:
             self.workclip = self.clip
@@ -810,7 +810,7 @@ class MVTools:
                 ref, supers.render, *chain.from_iterable(zip(vect_b, vect_f)), **degrain_args
             )
 
-        return output.std.DoubleWeave(self.source_type.value) if self.source_type.is_inter else output
+        return output.std.DoubleWeave(self.source_type.value)[::2] if self.source_type.is_inter else output
 
     def flow_interpolate(
         self,
