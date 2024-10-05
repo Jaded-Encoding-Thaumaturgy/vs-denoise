@@ -16,7 +16,7 @@ from vsrgtools import bilateral, blur, gauss_blur, min_blur, replace_low_frequen
 from vstools import (
     MISSING, ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, MissingT, PlanesT, SingleOrArr,
     SingleOrArrOpt, check_variable, clamp, core, depth, disallow_variable_format, disallow_variable_resolution,
-    get_neutral_value, get_peak_value, get_y, join, normalize_planes, normalize_seq, scale_8bit, split, vs
+    get_neutral_value, get_peak_value, get_y, join, normalize_planes, normalize_seq, scale_value, split, vs
 )
 
 from .bm3d import BM3D as BM3DM
@@ -76,7 +76,9 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             if pref_type == Prefilter.MINBLURFLUX:
                 temp_thr, spat_thr = kwargs.get('temp_thr', 2), kwargs.get('spat_thr', 2)
                 return min_blur(clip, 2, planes).flux.SmoothST(  # type: ignore
-                    scale_8bit(clip, temp_thr), scale_8bit(clip, spat_thr), planes
+                    scale_value(temp_thr, 8, clip, ColorRange.FULL),
+                    scale_value(spat_thr, 8, clip, ColorRange.FULL),
+                    planes
                 )
 
             if pref_type == Prefilter.DFTTEST_SMOOTH:
@@ -96,7 +98,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             if pref_type == Prefilter.DFTTEST:
                 dftt = DFTTest(sloc={0.0: 4, 0.2: 9, 1.0: 15}, tr=0).denoise(clip, **kwargs)
 
-                i, j = (scale_8bit(clip, x) for x in (16, 75))
+                i, j = (scale_value(x, 8, clip, ColorRange.FULL) for x in (16, 75))
 
                 pref_mask = norm_expr(
                     get_y(clip),
@@ -177,7 +179,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
                 gaussblur = gauss_blur(boxblur, **(kwargs | dict[str, Any](planes=planes)))
 
                 if pref_type == Prefilter.GAUSSBLUR2:
-                    i2, i7 = (scale_8bit(clip, x) for x in (2, 7))
+                    i2, i7 = (scale_value(x, 8, clip, ColorRange.FULL) for x in (2, 7))
 
                     merge_expr = f'x {i7} + y < x {i2} + x {i7} - y > x {i2} - x {strg} * y {100 - strg} * + 100 / ? ?'
                 else:
@@ -864,7 +866,9 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
         k = (range_conversion - 1) * c
 
         if is_integer:
-            t = f'x {scale_8bit(pref, 16)} - {scale_8bit(pref, 219)} / {ExprOp.clamp(0, 1)}'
+            t = f'x {scale_value(16, 8, pref, ColorRange.FULL)} '
+            t += f'- {scale_value(219, 8, pref, ColorRange.FULL)} '
+            t += f'/ {ExprOp.clamp(0, 1)}'
         else:
             t = ExprOp.clamp(0, 1, 'x').to_str()
 
