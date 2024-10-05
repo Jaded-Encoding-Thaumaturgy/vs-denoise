@@ -9,8 +9,8 @@ from vsmasktools import EdgeDetectT, FDoGTCanny, range_mask
 from vsrgtools import RemoveGrainMode, bilateral, box_blur, gauss_blur, removegrain
 from vsrgtools.util import norm_rmode_planes
 from vstools import (
-    CustomIndexError, CustomIntEnum, FuncExceptT, InvalidColorFamilyError, KwargsT, PlanesT, check_ref_clip,
-    ColorRange, check_variable, fallback, flatten_vnodes, get_y, normalize_planes, scale_8bit, scale_value, vs
+    ColorRange, CustomIndexError, CustomIntEnum, FuncExceptT, InvalidColorFamilyError, KwargsT, PlanesT, check_ref_clip,
+    check_variable, fallback, flatten_vnodes, get_y, normalize_planes, scale_value, vs
 )
 
 from .fft import DFTTest, fft3d
@@ -120,7 +120,8 @@ def decrease_size(
         else:
             pre = gauss_blur(pre, prefilter)
 
-    minf, maxf = scale_8bit(pre, min_in), scale_8bit(pre, max_in)
+    minf = scale_value(min_in, 8, pre, ColorRange.FULL)
+    maxf = scale_value(max_in, 8, pre, ColorRange.FULL)
 
     mask = norm_expr(
         [pre, mask],  # type: ignore
