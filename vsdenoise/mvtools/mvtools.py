@@ -9,7 +9,7 @@ from vstools import (
     ColorRange, ConstantFormatVideoNode, CustomOverflowError, CustomRuntimeError, FieldBased, FieldBasedT, FuncExceptT,
     InvalidColorFamilyError, Keyframes, KwargsT, OutdatedPluginError, P, PlanesT, SceneChangeMode, Sentinel,
     check_ref_clip, check_variable, clamp, clip_async_render, core, depth, disallow_variable_format,
-    disallow_variable_resolution, fallback, kwargs_fallback, normalize_planes, normalize_seq, scale_8bit, vs
+    disallow_variable_resolution, fallback, kwargs_fallback, normalize_planes, normalize_seq, scale_value, vs
 )
 
 from ..prefilters import PelType, Prefilter, prefilter_to_full_range
@@ -800,7 +800,8 @@ class MVTools:
                 '"limit" values should be between 0 and 255 (inclusive)!', self.degrain
             )
 
-        limitf, limitCf = scale_8bit(ref, limit), scale_8bit(ref, limitC)
+        limitf = scale_value(limit, 8, ref, ColorRange.FULL)
+        limitCf = scale_value(limitC, 8, ref, ColorRange.FULL)
 
         thSCD1, thSCD2 = self.normalize_thscd(thSCD, thSAD, self.degrain)
 
