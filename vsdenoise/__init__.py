@@ -1,4 +1,5 @@
-# flake8: noqa
+# ruff: noqa: F401, F403
+
 from .blockmatch import *
 from .bm3d import *
 from .ccd import *
