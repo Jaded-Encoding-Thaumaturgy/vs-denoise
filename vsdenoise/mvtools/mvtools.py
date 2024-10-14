@@ -800,8 +800,8 @@ class MVTools:
                 '"limit" values should be between 0 and 255 (inclusive)!', self.degrain
             )
 
-        limitf = scale_value(limit, 8, ref, ColorRange.FULL)
-        limitCf = scale_value(limitC, 8, ref, ColorRange.FULL)
+        limitf = scale_value(limit, 8, ref, ColorRange.FULL, ColorRange.FULL)
+        limitCf = scale_value(limitC, 8, ref, ColorRange.FULL, ColorRange.FULL)
 
         thSCD1, thSCD2 = self.normalize_thscd(thSCD, thSAD, self.degrain)
 
