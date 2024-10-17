@@ -12,7 +12,7 @@ from vsaa import Nnedi3
 from vsexprtools import ExprOp, complexpr_available, norm_expr
 from vskernels import Bicubic, Bilinear, Scaler, ScalerT
 from vsmasktools import retinex
-from vsrgtools import bilateral, blur, gauss_blur, min_blur, replace_low_frequencies
+from vsrgtools import bilateral, blur, gauss_blur, min_blur
 from vstools import (
     MISSING, ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, MissingT, PlanesT, SingleOrArr,
     SingleOrArrOpt, check_variable, clamp, core, depth, disallow_variable_format, disallow_variable_resolution,
@@ -109,9 +109,8 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
             if pref_type == Prefilter.NLMEANS:
                 kwargs |= dict(strength=7.0, tr=1, sr=2, simr=2) | kwargs | dict(planes=planes)
-                knl = nl_means(clip, **kwargs)
 
-                return replace_low_frequencies(knl, clip, 600 * (clip.width / 1920), False, planes)
+                return nl_means(clip, **kwargs)
 
             if pref_type == Prefilter.BM3D:
                 bm3d_arch: type[AbstractBM3D] = kwargs.pop('arch', None)
@@ -164,9 +163,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
                 if 'sharp' not in kwargs and 'sigma' not in kwargs:
                     kwargs |= dict(sigma=1.0)
 
-                dgd = gauss_blur(clip, **(kwargs | dict[str, Any](planes=planes)))
-
-                return replace_low_frequencies(dgd, clip, clip.width / 2)
+                return gauss_blur(clip, **(kwargs | dict[str, Any](planes=planes)))
 
             if pref_type in {Prefilter.GAUSSBLUR1, Prefilter.GAUSSBLUR2}:
                 boxblur = blur(clip, kwargs.pop('radius', 1), kwargs.get('mode', ConvMode.HV), planes=planes)
@@ -273,7 +270,7 @@ class Prefilter(PrefilterBase):
     """Denoising like in DFTTEST but with high defaults for lower frequencies."""
 
     NLMEANS = 5
-    """Denoising with NLMeans, then postprocessed to restore low frequencies."""
+    """Denoising with NLMeans."""
 
     BM3D = 6
     """Normal spatio-temporal denoising using BM3D."""
@@ -285,7 +282,7 @@ class Prefilter(PrefilterBase):
     """Gaussian blur."""
 
     GAUSSBLUR = 8
-    """Gaussian blurred, then postprocessed to restore low frequencies."""
+    """Gaussian blurred."""
 
     GAUSSBLUR1 = 9
     """Clamped gaussian/box blurring."""
