@@ -9,7 +9,7 @@ from vstools import (
     ColorRange, ConstantFormatVideoNode, CustomOverflowError, CustomRuntimeError, FieldBased, FieldBasedT, FuncExceptT,
     InvalidColorFamilyError, Keyframes, KwargsT, OutdatedPluginError, P, PlanesT, SceneChangeMode, Sentinel,
     check_ref_clip, check_variable, clamp, clip_async_render, core, depth, disallow_variable_format,
-    disallow_variable_resolution, fallback, kwargs_fallback, normalize_planes, normalize_seq, scale_value, vs
+    disallow_variable_resolution, fallback, kwargs_fallback, normalize_planes, normalize_seq, vs
 )
 
 from ..prefilters import PelType, Prefilter, prefilter_to_full_range
@@ -800,17 +800,14 @@ class MVTools:
                 '"limit" values should be between 0 and 255 (inclusive)!', self.degrain
             )
 
-        limitf = scale_value(limit, 8, ref, ColorRange.FULL, ColorRange.FULL)
-        limitCf = scale_value(limitC, 8, ref, ColorRange.FULL, ColorRange.FULL)
-
         thSCD1, thSCD2 = self.normalize_thscd(thSCD, thSAD, self.degrain)
 
         degrain_args = dict[str, Any](thscd1=thSCD1, thscd2=thSCD2, plane=self.mv_plane)
 
         if self.mvtools is MVToolsPlugin.INTEGER:
-            degrain_args.update(thsad=thSAD, thsadc=thSADC, limit=limitf, limitc=limitCf)
+            degrain_args.update(thsad=thSAD, thsadc=thSADC, limit=limit, limitc=limitC)
         else:
-            degrain_args.update(thsad=[thSAD, thSADC, thSADC], limit=[limitf, limitCf])
+            degrain_args.update(thsad=[thSAD, thSADC, thSADC], limit=[limit, limitC])
 
             if self.mvtools is MVToolsPlugin.FLOAT_NEW:
                 degrain_args.update(thsad2=[thSAD / 2, thSADC / 2])
