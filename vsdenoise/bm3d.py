@@ -11,8 +11,8 @@ from typing import Any, Literal, NamedTuple, final, overload
 from vstools import (
     MISSING, ColorRange, ColorRangeT, Colorspace, ConstantFormatVideoNode, CustomIndexError, CustomRuntimeError,
     CustomStrEnum, CustomValueError, FieldBased, FuncExceptT, FunctionUtil, KwargsT, Matrix, MatrixT, MissingT, PlanesT,
-    Self, SingleOrArr, check_variable, core, depth, get_video_format, get_y, join, normalize_seq, vs, vs_object,
-    UnsupportedFieldBasedError
+    Self, SingleOrArr, check_variable, core, depth, get_video_format, get_y, is_gpu_available, join, normalize_seq, vs,
+    vs_object, UnsupportedFieldBasedError
 )
 
 from .types import _Plugin_bm3dcpu_Core_Bound, _Plugin_bm3dcuda_Core_Bound, _Plugin_bm3dcuda_rtc_Core_Bound
@@ -561,10 +561,11 @@ class BM3DCPU(AbstractBM3DCuda, plugin=core.lazy.bm3dcpu):
 class BM3D(AbstractBM3D):
     def __new__(cls, *args: Any, **kwargs: Any) -> AbstractBM3D:  # type: ignore
         new_cls: type[AbstractBM3D] | None = None
+        gpu_available = is_gpu_available()
 
-        if hasattr(core, 'bm3dcuda_rtc'):
+        if gpu_available and hasattr(core, 'bm3dcuda_rtc'):
             new_cls = BM3DCudaRTC
-        elif hasattr(core, 'bm3dcuda'):
+        elif gpu_available and hasattr(core, 'bm3dcuda'):
             new_cls = BM3DCuda
         elif hasattr(core, 'bm3dcpu'):
             new_cls = BM3DCPU
