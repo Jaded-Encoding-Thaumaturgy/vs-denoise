@@ -76,8 +76,8 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             if pref_type == Prefilter.MINBLURFLUX:
                 temp_thr, spat_thr = kwargs.get('temp_thr', 2), kwargs.get('spat_thr', 2)
                 return min_blur(clip, 2, planes).flux.SmoothST(  # type: ignore
-                    scale_value(temp_thr, 8, clip, ColorRange.FULL, ColorRange.FULL),
-                    scale_value(spat_thr, 8, clip, ColorRange.FULL, ColorRange.FULL),
+                    scale_value(temp_thr, 8, clip),
+                    scale_value(spat_thr, 8, clip),
                     planes
                 )
 
@@ -98,7 +98,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             if pref_type == Prefilter.DFTTEST:
                 dftt = DFTTest(sloc={0.0: 4, 0.2: 9, 1.0: 15}, tr=0).denoise(clip, **kwargs)
 
-                i, j = (scale_value(x, 8, clip, ColorRange.FULL, ColorRange.FULL) for x in (16, 75))
+                i, j = (scale_value(x, 8, clip) for x in (16, 75))
 
                 pref_mask = norm_expr(
                     get_y(clip),
@@ -176,7 +176,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
                 gaussblur = gauss_blur(boxblur, **(kwargs | dict[str, Any](planes=planes)))
 
                 if pref_type == Prefilter.GAUSSBLUR2:
-                    i2, i7 = (scale_value(x, 8, clip, ColorRange.FULL, ColorRange.FULL) for x in (2, 7))
+                    i2, i7 = (scale_value(x, 8, clip) for x in (2, 7))
 
                     merge_expr = f'x {i7} + y < x {i2} + x {i7} - y > x {i2} - x {strg} * y {100 - strg} * + 100 / ? ?'
                 else:

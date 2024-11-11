@@ -121,8 +121,8 @@ def decrease_size(
         else:
             pre = gauss_blur(pre, prefilter)
 
-    minf = scale_value(min_in, 8, pre, ColorRange.FULL, ColorRange.FULL)
-    maxf = scale_value(max_in, 8, pre, ColorRange.FULL, ColorRange.FULL)
+    minf = scale_value(min_in, 8, pre)
+    maxf = scale_value(max_in, 8, pre)
 
     mask = norm_expr(
         [pre, mask],  # type: ignore
