@@ -386,17 +386,17 @@ def deblock_qed(
         )
 
         normalD2, strongD2 = (
-            norm_expr([clip, dclip, block], 'z x y - 0 ? range_diff +', planes)
+            norm_expr([clip, dclip, block], 'z x y - 0 ? neutral +', planes)
             for dclip in (normal, strong)
         )
 
         with padder.ctx(16, align=align) as p16:
             strongD2 = p16.CROP(
-                norm_expr(p16.MIRROR(strongD2), 'x range_diff - 1.01 * range_diff +', planes)
+                norm_expr(p16.MIRROR(strongD2), 'x neutral - 1.01 * neutral +', planes)
                 .dctf.DCTFilter([1, 1, 0, 0, 0, 0, 0, 0], planes)
             )
 
-        strongD4 = norm_expr([strongD2, normalD2], 'y range_diff = x y ?', planes)
+        strongD4 = norm_expr([strongD2, normalD2], 'y neutral = x y ?', planes)
         deblocked = clip.std.MakeDiff(strongD4, planes)
 
         if func.chroma and chroma_mode:
