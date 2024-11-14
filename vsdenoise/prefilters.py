@@ -16,7 +16,7 @@ from vsrgtools import bilateral, blur, gauss_blur, min_blur
 from vstools import (
     MISSING, ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, MissingT, PlanesT, SingleOrArr,
     SingleOrArrOpt, check_variable, clamp, core, depth, disallow_variable_format, disallow_variable_resolution,
-    get_neutral_value, get_peak_value, get_y, join, normalize_planes, normalize_seq, scale_value, split, vs
+    get_neutral_value, get_peak_value, get_y, join, normalize_planes, normalize_seq, scale_value, scale_delta, split, vs
 )
 
 from .bm3d import BM3D as BM3DM
@@ -76,8 +76,8 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             if pref_type == Prefilter.MINBLURFLUX:
                 temp_thr, spat_thr = kwargs.get('temp_thr', 2), kwargs.get('spat_thr', 2)
                 return min_blur(clip, 2, planes).flux.SmoothST(  # type: ignore
-                    scale_value(temp_thr, 8, clip),
-                    scale_value(spat_thr, 8, clip),
+                    scale_delta(temp_thr, 8, clip),
+                    scale_delta(spat_thr, 8, clip),
                     planes
                 )
 

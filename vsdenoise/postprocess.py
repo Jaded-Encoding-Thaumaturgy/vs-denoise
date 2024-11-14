@@ -10,7 +10,7 @@ from vsrgtools import RemoveGrainMode, bilateral, box_blur, gauss_blur, removegr
 from vsrgtools.util import norm_rmode_planes
 from vstools import (
     ColorRange, CustomIndexError, CustomIntEnum, FuncExceptT, InvalidColorFamilyError, KwargsT, PlanesT, check_ref_clip,
-    check_variable, fallback, flatten_vnodes, get_y, normalize_planes, scale_value, vs
+    check_variable, fallback, flatten_vnodes, get_y, normalize_planes, scale_value, scale_mask, vs
 )
 
 from .fft import DFTTest, fft3d
@@ -94,8 +94,8 @@ def decrease_size(
         if pm_min > pm_max:
             raise CustomIndexError('The mask min must be lower than max!', decrease_size, dict(min=pm_min, max=pm_max))
 
-        pm_min = scale_value(pm_min, 32, clip, range_out=ColorRange.FULL)
-        pm_max = scale_value(pm_max, 32, clip, range_out=ColorRange.FULL)
+        pm_min = scale_mask(pm_min, 32, clip, range_out=ColorRange.FULL)
+        pm_max = scale_mask(pm_max, 32, clip, range_out=ColorRange.FULL)
 
         yuv444 = Bilinear.resample(
             range_mask(clip, rad=3, radc=2), clip.format.replace(subsampling_h=0, subsampling_w=0)
