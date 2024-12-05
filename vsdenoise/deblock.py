@@ -235,7 +235,7 @@ class _dpir(CustomStrEnum):
             try:
                 data: KwargsT = core.trt.DeviceProperties(device_id)  # type: ignore
                 memory = data.get('total_global_memory', 0)
-                def_num_streams = data.get('async_engine_count', 1)
+                def_num_streams = num_streams or data.get('async_engine_count', 1)
 
                 bkwargs = KwargsT(
                     workspace=memory / (1 << 22) if memory else None,
@@ -255,9 +255,6 @@ class _dpir(CustomStrEnum):
                 )
             except Exception:
                 cuda = get_nvidia_version() is not None
-
-        if bkwargs.get('num_streams', None) is None:
-            bkwargs.update(num_streams=fallback(num_streams, 1))
 
         if cuda is True:
             if hasattr(core, 'ort'):
