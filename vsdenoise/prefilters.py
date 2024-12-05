@@ -884,7 +884,7 @@ def prefilter_to_full_range(pref: vs.VideoNode, range_conversion: float, planes:
     elif range_conversion > 0.0:
         pref_full = retinex(work_clip, upper_thr=range_conversion, fast=False)
     else:
-        pref_full = depth(work_clip, pref, range_out=ColorRange.FULL, range_in=ColorRange.LIMITED)
+        pref_full = depth(work_clip, pref, range_out=ColorRange.FULL)
 
     if chroma:
         return join(pref_full, *chroma, family=pref.format.color_family)

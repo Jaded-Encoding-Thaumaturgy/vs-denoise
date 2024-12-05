@@ -8,7 +8,7 @@ from vskernels import Catrom, Kernel, KernelT
 from vsmasktools import FDoG, GenericMaskT, adg_mask, normalize_mask
 from vsrgtools import gauss_blur
 from vstools import (
-    FunctionUtil, ColorRange, CustomStrEnum, DependencyNotFoundError, FrameRangeN, FrameRangesN, Matrix, MatrixT,
+    FunctionUtil, CustomStrEnum, DependencyNotFoundError, FrameRangeN, FrameRangesN, Matrix, MatrixT,
     Align, KwargsT, PlanesT, InvalidColorFamilyError, LengthMismatchError, UnsupportedVideoFormatError, check_variable,
     core, depth, fallback, get_depth, get_nvidia_version, get_y, join, padder, get_plane_sizes, replace_ranges, vs
 )
@@ -302,7 +302,7 @@ def dpir_mask(
     clip: vs.VideoNode, low: float = 5, high: float = 10, lines: float | None = None,
     luma_scaling: float = 12, linemask: GenericMaskT | bool = True, relative: bool = False
 ) -> vs.VideoNode:
-    y = depth(get_y(clip), 32, range_out=ColorRange.FULL)
+    y = depth(get_y(clip), 32)
 
     if linemask is True:
         linemask = FDoG
