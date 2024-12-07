@@ -47,7 +47,7 @@ class MVTools:
     @disallow_variable_resolution
     def __init__(
         self, clip: vs.VideoNode,
-        tr: int = 2, refine: int = 3, pel: int | None = None,
+        tr: int = 2, refine: int = 1, pel: int | None = None,
         planes: int | Sequence[int] | None = None,
         range_in: ColorRange | None = None,
         source_type: FieldBasedT | None = None,
