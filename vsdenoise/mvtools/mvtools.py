@@ -795,11 +795,6 @@ class MVTools:
 
         limit, limitC = normalize_seq(limit, 2)
 
-        if not all(0 <= x <= 255 for x in (limit, limitC)):
-            raise CustomOverflowError(
-                '"limit" values should be between 0 and 255 (inclusive)!', self.degrain
-            )
-
         thSCD1, thSCD2 = self.normalize_thscd(thSCD, thSAD, self.degrain)
 
         degrain_args = dict[str, Any](thscd1=thSCD1, thscd2=thSCD2, plane=self.mv_plane)
