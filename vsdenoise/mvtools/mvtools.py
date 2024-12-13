@@ -54,7 +54,7 @@ class MVTools:
         high_precision: bool = False,
         hpad: int | None = None, vpad: int | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        params_curve: bool = True,
+        params_curve: bool = False,
         *,
         # kwargs for mvtools calls
         super_args: KwargsT | None = None,
@@ -448,7 +448,7 @@ class MVTools:
         return vectors
 
     def recalculate(
-        self, refine: int = 3, tr: int | None = None, block_size: int | None = None,
+        self, refine: int = 1, tr: int | None = None, block_size: int | None = None,
         overlap: int | None = None, thSAD: int | None = None,
         search: SearchMode | SearchMode.Config | None = None, sad_mode: SADMode = SADMode.SATD,
         motion: MotionMode.Config | None = None, vectors: MotionVectors | MVTools | None = None,
@@ -861,7 +861,7 @@ class MVTools:
 
     def block_fps(
         self,
-        fps: Fraction, mask_type: int = 3, mask_scale: float = 100, blend: bool = False,
+        fps: Fraction, mask_type: int = 0, mask_scale: float = 100, blend: bool = False,
         thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
@@ -1024,7 +1024,7 @@ class MVTools:
     @classmethod
     def denoise(
         cls, clip: vs.VideoNode, thSAD: int | tuple[int, int | tuple[int, int]] | None = None,
-        tr: int = 2, refine: int = 3, block_size: int | None = None, overlap: int | None = None,
+        tr: int = 2, refine: int = 1, block_size: int | None = None, overlap: int | None = None,
         prefilter: Prefilter | vs.VideoNode | None = None, pel: int | None = None,
         sad_mode: SADMode | tuple[SADMode, SADMode] | None = None,
         search: SearchMode | SearchMode.Config | None = None, motion: MotionMode.Config | None = None,
