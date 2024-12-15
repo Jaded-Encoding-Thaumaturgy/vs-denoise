@@ -649,10 +649,10 @@ class MVTools:
 
         comp_back, comp_forw = [
             [self.mvtools.Compensate(ref, vectors=vect, **compensate_args) for vect in vectors]
-            for vectors in (vect_b, vect_f)
+            for vectors in (reversed(vect_b), vect_f)
         ]
 
-        comp_clips = [*comp_back, ref, *comp_forw]
+        comp_clips = [*comp_forw, ref, *comp_back]
         n_clips = len(comp_clips)
         offset = (n_clips - 1) // 2
 
@@ -718,10 +718,10 @@ class MVTools:
 
         flow_back, flow_forw = [
             [self.mvtools.Flow(ref, vectors=vect, **flow_args) for vect in vectors]
-            for vectors in (vect_b, vect_f)
+            for vectors in (reversed(vect_b), vect_f)
         ]
 
-        flow_clips = [*flow_back, ref, *flow_forw]
+        flow_clips = [*flow_forw, ref, *flow_back]
         n_clips = len(flow_clips)
         offset = (n_clips - 1) // 2
 
