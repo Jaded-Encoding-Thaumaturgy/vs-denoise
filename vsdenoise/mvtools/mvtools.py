@@ -673,7 +673,8 @@ class MVTools:
         self, func: Union[
             Callable[Concatenate[vs.VideoNode, P], vs.VideoNode],
             Callable[Concatenate[list[vs.VideoNode], P], vs.VideoNode]
-        ], time: float = 100, mode: FlowMode = FlowMode.ABSOLUTE,
+        ] | None = None, 
+        tr: int | None = None, time: float = 100, mode: FlowMode = FlowMode.ABSOLUTE,
         thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
         **kwargs: P.kwargs
@@ -682,7 +683,8 @@ class MVTools:
 
     @overload
     def flow(  # type: ignore
-        self, func: None, time: float = 100, mode: FlowMode = FlowMode.ABSOLUTE,
+        self, func: None = None, 
+        tr: int | None = None, time: float = 100, mode: FlowMode = FlowMode.ABSOLUTE,
         thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
         **kwargs: P.kwargs
@@ -693,17 +695,19 @@ class MVTools:
         self, func: Union[
             Callable[Concatenate[vs.VideoNode, P], vs.VideoNode],
             Callable[Concatenate[list[vs.VideoNode], P], vs.VideoNode]
-        ] | None, time: float = 100, mode: FlowMode = FlowMode.ABSOLUTE,
+        ] | None = None,
+        tr: int | None = None, time: float = 100, mode: FlowMode = FlowMode.ABSOLUTE,
         thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
         **kwargs: P.kwargs
     ) -> vs.VideoNode | tuple[vs.VideoNode, tuple[int, int]]:
         ref = self.get_ref_clip(ref, self.flow)
+        tr = min(tr, self.tr) if tr else self.tr
 
         thSCD1, thSCD2 = self.normalize_thscd(thSCD, 150, self.flow)
         supers = supers or self.get_supers(ref, inplace=True)
 
-        vect_b, vect_f = self.get_vectors_bf(self.vectors)
+        vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=tr)
 
         flow_args = KwargsT(  # type: ignore
             super=supers.render, time=time, mode=mode,
@@ -714,10 +718,10 @@ class MVTools:
 
         flow_back, flow_forw = [
             [self.mvtools.Flow(ref, vectors=vect, **flow_args) for vect in vectors]
-            for vectors in (reversed(vect_b), vect_f)
+            for vectors in (vect_b, vect_f)
         ]
 
-        flow_clips = [*flow_forw, ref, *flow_back]
+        flow_clips = [*flow_back, ref, *flow_forw]
         n_clips = len(flow_clips)
         offset = (n_clips - 1) // 2
 
