@@ -461,7 +461,7 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        if not vectors.got_vectors:
+        if not vectors.has_vectors:
             raise CustomRuntimeError('You need to first run analyze before recalculating!', self.recalculate)
 
         tr = fallback(tr, self.tr)
@@ -514,7 +514,7 @@ class MVTools:
                 )
         else:
             for i in range(1, t2 + 1):
-                if not vectors.got_mv(MVDirection.BACK, i) or not vectors.got_mv(MVDirection.FWRD, i):
+                if not vectors.has_mv(MVDirection.BACK, i) or not vectors.has_mv(MVDirection.FWRD, i):
                     continue
 
                 for j in range(0, refine):
@@ -951,7 +951,7 @@ class MVTools:
         :return:            Two lists, respectively for backward and forwards, containing motion vectors.
         """
 
-        if not vectors.got_vectors:
+        if not vectors.has_vectors:
             vectors = self.analyze(supers=supers, ref=ref, inplace=inplace)
 
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr

@@ -31,14 +31,14 @@ class MotionVectors:
         self.temporal_vectors = {w: {} for w in MVDirection}
 
     @property
-    def got_vectors(self) -> bool:
+    def has_vectors(self) -> bool:
         """Whether the instance uses bidirectional motion vectors."""
 
         return bool(
             (self.temporal_vectors[MVDirection.BACK] and self.temporal_vectors[MVDirection.FWRD]) or self.vmulti
         )
 
-    def got_mv(self, direction: MVDirection, delta: int) -> bool:
+    def has_mv(self, direction: MVDirection, delta: int) -> bool:
         """
         Returns whether the motion vector exists.
 
