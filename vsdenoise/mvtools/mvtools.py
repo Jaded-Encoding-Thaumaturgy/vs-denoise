@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from fractions import Fraction
 from itertools import chain
-from math import exp
 from typing import Any, Callable, Concatenate, Sequence, Union, overload
 
 from vstools import (
@@ -54,7 +53,6 @@ class MVTools:
         high_precision: bool = False,
         hpad: int | None = None, vpad: int | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        params_curve: bool = False,
         *,
         # kwargs for mvtools calls
         super_args: KwargsT | None = None,
@@ -115,7 +113,6 @@ class MVTools:
                                     Small padding is added for more correct motion estimation near frame borders.
         :param vpad:                Vertical padding added to source frame (both top and bottom).
         :param vectors:             Precalculated vectors, either a custom instance or another MVTools instance.
-        :param params_curve:        Apply a curve to some parameters and apply a limit to Recalculate parameters.
 
         :param super_args:          Arguments passed to all the :py:attr:`MVToolsPlugin.Super` calls.
         :param analyze_args:        Arguments passed to all the :py:attr:`MVToolsPlugin.Analyze` calls.
@@ -195,7 +192,6 @@ class MVTools:
 
         self.chroma = self.mv_plane != 0
 
-        self.params_curve = params_curve
 
         self.super_args = fallback(super_args, KwargsT())
         self.analyze_args = fallback(analyze_args, KwargsT())
@@ -416,10 +412,7 @@ class MVTools:
 
         supers = supers or self.get_supers(ref, inplace=inplace)
 
-        if self.params_curve:
-            thSAD_recalc = round(exp(-101. / (thSAD * 0.83)) * 360)
-        else:
-            thSAD_recalc = thSAD
+        thSAD_recalc = thSAD
 
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
@@ -800,7 +793,7 @@ class MVTools:
         thSAD, thSADC = (thSAD if isinstance(thSAD, tuple) else (thSAD, None))
 
         thSAD = kwargs_fallback(thSAD, (vectors.kwargs, 'thSAD'), 300)
-        thSADC = fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)) if self.params_curve else thSAD // 2)
+        thSADC = fallback(thSADC, thSAD // 2)
 
         limit, limitC = normalize_seq(limit, 2)
 
@@ -1029,7 +1022,7 @@ class MVTools:
         self, thSCD: int | tuple[int | None, int | None] | None, thSAD: int,
         func: FuncExceptT | None = None
     ) -> tuple[int, int]:
-        return normalize_thscd(thSCD, (round(0.35 * thSAD + 300) if self.params_curve else 400, 51), func)
+        return normalize_thscd(thSCD, (400, 51), func)
 
     @classmethod
     def denoise(
@@ -1045,13 +1038,13 @@ class MVTools:
         *, super_args: KwargsT | None = None, analyze_args: KwargsT | None = None,
         recalculate_args: KwargsT | None = None, compensate_args: KwargsT | None = None,
         range_conversion: float | None = None, sharp: int | None = None,
-        hpad: int | None = None, vpad: int | None = None, params_curve: bool = True,
+        hpad: int | None = None, vpad: int | None = None,
         rfilter: int | None = None, vectors: MotionVectors | MVTools | None = None,
         supers: SuperClips | None = None, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
         mvtools = cls(
             clip, tr, refine, pel, planes, range_in, source_type, high_precision, hpad, vpad,
-            vectors, params_curve, super_args=super_args, analyze_args=analyze_args,
+            vectors, super_args=super_args, analyze_args=analyze_args,
             recalculate_args=recalculate_args, compensate_args=compensate_args
         )
 
