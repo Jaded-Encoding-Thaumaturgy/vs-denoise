@@ -526,7 +526,7 @@ class MVTools:
             Callable[Concatenate[vs.VideoNode, P], vs.VideoNode],
             Callable[Concatenate[list[vs.VideoNode], P], vs.VideoNode]
         ] | None = None,
-        tr: int | None = None, thSAD: int = 150, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        tr: int | None = None, thSAD: int = 10000, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
         **kwargs: P.kwargs
     ) -> vs.VideoNode:
@@ -628,7 +628,7 @@ class MVTools:
         ref = self.get_ref_clip(ref, self.compensate)
         tr = min(tr, self.tr) if tr else self.tr
 
-        thSCD1, thSCD2 = self.normalize_thscd(thSCD, thSAD, self.compensate)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.compensate)
         supers = supers or self.get_supers(ref, inplace=True)
 
         vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=tr)
@@ -697,7 +697,7 @@ class MVTools:
         ref = self.get_ref_clip(ref, self.flow)
         tr = min(tr, self.tr) if tr else self.tr
 
-        thSCD1, thSCD2 = self.normalize_thscd(thSCD, 150, self.flow)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.flow)
         supers = supers or self.get_supers(ref, inplace=True)
 
         vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=tr)
@@ -797,7 +797,7 @@ class MVTools:
 
         limit, limitC = normalize_seq(limit, 2)
 
-        thSCD1, thSCD2 = self.normalize_thscd(thSCD, thSAD, self.degrain)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.degrain)
 
         degrain_args = dict[str, Any](thscd1=thSCD1, thscd2=thSCD2, plane=self.mv_plane)
 
@@ -827,8 +827,11 @@ class MVTools:
         thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
-        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.flow_interpolate)
+        ref = self.get_ref_clip(ref, self.flow_interpolate)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.flow_interpolate)
+
         supers = supers or self.get_supers(ref, inplace=True)
+        vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=1)
 
         return self.mvtools.FlowInter(
             ref, supers.render, vect_b, vect_f, time, mask_scale, blend, thSCD1, thSCD2
@@ -840,8 +843,11 @@ class MVTools:
         thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
-        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.flow_blur)
+        ref = self.get_ref_clip(ref, self.flow_blur)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.flow_blur)
+
         supers = supers or self.get_supers(ref, inplace=True)
+        vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=1)
 
         return self.mvtools.FlowBlur(
             ref, supers.render, vect_b, vect_f, blur, pixel_precision, thSCD1, thSCD2
@@ -853,8 +859,11 @@ class MVTools:
         thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
-        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.flow_fps)
+        ref = self.get_ref_clip(ref, self.flow_fps)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.flow_fps)
+
         supers = supers or self.get_supers(ref, inplace=True)
+        vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=1)
 
         return self.mvtools.FlowFPS(
             ref, supers.render, vect_b, vect_f, fps.numerator, fps.denominator,
@@ -867,8 +876,11 @@ class MVTools:
         thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
-        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.block_fps)
+        ref = self.get_ref_clip(ref, self.block_fps)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.block_fps)
+
         supers = supers or self.get_supers(ref, inplace=True)
+        vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=1)
 
         return self.mvtools.BlockFPS(
             ref, supers.render, vect_b, vect_f, fps.numerator, fps.denominator,
@@ -882,7 +894,10 @@ class MVTools:
         thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
-        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.mask)
+        ref = self.get_ref_clip(ref, self.mask)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.mask)
+
+        vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=1)
 
         return self.mvtools.Mask(
             ref, vect_f if fwd else vect_b, mask_scale, gamma, mask_type,
@@ -895,7 +910,10 @@ class MVTools:
         thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         *, ref: vs.VideoNode | None = None
     ) -> Keyframes:
-        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.sc_detection)
+        ref = self.get_ref_clip(ref, self.sc_detection)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.sc_detection)
+
+        vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=1)
 
         sc_detect = self.mvtools.SCDetection(ref, vect_f if fwd else vect_b, thSCD1, thSCD2)
         sc_detect = SceneChangeMode.SCXVID._prepare_akarin(sc_detect, [sc_detect])
@@ -905,17 +923,6 @@ class MVTools:
         )
 
         return Keyframes(Sentinel.filter(frames))
-
-    def _get_rad1_mv(
-        self, thSCD: int | tuple[int | None, int | None] | None, ref: vs.VideoNode | None, func: FuncExceptT
-    ) -> tuple[vs.VideoNode, int, int, vs.VideoNode, vs.VideoNode]:
-        ref = self.get_ref_clip(ref, func)
-
-        thSCD1, thSCD2 = self.normalize_thscd(thSCD, 150, func)
-
-        (vect_b, *_), (vect_f, *_) = self.get_vectors_bf(self.vectors)
-
-        return ref, thSCD1, thSCD2, vect_b, vect_f
 
     def finest(self) -> None:
         self.analyze().finest(self.mvtools)
@@ -1017,12 +1024,6 @@ class MVTools:
                 clip, self.pel, PelType.WIENER if is_ref else PelType.BICUBIC
             ) for is_ref, ptype, clip in zip((False, True), pel_type, (pref, ref))
         )
-
-    def normalize_thscd(
-        self, thSCD: int | tuple[int | None, int | None] | None, thSAD: int,
-        func: FuncExceptT | None = None
-    ) -> tuple[int, int]:
-        return normalize_thscd(thSCD, (400, 51), func)
 
     @classmethod
     def denoise(
