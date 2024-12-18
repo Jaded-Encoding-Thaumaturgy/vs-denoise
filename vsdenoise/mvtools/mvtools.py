@@ -574,7 +574,7 @@ class MVTools:
     @overload
     def compensate(
         self, func: None = None,
-        tr: int | None = None, thSAD: int = 150, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        tr: int | None = None, thSAD: int = 10000, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, ref: vs.VideoNode | None = None
     ) -> tuple[vs.VideoNode, tuple[int, int]]:
         """
@@ -621,7 +621,7 @@ class MVTools:
             Callable[Concatenate[vs.VideoNode, P], vs.VideoNode],
             Callable[Concatenate[list[vs.VideoNode], P], vs.VideoNode]
         ] | None = None,
-        tr: int | None = None, thSAD: int = 150, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        tr: int | None = None, thSAD: int = 10000, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
         supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
         **kwargs: P.kwargs
     ) -> vs.VideoNode | tuple[vs.VideoNode, tuple[int, int]]:
