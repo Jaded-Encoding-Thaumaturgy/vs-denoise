@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
-from vstools import CustomOverflowError, CustomValueError, FuncExceptT, fallback
+from vstools import CustomValueError, FuncExceptT
 
 __all__ = [
     'planes_to_mvtools',
@@ -35,19 +35,13 @@ def planes_to_mvtools(input_planes: Sequence[int]) -> int:
 
 
 def normalize_thscd(
-    thSCD: int | tuple[int | None, int | None] | None, default: tuple[int, int],
-    func: FuncExceptT | None = None, *, scale: bool = True
+    thSCD: int | tuple[int | None, int | None] | None, func: FuncExceptT | None = None, *, scale: bool = True
 ) -> tuple[int, int]:
     func = func or normalize_thscd
 
-    thSCD1, thSCD2 = thSCD if isinstance(thSCD, tuple) else (thSCD, None)
-
-    thSCD1, thSCD2 = fallback(thSCD1, default[0]), fallback(thSCD2, default[1])
-
-    if not 1 <= thSCD2 <= 100:
-        raise CustomOverflowError('"thSCD[1]" must be between 1 and 100 (inclusive)!', func)
+    thSCD1, thSCD2 = thSCD if isinstance(thSCD, tuple) else (thSCD, 51)
 
     if scale:
-        thSCD2 = int(thSCD2 / 100 * 255)
+        thSCD2 = round(thSCD2 / 100 * 255)
 
     return (thSCD1, thSCD2)
