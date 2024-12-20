@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from fractions import Fraction
 from itertools import chain
-from math import exp
 from typing import Any, Callable, Concatenate, Sequence, Union, overload
 
 from vstools import (
-    ColorRange, ConstantFormatVideoNode, CustomOverflowError, CustomRuntimeError, FieldBased, FieldBasedT, FuncExceptT,
-    InvalidColorFamilyError, Keyframes, KwargsT, OutdatedPluginError, P, PlanesT, SceneChangeMode, Sentinel,
-    check_ref_clip, check_variable, clamp, clip_async_render, core, depth, disallow_variable_format,
+    ConstantFormatVideoNode, CustomOverflowError, CustomRuntimeError, FieldBased, FieldBasedT, FuncExceptT,
+    InvalidColorFamilyError, KwargsT, OutdatedPluginError, P, PlanesT,
+    check_ref_clip, check_variable, clamp, core, depth, disallow_variable_format,
     disallow_variable_resolution, fallback, kwargs_fallback, normalize_planes, normalize_seq, vs
 )
 
@@ -49,12 +48,10 @@ class MVTools:
         self, clip: vs.VideoNode,
         tr: int = 2, refine: int = 1, pel: int | None = None,
         planes: int | Sequence[int] | None = None,
-        range_in: ColorRange | None = None,
         source_type: FieldBasedT | None = None,
         high_precision: bool = False,
         hpad: int | None = None, vpad: int | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        params_curve: bool = False,
         *,
         # kwargs for mvtools calls
         super_args: KwargsT | None = None,
@@ -107,7 +104,6 @@ class MVTools:
                                     `pel=4` is produced by spatial interpolation which is more accurate,
                                     but slower and not always better due to big level scale step.
         :param planes:              Planes to process.
-        :param range_in:            ColorRange of the input clip.
         :param source_type:         Source type of the input clip.
         :param high_precision:      Whether to process everything in float32 (very slow).
                                     If set to False, it will process it in the input clip's bitdepth.
@@ -115,7 +111,6 @@ class MVTools:
                                     Small padding is added for more correct motion estimation near frame borders.
         :param vpad:                Vertical padding added to source frame (both top and bottom).
         :param vectors:             Precalculated vectors, either a custom instance or another MVTools instance.
-        :param params_curve:        Apply a curve to some parameters and apply a limit to Recalculate parameters.
 
         :param super_args:          Arguments passed to all the :py:attr:`MVToolsPlugin.Super` calls.
         :param analyze_args:        Arguments passed to all the :py:attr:`MVToolsPlugin.Analyze` calls.
@@ -169,33 +164,24 @@ class MVTools:
         self.clip = clip
         self.workclip = self.clip
 
+        self.source_type = FieldBased.from_param_or_video(source_type, self.clip, False, self.__class__)
         self.is_hd = clip.width >= 1100 or clip.height >= 600
         self.is_uhd = self.clip.width >= 2600 or self.clip.height >= 1500
 
         self.tr = tr
-
         self.refine = refine
-
-        if self.refine > 6:
-            raise CustomOverflowError(f'Refine > 6 is not supported! ({refine})', self.__class__)
-
-        self.source_type = FieldBased.from_param_or_video(source_type, self.clip, False, self.__class__)
-        self.range_in = ColorRange.from_param_or_video(range_in, self.clip, False, self.__class__)
-
-        if self.source_type.is_inter:
-            self.workclip = self.workclip.std.SeparateFields(self.source_type.is_tff)
-
         self.pel = fallback(pel, 1 + int(not self.is_hd))
-
         self.planes = normalize_planes(self.clip, planes)
 
         self.is_gray = self.planes == [0]
-
         self.mv_plane = planes_to_mvtools(self.planes)
-
         self.chroma = self.mv_plane != 0
+        self.high_precision = high_precision
 
-        self.params_curve = params_curve
+        self.hpad = fallback(hpad, 8 if self.is_hd else 16)
+        self.hpad_uhd = self.hpad // 2 if self.is_uhd else self.hpad
+        self.vpad = fallback(vpad, 8 if self.is_hd else 16)
+        self.vpad_half = self.vpad // 2 if self.is_uhd else self.vpad
 
         self.super_args = fallback(super_args, KwargsT())
         self.analyze_args = fallback(analyze_args, KwargsT())
@@ -203,13 +189,8 @@ class MVTools:
         self.compensate_args = fallback(compensate_args, KwargsT())
         self.flow_args = fallback(flow_args, KwargsT())
 
-        self.hpad = fallback(hpad, 8 if self.is_hd else 16)
-        self.hpad_uhd = self.hpad // 2 if self.is_uhd else self.hpad
-
-        self.vpad = fallback(vpad, 8 if self.is_hd else 16)
-        self.vpad_half = self.vpad // 2 if self.is_uhd else self.vpad
-
-        self.high_precision = high_precision
+        if self.refine > 6:
+            raise CustomOverflowError(f'Refine > 6 is not supported! ({refine})', self.__class__)
 
         if self.high_precision:
             self.workclip = depth(self.workclip, 32)
@@ -217,6 +198,8 @@ class MVTools:
         self.mvtools = MVToolsPlugin.from_video(self.workclip)
 
         if self.source_type.is_inter:
+            self.workclip = self.workclip.std.SeparateFields(self.source_type.is_tff)
+
             if self.mvtools is MVToolsPlugin.INTEGER:
                 if 'time' not in str(core.mv.Compensate.signature):
                     raise OutdatedPluginError(self.__class__, f'{self.__class__.__name__} {self.mvtools.name}')
@@ -306,8 +289,7 @@ class MVTools:
         if isinstance(prefilter, Prefilter):
             prefilter = prefilter(ref, self.planes)
 
-            if self.range_in.is_limited:
-                prefilter = prefilter_to_full_range(prefilter, range_conversion, self.planes)
+            prefilter = prefilter_to_full_range(prefilter, range_conversion, self.planes)
 
         assert prefilter is not None
 
@@ -416,10 +398,7 @@ class MVTools:
 
         supers = supers or self.get_supers(ref, inplace=inplace)
 
-        if self.params_curve:
-            thSAD_recalc = round(exp(-101. / (thSAD * 0.83)) * 360)
-        else:
-            thSAD_recalc = thSAD
+        thSAD_recalc = thSAD
 
         t2 = (self.tr * 2 if self.tr > 1 else self.tr) if self.source_type.is_inter else self.tr
 
@@ -464,11 +443,7 @@ class MVTools:
         if not vectors.has_vectors:
             raise CustomRuntimeError('You need to first run analyze before recalculating!', self.recalculate)
 
-        tr = fallback(tr, self.tr)
-
-        if tr > self.tr:
-            raise CustomOverflowError('Recalculate tr can\'t be greater than the MVTools tr!')
-
+        tr = min(tr, self.tr) if tr else self.tr
         t2 = (tr * 2 if tr > 1 else tr) if self.source_type.is_inter else tr
 
         blocksize = max(refine and 2 ** (refine + 1), fallback(block_size, 16 if self.is_hd else 8))
@@ -533,7 +508,7 @@ class MVTools:
             Callable[Concatenate[vs.VideoNode, P], vs.VideoNode],
             Callable[Concatenate[list[vs.VideoNode], P], vs.VideoNode]
         ] | None = None,
-        tr: int | None = None, thSAD: int = 150, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        tr: int | None = None, thSAD: int = 10000, thSCD: int | tuple[int | None, int | None] | None = None,
         supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
         **kwargs: P.kwargs
     ) -> vs.VideoNode:
@@ -581,7 +556,7 @@ class MVTools:
     @overload
     def compensate(
         self, func: None = None,
-        tr: int | None = None, thSAD: int = 150, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        tr: int | None = None, thSAD: int = 10000, thSCD: int | tuple[int | None, int | None] | None = None,
         supers: SuperClips | None = None, ref: vs.VideoNode | None = None
     ) -> tuple[vs.VideoNode, tuple[int, int]]:
         """
@@ -628,14 +603,14 @@ class MVTools:
             Callable[Concatenate[vs.VideoNode, P], vs.VideoNode],
             Callable[Concatenate[list[vs.VideoNode], P], vs.VideoNode]
         ] | None = None,
-        tr: int | None = None, thSAD: int = 150, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        tr: int | None = None, thSAD: int = 10000, thSCD: int | tuple[int | None, int | None] | None = None,
         supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
         **kwargs: P.kwargs
     ) -> vs.VideoNode | tuple[vs.VideoNode, tuple[int, int]]:
         ref = self.get_ref_clip(ref, self.compensate)
         tr = min(tr, self.tr) if tr else self.tr
 
-        thSCD1, thSCD2 = self.normalize_thscd(thSCD, thSAD, self.compensate)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.compensate)
         supers = supers or self.get_supers(ref, inplace=True)
 
         vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=tr)
@@ -647,24 +622,21 @@ class MVTools:
             tff=self.source_type.is_inter and self.source_type.is_tff or None
         ) | self.compensate_args
 
-        comp_back, comp_forw = [
+        comp_back, comp_fwrd = [
             [self.mvtools.Compensate(ref, vectors=vect, **compensate_args) for vect in vectors]
             for vectors in (reversed(vect_b), vect_f)
         ]
 
-        comp_clips = [*comp_forw, ref, *comp_back]
+        comp_clips = [*comp_fwrd, ref, *comp_back]
         n_clips = len(comp_clips)
         offset = (n_clips - 1) // 2
 
         interleaved = core.std.Interleave(comp_clips)
 
         if func:
-            try:
-                processed = func(interleaved, *args, **kwargs)  # type: ignore
+            processed = func(interleaved, *args, **kwargs)  # type: ignore
 
-                return processed.std.SelectEvery(n_clips, offset)
-            except Exception:
-                return func(comp_clips, *args, **kwargs)  # type: ignore
+            return processed.std.SelectEvery(n_clips, offset)
 
         return interleaved, (n_clips, offset)
 
@@ -675,7 +647,7 @@ class MVTools:
             Callable[Concatenate[list[vs.VideoNode], P], vs.VideoNode]
         ] | None = None, 
         tr: int | None = None, time: float = 100, mode: FlowMode = FlowMode.ABSOLUTE,
-        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        thSCD: int | tuple[int | None, int | None] | None = None,
         supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
         **kwargs: P.kwargs
     ) -> vs.VideoNode:
@@ -685,7 +657,7 @@ class MVTools:
     def flow(  # type: ignore
         self, func: None = None, 
         tr: int | None = None, time: float = 100, mode: FlowMode = FlowMode.ABSOLUTE,
-        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        thSCD: int | tuple[int | None, int | None] | None = None,
         supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
         **kwargs: P.kwargs
     ) -> tuple[vs.VideoNode, tuple[int, int]]:
@@ -697,14 +669,14 @@ class MVTools:
             Callable[Concatenate[list[vs.VideoNode], P], vs.VideoNode]
         ] | None = None,
         tr: int | None = None, time: float = 100, mode: FlowMode = FlowMode.ABSOLUTE,
-        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        thSCD: int | tuple[int | None, int | None] | None = None,
         supers: SuperClips | None = None, *args: P.args, ref: vs.VideoNode | None = None,
         **kwargs: P.kwargs
     ) -> vs.VideoNode | tuple[vs.VideoNode, tuple[int, int]]:
         ref = self.get_ref_clip(ref, self.flow)
         tr = min(tr, self.tr) if tr else self.tr
 
-        thSCD1, thSCD2 = self.normalize_thscd(thSCD, 150, self.flow)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.flow)
         supers = supers or self.get_supers(ref, inplace=True)
 
         vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=tr)
@@ -716,24 +688,21 @@ class MVTools:
             tff=self.source_type.is_inter and self.source_type.is_tff or None
         ) | self.flow_args
 
-        flow_back, flow_forw = [
+        flow_back, flow_fwrd = [
             [self.mvtools.Flow(ref, vectors=vect, **flow_args) for vect in vectors]
             for vectors in (reversed(vect_b), vect_f)
         ]
 
-        flow_clips = [*flow_forw, ref, *flow_back]
+        flow_clips = [*flow_fwrd, ref, *flow_back]
         n_clips = len(flow_clips)
         offset = (n_clips - 1) // 2
 
         interleaved = core.std.Interleave(flow_clips)
 
         if func:
-            try:
-                processed = func(interleaved, *args, **kwargs)  # type: ignore
+            processed = func(interleaved, *args, **kwargs)  # type: ignore
 
-                return processed.std.SelectEvery(n_clips, offset)
-            except Exception:
-                return func(flow_clips, *args, **kwargs)  # type: ignore
+            return processed.std.SelectEvery(n_clips, offset)
 
         return interleaved, (n_clips, offset)
 
@@ -741,8 +710,8 @@ class MVTools:
         self,
         tr: int | None = None,
         thSAD: int | tuple[int | None, int | None] | None = None,
-        limit: int | tuple[int, int] = 255,
-        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        limit: int | tuple[int, int] | None = None,
+        thSCD: int | tuple[int | None, int | None] | None = None,
         supers: SuperClips | None = None,
         *, vectors: MotionVectors | MVTools | None = None, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
@@ -761,8 +730,7 @@ class MVTools:
                         The provided thSAD value is scaled to a 8x8 blocksize.\n
                         Low values can result in staggered denoising, large values can result in ghosting and artifacts.
         :param limit:   Maximum change of pixel. This is post-processing to prevent some artifacts.\n
-                        Value ranges from 0 to 255. At 255, no pixel may be adjusted,
-                        effectively preventing any degraining from occurring.
+                        Value ranges from 0 to 255.
         :param thSCD:   The first value is a threshold for whether a block has changed
                         between the previous frame and the current one.\n
                         When a block has changed, it means that motion estimation for it isn't relevant.
@@ -800,11 +768,11 @@ class MVTools:
         thSAD, thSADC = (thSAD if isinstance(thSAD, tuple) else (thSAD, None))
 
         thSAD = kwargs_fallback(thSAD, (vectors.kwargs, 'thSAD'), 300)
-        thSADC = fallback(thSADC, round(thSAD * 0.18875 * exp(2 * 0.693)) if self.params_curve else thSAD // 2)
+        thSADC = fallback(thSADC, thSAD // 2)
 
         limit, limitC = normalize_seq(limit, 2)
 
-        thSCD1, thSCD2 = self.normalize_thscd(thSCD, thSAD, self.degrain)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.degrain)
 
         degrain_args = dict[str, Any](thscd1=thSCD1, thscd2=thSCD2, plane=self.mv_plane)
 
@@ -831,11 +799,14 @@ class MVTools:
     def flow_interpolate(
         self,
         time: float = 50, mask_scale: float = 100, blend: bool = False,
-        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        thSCD: int | tuple[int | None, int | None] | None = None,
         supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
-        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.flow_interpolate)
+        ref = self.get_ref_clip(ref, self.flow_interpolate)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.flow_interpolate)
+
         supers = supers or self.get_supers(ref, inplace=True)
+        vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=1)
 
         return self.mvtools.FlowInter(
             ref, supers.render, vect_b, vect_f, time, mask_scale, blend, thSCD1, thSCD2
@@ -844,11 +815,14 @@ class MVTools:
     def flow_blur(
         self,
         blur: float = 50, pixel_precision: int = 1,
-        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        thSCD: int | tuple[int | None, int | None] | None = None,
         supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
-        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.flow_blur)
+        ref = self.get_ref_clip(ref, self.flow_blur)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.flow_blur)
+
         supers = supers or self.get_supers(ref, inplace=True)
+        vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=1)
 
         return self.mvtools.FlowBlur(
             ref, supers.render, vect_b, vect_f, blur, pixel_precision, thSCD1, thSCD2
@@ -857,11 +831,14 @@ class MVTools:
     def flow_fps(
         self,
         fps: Fraction, mask_type: int = 2, mask_scale: float = 100, blend: bool = False,
-        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        thSCD: int | tuple[int | None, int | None] | None = None,
         supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
-        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.flow_fps)
+        ref = self.get_ref_clip(ref, self.flow_fps)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.flow_fps)
+
         supers = supers or self.get_supers(ref, inplace=True)
+        vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=1)
 
         return self.mvtools.FlowFPS(
             ref, supers.render, vect_b, vect_f, fps.numerator, fps.denominator,
@@ -871,11 +848,14 @@ class MVTools:
     def block_fps(
         self,
         fps: Fraction, mask_type: int = 0, mask_scale: float = 100, blend: bool = False,
-        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        thSCD: int | tuple[int | None, int | None] | None = None,
         supers: SuperClips | None = None, *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
-        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.block_fps)
+        ref = self.get_ref_clip(ref, self.block_fps)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.block_fps)
+
         supers = supers or self.get_supers(ref, inplace=True)
+        vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=1)
 
         return self.mvtools.BlockFPS(
             ref, supers.render, vect_b, vect_f, fps.numerator, fps.denominator,
@@ -886,10 +866,13 @@ class MVTools:
         self,
         mask_type: int = 0, mask_scale: float = 100, gamma: float = 1.0,
         scenechange_y: int = 0, time: float = 100, fwd: bool = True,
-        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        thSCD: int | tuple[int | None, int | None] | None = None,
         *, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
-        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.mask)
+        ref = self.get_ref_clip(ref, self.mask)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.mask)
+
+        vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=1)
 
         return self.mvtools.Mask(
             ref, vect_f if fwd else vect_b, mask_scale, gamma, mask_type,
@@ -899,30 +882,17 @@ class MVTools:
     def sc_detection(
         self,
         fwd: bool = True,
-        thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        thSCD: int | tuple[int | None, int | None] | None = None,
         *, ref: vs.VideoNode | None = None
-    ) -> Keyframes:
-        ref, thSCD1, thSCD2, vect_b, vect_f = self._get_rad1_mv(thSCD, ref, self.sc_detection)
+    ) -> vs.VideoNode:
+        ref = self.get_ref_clip(ref, self.sc_detection)
+        thSCD1, thSCD2 = normalize_thscd(thSCD, self.sc_detection)
+
+        vect_b, vect_f = self.get_vectors_bf(self.vectors, tr=1)
 
         sc_detect = self.mvtools.SCDetection(ref, vect_f if fwd else vect_b, thSCD1, thSCD2)
-        sc_detect = SceneChangeMode.SCXVID._prepare_akarin(sc_detect, [sc_detect])
 
-        frames = clip_async_render(
-            sc_detect, None, 'Detecting scene changes with MVTools...', SceneChangeMode.SCXVID.lambda_cb()
-        )
-
-        return Keyframes(Sentinel.filter(frames))
-
-    def _get_rad1_mv(
-        self, thSCD: int | tuple[int | None, int | None] | None, ref: vs.VideoNode | None, func: FuncExceptT
-    ) -> tuple[vs.VideoNode, int, int, vs.VideoNode, vs.VideoNode]:
-        ref = self.get_ref_clip(ref, func)
-
-        thSCD1, thSCD2 = self.normalize_thscd(thSCD, 150, func)
-
-        (vect_b, *_), (vect_f, *_) = self.get_vectors_bf(self.vectors)
-
-        return ref, thSCD1, thSCD2, vect_b, vect_f
+        return sc_detect
 
     def finest(self) -> None:
         self.analyze().finest(self.mvtools)
@@ -1025,12 +995,6 @@ class MVTools:
             ) for is_ref, ptype, clip in zip((False, True), pel_type, (pref, ref))
         )
 
-    def normalize_thscd(
-        self, thSCD: int | tuple[int | None, int | None] | None, thSAD: int,
-        func: FuncExceptT | None = None
-    ) -> tuple[int, int]:
-        return normalize_thscd(thSCD, (round(0.35 * thSAD + 300) if self.params_curve else 400, 51), func)
-
     @classmethod
     def denoise(
         cls, clip: vs.VideoNode, thSAD: int | tuple[int, int | tuple[int, int]] | None = None,
@@ -1039,19 +1003,18 @@ class MVTools:
         sad_mode: SADMode | tuple[SADMode, SADMode] | None = None,
         search: SearchMode | SearchMode.Config | None = None, motion: MotionMode.Config | None = None,
         pel_type: PelType | tuple[PelType, PelType] | None = None,
-        planes: PlanesT = None, range_in: ColorRange | None = None,
-        source_type: FieldBasedT | None = None, high_precision: bool = False,
-        limit: int | tuple[int, int] = 255, thSCD: int | tuple[int | None, int | None] | None = (None, 51),
+        planes: PlanesT = None, source_type: FieldBasedT | None = None, high_precision: bool = False,
+        limit: int | tuple[int, int] | None = None, thSCD: int | tuple[int | None, int | None] | None = None,
         *, super_args: KwargsT | None = None, analyze_args: KwargsT | None = None,
         recalculate_args: KwargsT | None = None, compensate_args: KwargsT | None = None,
         range_conversion: float | None = None, sharp: int | None = None,
-        hpad: int | None = None, vpad: int | None = None, params_curve: bool = True,
+        hpad: int | None = None, vpad: int | None = None,
         rfilter: int | None = None, vectors: MotionVectors | MVTools | None = None,
         supers: SuperClips | None = None, ref: vs.VideoNode | None = None
     ) -> vs.VideoNode:
         mvtools = cls(
-            clip, tr, refine, pel, planes, range_in, source_type, high_precision, hpad, vpad,
-            vectors, params_curve, super_args=super_args, analyze_args=analyze_args,
+            clip, tr, refine, pel, planes, source_type, high_precision, hpad, vpad,
+            vectors, super_args=super_args, analyze_args=analyze_args,
             recalculate_args=recalculate_args, compensate_args=compensate_args
         )
 
@@ -1068,4 +1031,4 @@ class MVTools:
             block_size, overlap, thSADA, search, sad_mode, motion, supers, inplace=True
         )
 
-        return mvtools.degrain(thSADD, limit, thSCD, supers, vectors=vectors, ref=ref)
+        return mvtools.degrain(tr, thSADD, limit, thSCD, supers, vectors=vectors, ref=ref)
