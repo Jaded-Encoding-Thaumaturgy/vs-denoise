@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Sequence
 
 from _collections_abc import dict_items, dict_keys, dict_values
-from vstools import ColorRange, CustomEnum, FieldBasedT, KwargsNotNone, KwargsT, inject_self, vs
+from vstools import CustomEnum, FieldBasedT, KwargsNotNone, KwargsT, inject_self, vs
 
 from ..prefilters import PelType, Prefilter
 from .enums import MotionMode, SADMode, SearchMode
@@ -29,12 +29,10 @@ class MVToolsPreset(MVToolsPresetBase):
     refine: property | int | None = None
     pel: property | int | None = None
     planes: property | int | Sequence[int] | None = None
-    range_in: property | ColorRange | None = None
     source_type: property | FieldBasedT | None = None
     high_precision: property | bool = False
     hpad: property | int | None = None
     vpad: property | int | None = None
-    params_curve: property | bool | None = None
     block_size: property | int | None = None
     overlap: property | int | None = None
     thSAD: property | int | None = None
@@ -54,9 +52,9 @@ class MVToolsPreset(MVToolsPresetBase):
     if TYPE_CHECKING:
         def __call__(
             self, *, tr: int | None = None, refine: int | None = None, pel: int | None = None,
-            planes: int | Sequence[int] | None = None, range_in: ColorRange | None = None,
-            source_type: FieldBasedT | None = None, high_precision: bool = False, hpad: int | None = None,
-            vpad: int | None = None, params_curve: bool | None = None, block_size: int | None = None,
+            planes: int | Sequence[int] | None = None, source_type: FieldBasedT | None = None,
+            high_precision: bool = False, hpad: int | None = None,
+            vpad: int | None = None, block_size: int | None = None,
             overlap: int | None = None, thSAD: int | None = None, range_conversion: float | None = None,
             search: SearchMode | SearchMode.Config | None = None, motion: MotionMode.Config | None = None,
             sad_mode: SADMode | tuple[SADMode, SADMode] | None = None, rfilter: int | None = None,
@@ -115,7 +113,7 @@ class MVToolsPresets:
     """Create your own preset."""
 
     SMDE = MVToolsPreset(
-        pel=2, prefilter=Prefilter.NONE, params_curve=False, sharp=2, rfilter=4,
+        pel=2, prefilter=Prefilter.NONE, sharp=2, rfilter=4,
         block_size=8, overlap=2, thSAD=300, sad_mode=SADMode.SPATIAL.same_recalc,
         motion=MotionMode.VECT_COHERENCE, search=SearchMode.HEXAGON.defaults,
         hpad=property(fget=lambda x: x.block_size), vpad=property(fget=lambda x: x.block_size),
@@ -124,7 +122,7 @@ class MVToolsPresets:
     """SMDegrain by Caroliano & DogWay"""
 
     CMDE = MVToolsPreset(
-        pel=1, prefilter=Prefilter.NONE, params_curve=False, sharp=2, rfilter=4,
+        pel=1, prefilter=Prefilter.NONE, sharp=2, rfilter=4,
         block_size=32, overlap=16, thSAD=200, sad_mode=SADMode.SPATIAL.same_recalc,
         motion=MotionMode.HIGH_SAD, search=SearchMode.HEXAGON.defaults,
         hpad=property(fget=lambda x: x.block_size), vpad=property(fget=lambda x: x.block_size),
