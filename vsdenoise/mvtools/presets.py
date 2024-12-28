@@ -110,7 +110,7 @@ class MVToolsPresets:
     """Presets for MVTools analyzing/refining."""
 
     CUSTOM = MVToolsPreset
-    """Create your own preset."""
+    """Create your own custom preset."""
 
     SMDE = MVToolsPreset(
         pel=2, prefilter=Prefilter.NONE, sharp=2, rfilter=4,
@@ -119,7 +119,7 @@ class MVToolsPresets:
         hpad=property(fget=lambda x: x.block_size), vpad=property(fget=lambda x: x.block_size),
         range_conversion=1.0
     )
-    """SMDegrain by Caroliano & DogWay"""
+    """SMDegrain by Caroliano & DogWay."""
 
     CMDE = MVToolsPreset(
         pel=1, prefilter=Prefilter.NONE, sharp=2, rfilter=4,
@@ -136,11 +136,11 @@ class MVToolsPresets:
         sad_mode=SADMode.SPATIAL.same_recalc, search=SearchMode.DIAMOND,
         motion=MotionMode.HIGH_SAD, pel_type=PelType.BICUBIC, rfilter=2, sharp=2
     )
-    """Fast preset"""
+    """Fast preset."""
 
     NOISY = MVToolsPreset(
         pel=2, thSAD=100, block_size=16, overlap=property(fget=lambda x: x.block_size // 2),
         motion=MotionMode.HIGH_SAD, prefilter=Prefilter.DFTTEST,
         sad_mode=(SADMode.ADAPTIVE_SPATIAL_MIXED, SADMode.ADAPTIVE_SATD_MIXED)
     )
-    """Preset for accurate estimation"""
+    """Preset for accurate estimation."""
