@@ -28,40 +28,40 @@ class MVTools:
     """MVTools wrapper for motion analysis, degraining, compensation, interpolation, etc."""
 
     super_args: KwargsT
-    """Arguments passed to all the :py:attr:`MVToolsPlugin.Super` calls."""
+    """Arguments passed to every :py:attr:`MVToolsPlugin.Super` call."""
 
     analyze_args: KwargsT
-    """Arguments passed to all the :py:attr:`MVToolsPlugin.Analyze` calls."""
+    """Arguments passed to every :py:attr:`MVToolsPlugin.Analyze` call."""
 
     recalculate_args: KwargsT
-    """Arguments passed to all the :py:attr:`MVToolsPlugin.Recalculate` calls."""
+    """Arguments passed to every :py:attr:`MVToolsPlugin.Recalculate` call."""
 
     compensate_args: KwargsT
-    """Arguments passed to all the :py:attr:`MVToolsPlugin.Compensate` calls."""
+    """Arguments passed to every :py:attr:`MVToolsPlugin.Compensate` call."""
 
     flow_args: KwargsT
-    """Arguments passed to all the :py:attr:`MVToolsPlugin.Flow` calls."""
+    """Arguments passed to every :py:attr:`MVToolsPlugin.Flow` call."""
 
     degrain_args: KwargsT
-    """Arguments passed to all the :py:attr:`MVToolsPlugin.Degrain` calls."""
+    """Arguments passed to every :py:attr:`MVToolsPlugin.Degrain` call."""
 
     flow_interpolate_args: KwargsT
-    """Arguments passed to all the :py:attr:`MVToolsPlugin.FlowInter` calls."""
+    """Arguments passed to every :py:attr:`MVToolsPlugin.FlowInter` call."""
 
     flow_fps_args: KwargsT
-    """Arguments passed to all the :py:attr:`MVToolsPlugin.FlowFPS` calls."""
+    """Arguments passed to every :py:attr:`MVToolsPlugin.FlowFPS` call."""
 
     block_fps_args: KwargsT
-    """Arguments passed to all the :py:attr:`MVToolsPlugin.BlockFPS` calls."""
+    """Arguments passed to every :py:attr:`MVToolsPlugin.BlockFPS` call."""
 
     flow_blur_args: KwargsT
-    """Arguments passed to all the :py:attr:`MVToolsPlugin.FlowBlur` calls."""
+    """Arguments passed to every :py:attr:`MVToolsPlugin.FlowBlur` call."""
 
     mask_args: KwargsT
-    """Arguments passed to all the :py:attr:`MVToolsPlugin.Mask` calls."""
+    """Arguments passed to every :py:attr:`MVToolsPlugin.Mask` call."""
 
     sc_detection_args: KwargsT
-    """Arguments passed to all the :py:attr:`MVToolsPlugin.SCDetection` calls."""
+    """Arguments passed to every :py:attr:`MVToolsPlugin.SCDetection` call."""
 
     vectors: MotionVectors
     """Motion vectors analyzed and used for all operations."""
@@ -691,7 +691,8 @@ class MVTools:
     def flow_interpolate(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None, time: float | None = None,
-        ml: float | None = None, blend: bool | None = None, thscd: int | tuple[int | None, int | None] | None = None
+        ml: float | None = None, blend: bool | None = None, thscd: int | tuple[int | None, int | None] | None = None,
+        interleave: bool = True
     ) -> vs.VideoNode:
         """
         Motion interpolation function that creates an intermediate frame between two frames.
@@ -716,6 +717,7 @@ class MVTools:
         :param thscd:           Scene change detection thresholds.
                                 First value is the block change threshold between frames.
                                 Second value is the number of changed blocks needed for a scene change.
+        :param interleave:      Whether to interleave the interpolated frames with the source clip.
 
         :return:                Motion interpolated clip with frames created
                                 at the specified time position between input frames.
@@ -741,6 +743,9 @@ class MVTools:
 
         if self.mvtools is MVToolsPlugin.INTEGER:
             interpolated = norm_expr(interpolated, 'x {shift} +', shift=scale_delta(0.5, 8, interpolated))
+
+        if interleave:
+            interpolated = core.std.Interleave([clip, interpolated])
 
         return interpolated
 
