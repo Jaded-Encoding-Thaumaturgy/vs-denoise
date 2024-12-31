@@ -105,10 +105,10 @@ class MVTools:
         of all pixels of these two blocks, which indicates how correct the motion estimation was.
 
         :param clip:                    The clip to process.
-        :param tr:                      The temporal radius. This determines how many frames are analyzed before/after the current frame.
-                                        Higher values will result in smoother motion vectors, but will also be much slower. Default: 1.
         :param vectors:                 Pre-calculated motion vectors from another MVTools instance or custom implementation.
                                         Default: None.
+        :param tr:                      The temporal radius. This determines how many frames are analyzed before/after the current frame.
+                                        Default: 1.
         :param pel:                     Subpixel precision for motion estimation (1=pixel, 2=half-pixel, 4=quarter-pixel).
                                         Default: 1.
         :param pelfilter:               Filter used for pel interpolation. Only applicable when pel > 1. Default: None.
@@ -223,7 +223,7 @@ class MVTools:
         return super_clip
 
     def analyze(
-        self, super: vs.VideoNode | None = None, blocksize: int | tuple[int | None, int | None] | None = None,
+        self, super: vs.VideoNode | None = None, blksize: int | tuple[int | None, int | None] | None = None,
         levels: int | None = None, search: SearchMode | None = None, searchparam: int | None = None,
         pelsearch: int | None = None, lambda_: int | None = None, truemotion: MotionMode | None = None,
         lsad: int | None = None, plevel: PenaltyMode | None = None, global_: bool | None = None,
@@ -248,7 +248,7 @@ class MVTools:
 
         :param super:           The multilevel super clip prepared by :py:attr:`super`.
                                 If None, super will be obtained from clip.
-        :param blocksize:       Size of a block. Larger blocks are less sensitive to noise, are faster, but also less accurate.
+        :param blksize:       Size of a block. Larger blocks are less sensitive to noise, are faster, but also less accurate.
         :param levels:          Number of levels used in hierarchical motion vector analysis.
                                 A positive value specifies how many levels to use.
                                 A negative or zero value specifies how many coarse levels to skip.
@@ -298,11 +298,11 @@ class MVTools:
 
         vectors = MotionVectors() if inplace else self.vectors
 
-        blocksize, blocksizev = normalize_seq(blocksize, 2)
+        blksize, blksizev = normalize_seq(blksize, 2)
         overlap, overlapv = normalize_seq(overlap, 2)
 
         analyze_args = KwargsT(
-            blksize=blocksize, blksizev=blocksizev, levels=levels,
+            blksize=blksize, blksizev=blksizev, levels=levels,
             search=search, searchparam=searchparam, pelsearch=pelsearch,
             lambda_=lambda_, chroma=self.chroma, truemotion=truemotion,
             lsad=lsad, plevel=plevel, global_=global_,
@@ -329,7 +329,7 @@ class MVTools:
 
     def recalculate(
         self, super: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
-        blocksize: int | tuple[int | None, int | None] | None = None, search: SearchMode | None = None,
+        blksize: int | tuple[int | None, int | None] | None = None, search: SearchMode | None = None,
         searchparam: int | None = None, lambda_: int | None = None, truemotion: MotionMode | None = None,
         pnew: int | None = None, overlap: int | tuple[int | None, int | None] | None = None,
         divide: bool | None = None, meander: bool | None = None, dct: SADMode | None = None
@@ -349,7 +349,7 @@ class MVTools:
                                 If None, super will be obtained from clip.
         :param vectors:         Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
                                 If None, uses the vectors from this instance.
-        :param blocksize:       Size of blocks for motion estimation. Can be an int or tuple of (width, height).
+        :param blksize:       Size of blocks for motion estimation. Can be an int or tuple of (width, height).
                                 Larger blocks are less sensitive to noise and faster to process, but will produce less accurate vectors.
         :param search:          Search algorithm to use at the finest level. See :py:class:`SearchMode` for options.
         :param searchparam:     Additional parameter for the search algorithm. For NSTEP, this is the step size.
@@ -381,11 +381,11 @@ class MVTools:
         if not vectors.has_vectors:
             raise CustomRuntimeError('You must run `analyze` before `recalculate`!', self.recalculate)
 
-        blocksize, blocksizev = normalize_seq(blocksize, 2)
+        blksize, blksizev = normalize_seq(blksize, 2)
         overlap, overlapv = normalize_seq(overlap, 2)
 
         recalculate_args = KwargsT(
-            blksize=blocksize, blksizev=blocksizev, search=search, searchparam=searchparam,
+            blksize=blksize, blksizev=blksizev, search=search, searchparam=searchparam,
             lambda_=lambda_, chroma=self.chroma, truemotion=truemotion, pnew=pnew,
             overlap=overlap, overlapv=overlapv, divide=divide, meander=meander,
             fields=self.fieldbased.is_inter, tff=self.fieldbased.is_tff, dct=dct
@@ -631,7 +631,6 @@ class MVTools:
         :param vectors:         Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
                                 If None, uses the vectors from this instance.
         :param tr:              The temporal radius. This determines how many frames are analyzed before/after the current frame.
-                                If None, the :py:attr:`tr` attribute is used.
         :param thsad:           Defines the soft threshold of block sum absolute differences.
                                 Blocks with SAD above this threshold have zero weight for averaging (denoising).
                                 Blocks with low SAD have highest weight.
