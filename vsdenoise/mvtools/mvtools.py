@@ -151,7 +151,7 @@ class MVTools:
         self.mv_plane = planes_to_mvtools(self.planes)
         self.chroma = self.mv_plane != 0
         self.disable_compensate = False
-        
+
         if self.mvtools is MVToolsPlugin.FLOAT and tr == 1:
             self.disable_degrain = True
         else:
@@ -248,7 +248,7 @@ class MVTools:
 
         :param super:           The multilevel super clip prepared by :py:attr:`super`.
                                 If None, super will be obtained from clip.
-        :param blksize:       Size of a block. Larger blocks are less sensitive to noise, are faster, but also less accurate.
+        :param blksize:         Size of a block. Larger blocks are less sensitive to noise, are faster, but also less accurate.
         :param levels:          Number of levels used in hierarchical motion vector analysis.
                                 A positive value specifies how many levels to use.
                                 A negative or zero value specifies how many coarse levels to skip.
@@ -349,7 +349,7 @@ class MVTools:
                                 If None, super will be obtained from clip.
         :param vectors:         Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
                                 If None, uses the vectors from this instance.
-        :param blksize:       Size of blocks for motion estimation. Can be an int or tuple of (width, height).
+        :param blksize:         Size of blocks for motion estimation. Can be an int or tuple of (width, height).
                                 Larger blocks are less sensitive to noise and faster to process, but will produce less accurate vectors.
         :param search:          Search algorithm to use at the finest level. See :py:class:`SearchMode` for options.
         :param searchparam:     Additional parameter for the search algorithm. For NSTEP, this is the step size.
@@ -906,7 +906,7 @@ class MVTools:
         return self.mvtools.FlowBlur(clip, super_clip, vect_b, vect_f, **flow_blur_args)
 
     def mask(
-        self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None, 
+        self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
         direction: MVDirection = MVDirection.BACK, ml: float | None = None, gamma: float | None = None,
         kind: MaskMode | None = None, time: float | None = None, ysc: int | None = None,
         thscd: int | tuple[int | None, int | None] | None = None
@@ -1027,7 +1027,7 @@ class MVTools:
 
         if not vectors.has_vectors:
             raise CustomRuntimeError('You need to run analyze before getting motion vectors!', self.get_vectors)
-        
+
         if not isinstance(direction, tuple):
             direction = (direction,)
 
