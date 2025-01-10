@@ -350,6 +350,7 @@ SynthesisTypeT = SynthesisType | SynthesisTypeWithInfo
 
 class BackendInfo(KwargsT):
     backend: DFTTest.Backend
+    num_streams: int
 
     def __init__(self, backend: DFTTest.Backend, **kwargs: Any) -> None:
         super().__init__(**kwargs)
