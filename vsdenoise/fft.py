@@ -547,46 +547,43 @@ class DFTTest:
     ) -> None:
         self.clip = clip
 
-        if (fb := FieldBased.from_video(clip, False, self.__class__)).is_inter:
-            raise UnsupportedFieldBasedError('Interlaced input is not supported!', self.__class__, fb)
-
         self.plugin = BackendInfo.from_param(plugin)
 
         self.default_args = kwargs.copy()
-        self.default_slocation = sloc if isinstance(sloc, SLocation.MultiDim) else SLocation.from_param(sloc)
+        self.default_slocation = sloc
 
-    @overload  # type: ignore
-    @classmethod
-    def denoise(
-        cls, ref: vs.VideoNode, sloc: SLocT | None = None,
-        ftype: FilterTypeT = FilterType.WIENER,
-        tr: int = 0, tr_overlap: int = 0,
-        swin: SynthesisTypeT = SynthesisType.HANNING,
-        twin: SynthesisTypeT = SynthesisType.RECTANGULAR,
-        block_size: int = 16, overlap: int = 12,
-        zmean: bool = True, alpha: float | None = None, ssystem: int = 0,
-        blockwise: bool = True, planes: PlanesT = None, func: FuncExceptT | None = None, **kwargs: Any
-    ) -> vs.VideoNode:
-        ...
+    if TYPE_CHECKING:
+        @overload  # type: ignore[no-overload-impl]
+        @classmethod
+        def denoise(
+            cls, ref: vs.VideoNode, sloc: SLocT | None = None, /,
+            ftype: FilterTypeT = FilterType.WIENER,
+            tr: int = 0, tr_overlap: int = 0,
+            swin: SynthesisTypeT = SynthesisType.HANNING,
+            twin: SynthesisTypeT = SynthesisType.RECTANGULAR,
+            block_size: int = 16, overlap: int = 12,
+            zmean: bool = True, alpha: float | None = None, ssystem: int = 0,
+            blockwise: bool = True, planes: PlanesT = None, func: FuncExceptT | None = None, **kwargs: Any
+        ) -> vs.VideoNode:
+            ...
 
-    @overload
-    @classmethod
-    def denoise(
-        cls, sloc: SLocT, ref: vs.VideoNode | None = None,
-        ftype: FilterTypeT = FilterType.WIENER,
-        tr: int = 0, tr_overlap: int = 0,
-        swin: SynthesisTypeT = SynthesisType.HANNING,
-        twin: SynthesisTypeT = SynthesisType.RECTANGULAR,
-        block_size: int = 16, overlap: int = 12,
-        zmean: bool = True, alpha: float | None = None, ssystem: int = 0,
-        blockwise: bool = True, planes: PlanesT = None, func: FuncExceptT | None = None, **kwargs: Any
-    ) -> vs.VideoNode:
-        ...
-
-    if not TYPE_CHECKING:
+        @overload
+        @classmethod
+        def denoise(
+            cls, sloc: SLocT, /, *,
+            ftype: FilterTypeT = FilterType.WIENER,
+            tr: int = 0, tr_overlap: int = 0,
+            swin: SynthesisTypeT = SynthesisType.HANNING,
+            twin: SynthesisTypeT = SynthesisType.RECTANGULAR,
+            block_size: int = 16, overlap: int = 12,
+            zmean: bool = True, alpha: float | None = None, ssystem: int = 0,
+            blockwise: bool = True, planes: PlanesT = None, func: FuncExceptT | None = None, **kwargs: Any
+        ) -> vs.VideoNode:
+            ...
+    else:
         @inject_self
         def denoise(
-            self, ref: SLocT | vs.VideoNode | None = None, sloc: SLocT | vs.VideoNode | None = None,
+            self, ref_or_sloc: vs.VideoNode | SLocT, sloc: SLocT | None = None, /,
             ftype: FilterTypeT = FilterType.WIENER,
             tr: int = 0, tr_overlap: int = 0,
             swin: SynthesisTypeT = SynthesisType.HANNING,
@@ -600,23 +597,19 @@ class DFTTest:
             clip = self.clip
             nsloc = self.default_slocation
 
-            if (fb := FieldBased.from_video(clip, False, self.denoise)).is_inter:
-                raise UnsupportedFieldBasedError('Interlaced input is not supported!', self.denoise, fb)
-
-            if ref is not None:
-                if isinstance(ref, vs.VideoNode):
-                    clip = ref
-                else:
-                    nsloc = ref
+            if isinstance(ref_or_sloc, vs.VideoNode):
+                clip = ref_or_sloc
+            else:
+                nsloc = ref_or_sloc
 
             if sloc is not None:
-                if isinstance(sloc, vs.VideoNode):
-                    clip = sloc
-                else:
-                    nsloc = sloc
+                nsloc = sloc
 
             if clip is None:
                 raise CustomValueError('You must pass a clip!', func)
+
+            if (fb := FieldBased.from_video(clip, False, func)).is_inter:
+                raise UnsupportedFieldBasedError('Interlaced input is not supported!', func, fb)
 
             return self.plugin(
                 clip, nsloc, func=func, **(self.default_args | dict(
@@ -627,17 +620,17 @@ class DFTTest:
 
     @inject_self
     def extract_freq(self, clip: vs.VideoNode, sloc: SLocT, **kwargs: Any) -> vs.VideoNode:
-        return clip.std.MakeDiff(self.denoise(clip, sloc, **(dict(func=self.extract_freq) | kwargs)))
+        kwargs = dict(func=self.extract_freq) | kwargs
+        return clip.std.MakeDiff(self.denoise(clip, sloc, **kwargs))
 
     @inject_self
     def insert_freq(self, low: vs.VideoNode, high: vs.VideoNode, sloc: SLocT, **kwargs: Any) -> vs.VideoNode:
-        return low.std.MergeDiff(self.extract_freq(high, sloc, **(dict(func=self.insert_freq) | kwargs)))
+        return low.std.MergeDiff(self.extract_freq(high, sloc, **dict(func=self.insert_freq) | kwargs))
 
     @inject_self
     def merge_freq(self, low: vs.VideoNode, high: vs.VideoNode, sloc: SLocT, **kwargs: Any) -> vs.VideoNode:
         return self.insert_freq(
-            self.denoise(sloc, low, **(dict(func=self.merge_freq) | kwargs)),
-            high, sloc, **(dict(func=self.merge_freq) | kwargs)
+            self.denoise(low, sloc, **kwargs), high, sloc, **dict(func=self.merge_freq) | kwargs
         )
 
 
