@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any, Iterator, Literal, Mapping, NamedTuple, Sequence, TypeAlias, TypeVar, overload
+from typing import (
+    TYPE_CHECKING, Any, Iterator, Literal, Mapping, NamedTuple, Sequence, TypeAlias, TypeVar, cast, overload
+)
 
 from vstools import (
     CustomEnum, CustomImportError, CustomIntEnum, CustomOverflowError, CustomRuntimeError, CustomValueError,
@@ -433,7 +435,8 @@ class BackendInfo(KwargsT):
                 continue
 
             if key == 'nlocation' and value:
-                value = list[float](flatten(value))
+                value = cast(Sequence[NLocation | int], value)
+                value = list[int](flatten(value))
 
             if isinstance(value, SLocation):
                 value = list(value)
