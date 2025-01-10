@@ -464,28 +464,11 @@ class BackendInfo(KwargsT):
             elif backend is Backend.GCC:
                 dft2_backend = DFTBackend.GCC(**self)
 
-            if (tosize := dft_args.pop('tosize', 0)):
-                raise CustomValueError('{backend} doesn\'t support tosize != 0', func, tosize, backend=backend)
+            if dft_args.get('tmode') is not None:
+                raise CustomValueError('{backend} doesn\'t support tmode', func, backend=backend)
 
-            if (smode := dft_args.pop('smode', 1)) != 1:
-                raise CustomValueError(
-                    '{backend} doesn\'t support smode != 1!', func, smode, backend=backend
-                )
-
-            if (sbsize := dft_args.pop('sbsize', 16)) != 16:
-                raise CustomValueError(
-                    '{backend} doesn\'t support block_size != 16!', func, sbsize, backend=backend
-                )
-
-            if (nlocation := dft_args.pop('nlocation', None)) is not None:
-                raise CustomValueError(
-                    '{backend} doesn\'t support nlocation!', func, nlocation, backend=backend
-                )
-
-            if (alpha := dft_args.pop('alpha', None)) is not None:
-                raise CustomValueError(
-                    '{backend} doesn\'t support alpha!', func, nlocation, backend=backend
-                )
+            if dft_args.pop('tosize'):
+                raise CustomValueError('{backend} doesn\'t support tosize', func, backend=backend)
 
             return DFTTest2(clip, **dft_args, backend=dft2_backend)  # type: ignore
 
