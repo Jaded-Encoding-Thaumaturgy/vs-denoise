@@ -115,8 +115,8 @@ class SLocation:
 
     @classmethod
     def from_param(cls: type[SLocBoundT], location: SLocationT | Literal[False] | None) -> SLocBoundT | None:
-        if isinstance(location, SupportsFloatOrIndex):  # type: ignore
-            location = float(location)  # type: ignore
+        if isinstance(location, SupportsFloatOrIndex) and location is not False:
+            location = float(location)
             location = {0: location, 1: location}
 
         if location is None:
@@ -128,7 +128,7 @@ class SLocation:
         if isinstance(location, SLocation):
             return cls(list(location))
 
-        return cls(location)  # type: ignore
+        return cls(location)
 
     def __init__(
         self, locations: Sequence[Frequency | Sigma] | Sequence[tuple[Frequency, Sigma]] | Mapping[Frequency, Sigma],
