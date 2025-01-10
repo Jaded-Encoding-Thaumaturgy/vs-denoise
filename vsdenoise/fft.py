@@ -492,10 +492,6 @@ class BackendInfo(KwargsT):
 
 class DFTTest:
     """2D/3D frequency domain denoiser."""
-
-    default_args: KwargsT
-    default_slocation: SLocation | SLocation.MultiDim | None
-
     class Backend(CustomIntEnum):
         AUTO = auto()
         OLD = auto()
@@ -505,49 +501,45 @@ class DFTTest:
         CPU = auto()
         GCC = auto()
 
-        if TYPE_CHECKING:
-            from .fft import DFTTest
+        @overload
+        def __call__(  # type: ignore [misc]
+            self: Literal[DFTTest.Backend.OLD] | Literal[DFTTest.Backend.CPU], *, opt: int = ...
+        ) -> BackendInfo:
+            ...
 
-            Backend: TypeAlias = DFTTest.Backend
+        @overload
+        def __call__(  # type: ignore [misc]
+            self: Literal[DFTTest.Backend.NEO], *,
+            threads: int = ..., fft_threads: int = ..., opt: int = ..., dither: int = ...
+        ) -> BackendInfo:
+            ...
 
-            @overload
-            def __call__(  # type: ignore [misc]
-                self: Literal[Backend.OLD] | Literal[Backend.CPU], *, opt: int = ...
-            ) -> BackendInfo:
-                ...
+        @overload
+        def __call__(  # type: ignore [misc]
+            self: Literal[DFTTest.Backend.cuFFT], *, device_id: int = 0, in_place: bool = True
+        ) -> BackendInfo:
+            ...
 
-            @overload
-            def __call__(  # type: ignore [misc]
-                self: Literal[Backend.NEO], *,
-                threads: int = ..., fft_threads: int = ..., opt: int = ..., dither: int = ...
-            ) -> BackendInfo:
-                ...
+        @overload
+        def __call__(  # type: ignore [misc]
+            self: Literal[DFTTest.Backend.NVRTC], *, device_id: int = 0, num_streams: int = 1
+        ) -> BackendInfo:
+            ...
 
-            @overload
-            def __call__(  # type: ignore [misc]
-                self: Literal[Backend.cuFFT], *, device_id: int = 0, in_place: bool = True
-            ) -> BackendInfo:
-                ...
+        @overload
+        def __call__(self: Literal[DFTTest.Backend.GCC]) -> BackendInfo:  # type: ignore [misc]
+            ...
 
-            @overload
-            def __call__(  # type: ignore [misc]
-                self: Literal[Backend.NVRTC], *, device_id: int = 0, num_streams: int = 1
-            ) -> BackendInfo:
-                ...
+        @overload
+        def __call__(self: DFTTest.Backend, **kwargs: Any) -> BackendInfo:
+            ...
 
-            @overload
-            def __call__(self: Literal[Backend.GCC]) -> BackendInfo:  # type: ignore [misc]
-                ...
-
-            def __call__(self: Backend, **kwargs: Any) -> BackendInfo:
-                ...
-        else:
-            def __call__(self, **kwargs: Any) -> BackendInfo:
-                return BackendInfo(self, **kwargs)
+        def __call__(self, **kwargs: Any) -> BackendInfo:
+            return BackendInfo(self, **kwargs)
 
         @property
         def is_dfttest2(self) -> bool:
-            return self in {self.cuFFT, self.NVRTC, self.CPU, self.GCC}  # type: ignore
+            return self.value in {self.cuFFT.value, self.NVRTC.value, self.CPU.value, self.GCC.value}
 
     def __init__(
         self, clip: vs.VideoNode | None = None, plugin: Backend | BackendInfo = Backend.AUTO,
