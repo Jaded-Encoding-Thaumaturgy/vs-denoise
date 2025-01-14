@@ -471,7 +471,7 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        tr = min(tr, self.tr) if tr else self.tr
+        tr = self.tr if tr is None else tr
 
         vect_b, vect_f = self.get_vectors(self.vectors, direction=direction, tr=tr)
 
@@ -574,7 +574,7 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        tr = min(tr, self.tr) if tr else self.tr
+        tr = self.tr if tr is None else tr
 
         vect_b, vect_f = self.get_vectors(self.vectors, direction=direction, tr=tr)
 
@@ -658,7 +658,7 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        tr = min(tr, self.tr) if tr else self.tr
+        tr = self.tr if tr is None else tr
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
@@ -1029,7 +1029,7 @@ class MVTools:
         if not isinstance(direction, tuple):
             direction = (direction,)
 
-        tr = min(tr, self.tr) if tr else self.tr
+        tr = self.tr if tr is None else tr
 
         vectors_backward = list[vs.VideoNode]()
         vectors_forward = list[vs.VideoNode]()
