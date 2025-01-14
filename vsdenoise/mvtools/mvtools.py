@@ -228,7 +228,7 @@ class MVTools:
         pnew: int | None = None, pzero: int | None = None, pglobal: int | None = None,
         overlap: int | tuple[int | None, int | None] | None = None, divide: bool | None = None,
         badsad: int | None = None, badrange: int | None = None, meander: bool | None = None,
-        trymany: bool | None = None, dct: SADMode | None = None, inplace: bool = False,
+        trymany: bool | None = None, dct: SADMode | None = None, inplace: bool = True,
     ) -> MotionVectors:
         """
         Analyze motion vectors in a clip using block matching.
@@ -294,7 +294,7 @@ class MVTools:
 
         super_clip = self.get_super(fallback(super, self.clip))
 
-        vectors = MotionVectors() if inplace else self.vectors
+        vectors = MotionVectors() if not inplace else self.vectors
 
         blksize, blksizev = normalize_seq(blksize, 2)
         overlap, overlapv = normalize_seq(overlap, 2)
