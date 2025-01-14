@@ -73,8 +73,7 @@ class MVTools:
     @disallow_variable_resolution
     def __init__(
         self, clip: vs.VideoNode, vectors: MotionVectors | MVTools | None = None,
-        tr: int = 1, pel: int | None = None, pelfilter: VSFunction | None = None,
-        planes: int | Sequence[int] | None = None,
+        tr: int = 1, pel: int | None = None, planes: int | Sequence[int] | None = None,
         *,
         # kwargs for mvtools calls
         super_args: KwargsT | None = None,
@@ -111,7 +110,6 @@ class MVTools:
                                         Default: 1.
         :param pel:                     Subpixel precision for motion estimation (1=pixel, 2=half-pixel, 4=quarter-pixel).
                                         Default: 1.
-        :param pelfilter:               Filter used for pel interpolation. Only applicable when pel > 1. Default: None.
         :param fieldbased:              Whether the clip is interlaced and its field order. Default: None.
         :param planes:                  Which planes to process. Default: None (all planes).
         :param super_args:              Arguments passed to every :py:attr:`MVToolsPlugin.Super` calls.
@@ -145,7 +143,6 @@ class MVTools:
 
         self.tr = tr
         self.pel = pel
-        self.pelfilter = pelfilter
 
         self.planes = normalize_planes(clip, planes)
         self.mv_plane = planes_to_mvtools(self.planes)
@@ -173,7 +170,7 @@ class MVTools:
     def super(
         self, clip: vs.VideoNode | None = None, pad: int | tuple[int | None, int | None] | None = None,
         levels: int | None = None, sharp: SharpMode | None  = None, rfilter: RFilterMode | None = None,
-        pelclip: vs.VideoNode | None = None
+        pelclip: vs.VideoNode | VSFunction | None = None
     ) -> vs.VideoNode:
         """
         Get source clip and prepare special "super" clip with multilevel (hierarchical scaled) frames data.
@@ -206,8 +203,8 @@ class MVTools:
         clip = fallback(clip, self.clip)
         hpad, vpad = normalize_seq(pad, 2)
 
-        if self.pelfilter and not pelclip:
-            pelclip = self.pelfilter(clip)
+        if callable(pelclip):
+            pelclip = pelclip(clip)
 
         super_args = KwargsT(
             hpad=hpad, vpad=vpad, pel=self.pel, levels=levels, chroma=self.chroma,
