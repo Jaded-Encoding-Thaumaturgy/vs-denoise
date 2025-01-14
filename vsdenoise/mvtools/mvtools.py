@@ -173,7 +173,7 @@ class MVTools:
     def super(
         self, clip: vs.VideoNode | None = None, pad: int | tuple[int | None, int | None] | None = None,
         levels: int | None = None, sharp: SharpMode | None  = None, rfilter: RFilterMode | None = None,
-        pelclip: vs.VideoNode | None = None, inplace: bool = False
+        pelclip: vs.VideoNode | None = None
     ) -> vs.VideoNode:
         """
         Get source clip and prepare special "super" clip with multilevel (hierarchical scaled) frames data.
@@ -197,10 +197,11 @@ class MVTools:
                             The clip must contain the original source pixels at positions that are multiples of pel
                             (e.g., positions 0, 2, 4, etc. for pel=2), with interpolated pixels in between.
                             The clip should not be padded.
-        :param inplace:     Whether to store the super results in the current MVTools instance.
 
         :return:            The original clip with the super clip attached as a frame property.
         """
+
+        inplace = clip is None
 
         clip = fallback(clip, self.clip)
         hpad, vpad = normalize_seq(pad, 2)
