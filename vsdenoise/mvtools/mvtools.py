@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from fractions import Fraction
 from itertools import chain
-from typing import Any, Sequence, overload
+from typing import Any, overload
 
 from vstools import (
     CustomRuntimeError, ColorRange, FieldBased,
-    InvalidColorFamilyError, KwargsT, VSFunction,
+    InvalidColorFamilyError, KwargsT, PlanesT, VSFunction,
     check_variable, core, depth, disallow_variable_format, scale_delta,
     disallow_variable_resolution, fallback, normalize_planes, normalize_seq, vs
 )
@@ -73,7 +73,7 @@ class MVTools:
     @disallow_variable_resolution
     def __init__(
         self, clip: vs.VideoNode, vectors: MotionVectors | MVTools | None = None,
-        tr: int = 1, pel: int | None = None, planes: int | Sequence[int] | None = None,
+        tr: int = 1, pel: int | None = None, planes: PlanesT | None = None,
         *,
         # kwargs for mvtools calls
         super_args: KwargsT | None = None,
@@ -294,7 +294,7 @@ class MVTools:
 
         super_clip = self.get_super(fallback(super, self.clip))
 
-        vectors = MotionVectors() if not inplace else self.vectors
+        vectors = self.vectors if inplace else MotionVectors()
 
         blksize, blksizev = normalize_seq(blksize, 2)
         overlap, overlapv = normalize_seq(overlap, 2)
