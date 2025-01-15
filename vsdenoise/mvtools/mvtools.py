@@ -6,7 +6,7 @@ from typing import Any, overload
 
 from vstools import (
     CustomRuntimeError, ColorRange, FieldBased,
-    InvalidColorFamilyError, KwargsT, PlanesT, VSFunction,
+    InvalidColorFamilyError, KwargsT, PlanesT, VSFunction, get_depth,
     check_variable, core, depth, disallow_variable_format, scale_delta,
     disallow_variable_resolution, fallback, normalize_planes, normalize_seq, vs
 )
@@ -138,6 +138,7 @@ class MVTools:
             self.vectors = MotionVectors()
 
         self.mvtools = MVToolsPlugin.from_video(clip)
+        self.bits = get_depth(clip)
         self.fieldbased = FieldBased.from_video(clip, False, self.__class__)
         self.clip = clip.std.SeparateFields() if self.fieldbased.is_inter else clip
 
@@ -733,8 +734,10 @@ class MVTools:
 
         interpolated = self.mvtools.FlowInter(clip, super_clip, vect_b, vect_f, **flow_interpolate_args)
 
-        if self.mvtools is MVToolsPlugin.INTEGER:
-            interpolated = norm_expr(interpolated, 'x {shift} +', shift=scale_delta(0.5, 8, interpolated))
+        if self.mvtools is MVToolsPlugin.INTEGER and self.bits > 8:
+            interpolated = norm_expr(
+                interpolated, 'x {shift} +', shift=scale_delta(0.5, 8, interpolated)
+            )[:-1] + interpolated[-1]
 
         if interleave:
             interpolated = core.std.Interleave([clip, interpolated])
@@ -792,8 +795,10 @@ class MVTools:
 
         interpolated = self.mvtools.FlowFPS(clip, super_clip, vect_b, vect_f, **flow_fps_args)
 
-        if self.mvtools is MVToolsPlugin.INTEGER:
-            interpolated = norm_expr(interpolated, 'x {shift} +', shift=scale_delta(0.5, 8, interpolated))
+        if self.mvtools is MVToolsPlugin.INTEGER and self.bits > 8:
+            interpolated = norm_expr(
+                interpolated, 'x {shift} +', shift=scale_delta(0.5, 8, interpolated)
+            )[:-1] + interpolated[-1]
 
         return interpolated
 
@@ -849,8 +854,10 @@ class MVTools:
 
         interpolated = self.mvtools.BlockFPS(clip, super_clip, vect_b, vect_f, **block_fps_args)
 
-        if self.mvtools is MVToolsPlugin.INTEGER:
-            interpolated = norm_expr(interpolated, 'x {shift} +', shift=scale_delta(0.5, 8, interpolated))
+        if self.mvtools is MVToolsPlugin.INTEGER and self.bits > 8:
+            interpolated = norm_expr(
+                interpolated, 'x {shift} +', shift=scale_delta(0.5, 8, interpolated)
+            )[:-1] + interpolated[-1]
 
         return interpolated
 
