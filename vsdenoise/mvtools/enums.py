@@ -18,7 +18,7 @@ __all__ = [
 
 
 class MVToolsPlugin(CustomIntEnum):
-    """Abstraction around all three mvtools plugin versions."""
+    """Abstraction around both mvtools plugin versions."""
 
     INTEGER = 0
     """Original plugin. Only accepts integer 8-16 bits clips."""
