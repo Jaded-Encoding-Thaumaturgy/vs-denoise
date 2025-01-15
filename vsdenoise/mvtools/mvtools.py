@@ -228,7 +228,7 @@ class MVTools:
         pnew: int | None = None, pzero: int | None = None, pglobal: int | None = None,
         overlap: int | tuple[int | None, int | None] | None = None, divide: bool | None = None,
         badsad: int | None = None, badrange: int | None = None, meander: bool | None = None,
-        trymany: bool | None = None, dct: SADMode | None = None, inplace: bool = True,
+        trymany: bool | None = None, dct: SADMode | None = None
     ) -> MotionVectors:
         """
         Analyze motion vectors in a clip using block matching.
@@ -286,15 +286,12 @@ class MVTools:
                                 Enabling this can find better vectors but increases processing time.
         :param dct:             SAD calculation mode using block DCT (frequency spectrum) for comparing blocks.
                                 For more information, see :py:class:`SADMode`.
-        :param inplace:         Whether to store the analysis results in the current MVTools instance.
 
         :return:                A :py:class:`MotionVectors` object containing the analyzed motion vectors for each frame.
                                 These vectors describe the estimated motion between frames and can be used for motion compensation.
         """
 
         super_clip = self.get_super(fallback(super, self.clip))
-
-        vectors = self.vectors if inplace else MotionVectors()
 
         blksize, blksizev = normalize_seq(blksize, 2)
         overlap, overlapv = normalize_seq(overlap, 2)
@@ -316,14 +313,12 @@ class MVTools:
             self.disable_compensate = True
 
         if self.mvtools is MVToolsPlugin.FLOAT:
-            vectors.vmulti = self.mvtools.Analyze(super_clip, radius=self.tr, **analyze_args)
+            self.vectors.vmulti = self.mvtools.Analyze(super_clip, radius=self.tr, **analyze_args)
         else:
             for i in range(1, self.tr + 1):
                 for direction in MVDirection:
                     vector = self.mvtools.Analyze(super_clip, isb=direction, delta=i, **analyze_args)
-                    vectors.set_mv(direction, i, vector)
-
-        return vectors
+                    self.vectors.set_mv(direction, i, vector)
 
     def recalculate(
         self, super: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
