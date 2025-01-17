@@ -2,10 +2,7 @@ from __future__ import annotations
 
 from typing import Sequence
 
-from vstools import CustomValueError, get_depth, scale_delta, vs
-from vsexprtools import norm_expr
-
-from .enums import MVToolsPlugin
+from vstools import CustomValueError
 
 __all__ = [
     'planes_to_mvtools',
@@ -62,12 +59,3 @@ def normalize_thscd(
         thscd2 = round(thscd2 / 100 * 255)
 
     return (thscd1, thscd2)
-
-
-def fix_tint(clip: vs.VideoNode, plugin: MVToolsPlugin) -> vs.VideoNode:
-    if plugin is MVToolsPlugin.INTEGER and get_depth(clip) > 8:
-        clip = norm_expr(
-            clip, 'x {shift} +', shift=scale_delta(0.5, 8, clip)
-        )[:-1] + clip[-1]
-
-    return clip

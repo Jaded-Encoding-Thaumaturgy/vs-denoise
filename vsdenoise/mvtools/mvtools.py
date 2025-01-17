@@ -16,7 +16,7 @@ from .enums import (
     SADMode, MotionMode, PenaltyMode, FlowMode, MaskMode
 )
 from .motion import MotionVectors
-from .utils import normalize_thscd, planes_to_mvtools, fix_tint
+from .utils import normalize_thscd, planes_to_mvtools
 
 __all__ = [
     'MVTools'
@@ -72,7 +72,7 @@ class MVTools:
     @disallow_variable_resolution
     def __init__(
         self, clip: vs.VideoNode, vectors: MotionVectors | MVTools | None = None,
-        tr: int = 1, pel: int | None = None, planes: PlanesT | None = None,
+        tr: int = 1, pel: int | None = None, planes: PlanesT = None,
         *,
         # kwargs for mvtools calls
         super_args: KwargsT | None = None,
@@ -732,8 +732,6 @@ class MVTools:
 
         interpolated = self.mvtools.FlowInter(clip, super_clip, vect_b, vect_f, **flow_interpolate_args)
 
-        interpolated = fix_tint(interpolated, self.mvtools)
-
         if interleave:
             interpolated = core.std.Interleave([clip, interpolated])
 
@@ -788,11 +786,7 @@ class MVTools:
             num=fps.numerator, den=fps.denominator, mask=mask, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2
         ) | self.flow_fps_args
 
-        interpolated = self.mvtools.FlowFPS(clip, super_clip, vect_b, vect_f, **flow_fps_args)
-
-        interpolated = fix_tint(interpolated, self.mvtools)
-
-        return interpolated
+        return self.mvtools.FlowFPS(clip, super_clip, vect_b, vect_f, **flow_fps_args)
 
     def block_fps(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
@@ -844,11 +838,7 @@ class MVTools:
             num=fps.numerator, den=fps.denominator, mode=mode, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2
         ) | self.block_fps_args
 
-        interpolated = self.mvtools.BlockFPS(clip, super_clip, vect_b, vect_f, **block_fps_args)
-
-        interpolated = fix_tint(interpolated, self.mvtools)
-
-        return interpolated
+        return self.mvtools.BlockFPS(clip, super_clip, vect_b, vect_f, **block_fps_args)
 
     def flow_blur(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
