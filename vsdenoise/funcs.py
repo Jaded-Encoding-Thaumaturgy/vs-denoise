@@ -292,7 +292,7 @@ def temporal_degrain(
         if isinstance(contra, float):
             sharpened = contrasharpening_dehalo(dnWindow, func.work_clip, contra, 2.5, func.norm_planes)
         else:
-            sharpened = contrasharpening(dnWindow, func.work_clip, contra, 13, func.norm_planes)
+            sharpened = contrasharpening(dnWindow, func.work_clip, contra, None, 13, func.norm_planes)
     else:
         sharpened = dnWindow
 
