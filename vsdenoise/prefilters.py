@@ -65,9 +65,12 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
         def _run(clip: vs.VideoNode, planes: PlanesT, **kwargs: Any) -> vs.VideoNode:
             assert check_variable(clip, self)
 
-            pref_type = Prefilter.MINBLUR3 if self == Prefilter.AUTO else self
+            if self == Prefilter.AUTO:
+                pref_type = Prefilter.MINBLUR
+                kwargs = dict(radius=3) | kwargs
+            else:
+                pref_type = self
 
-            peak = get_peak_value(clip)
             planes = normalize_planes(clip, planes)
 
             if pref_type == Prefilter.NONE:
@@ -98,6 +101,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
                 pref_type = Prefilter.DFTTEST
 
             if pref_type == Prefilter.DFTTEST:
+                peak = get_peak_value(clip)
                 dftt = DFTTest(sloc={0.0: 4, 0.2: 9, 1.0: 15}, tr=0).denoise(clip, **kwargs)
 
                 i, j = (scale_value(x, 8, clip) for x in (16, 75))
