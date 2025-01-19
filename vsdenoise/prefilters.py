@@ -439,7 +439,7 @@ class Prefilter(PrefilterBase):
             simr: SingleOrArr[int] = 2, device_type: DeviceType = DeviceType.AUTO, **kwargs: Any
         ) -> vs.VideoNode:
             """
-            Denoising with NLMeans, then postprocessed to restore low frequencies.
+            Denoising with NLMeans.
 
             :param clip:            Source clip.
             :param strength:        Controls the strength of the filtering.\n
