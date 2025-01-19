@@ -5,9 +5,9 @@ from itertools import chain
 from typing import Any, overload
 
 from vstools import (
-    CustomRuntimeError, ColorRange, FieldBased,
+    CustomRuntimeError, ColorRange, FieldBased, FramePropError,
     InvalidColorFamilyError, KwargsT, PlanesT, VSFunction,
-    check_variable, core, depth, disallow_variable_format,
+    check_variable, core, depth, disallow_variable_format, get_prop,
     disallow_variable_resolution, fallback, normalize_planes, normalize_seq, vs
 )
 
@@ -996,11 +996,11 @@ class MVTools:
 
         try:
             vect = vectors.get_mv(MVDirection.BACK, 1)
-            blksize = vect.get_frame(0).props['Analysis_BlockSize']
-        except KeyError:
+            blksize = get_prop(vect, 'Analysis_BlockSize', list)
+        except FramePropError:
             self.expand_analysis_data(vectors)
             vect = vectors.get_mv(MVDirection.BACK, 1)
-            blksize = vect.get_frame(0).props['Analysis_BlockSize']
+            blksize = get_prop(vect, 'Analysis_BlockSize', list)
 
         scaled_blksize = f'{blksize[0] * scalex}x{blksize[1] * scaley}'
 
@@ -1040,9 +1040,9 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        vector = vectors.get_mv(direction, delta)
+        vect = vectors.get_mv(direction, delta)
 
-        return clip.manipmv.ShowVect(vector)
+        return clip.manipmv.ShowVect(vect)
     
     def expand_analysis_data(self, vectors: MotionVectors | MVTools | None = None):
         """
