@@ -148,9 +148,13 @@ class MVTools:
         self.chroma = self.mv_plane != 0
         self.disable_compensate = False
 
-        if self.mvtools is MVToolsPlugin.FLOAT and tr == 1:
-            self.disable_degrain = True
+        if self.mvtools is MVToolsPlugin.FLOAT:
+            self.disable_manipmv = True
+
+            if tr == 1:
+                self.disable_degrain = True
         else:
+            self.disable_manipmv = False
             self.disable_degrain = False
 
         self.super_args = fallback(super_args, KwargsT())
@@ -290,7 +294,7 @@ class MVTools:
                                 These vectors describe the estimated motion between frames and can be used for motion compensation.
         """
 
-        super_clip = self.get_super(fallback(super, self.clip))
+        super_clip = self.get_super(super)
 
         blksize, blksizev = normalize_seq(blksize, 2)
         overlap, overlapv = normalize_seq(overlap, 2)
@@ -363,7 +367,7 @@ class MVTools:
                                 For more information, see :py:class:`SADMode`.
         """
 
-        super_clip = self.get_super(fallback(super, self.clip))
+        super_clip = self.get_super(super)
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -458,7 +462,7 @@ class MVTools:
             raise CustomRuntimeError('Motion analysis was performed without block overlap!', self.compensate)
 
         clip = fallback(clip, self.clip)
-        super_clip = self.get_super(fallback(super, self.clip))
+        super_clip = self.get_super(super)
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -561,7 +565,7 @@ class MVTools:
         """
 
         clip = fallback(clip, self.clip)
-        super_clip = self.get_super(fallback(super, self.clip))
+        super_clip = self.get_super(super)
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -645,7 +649,7 @@ class MVTools:
             raise CustomRuntimeError('Motion analysis was performed with a temporal radius of 1!', self.degrain)
 
         clip = fallback(clip, self.clip)
-        super_clip = self.get_super(fallback(super, self.clip))
+        super_clip = self.get_super(super)
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -715,7 +719,7 @@ class MVTools:
         """
 
         clip = fallback(clip, self.clip)
-        super_clip = self.get_super(fallback(super, self.clip))
+        super_clip = self.get_super(super)
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -771,7 +775,7 @@ class MVTools:
         """
 
         clip = fallback(clip, self.clip)
-        super_clip = self.get_super(fallback(super, self.clip))
+        super_clip = self.get_super(super)
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -823,7 +827,7 @@ class MVTools:
         """
 
         clip = fallback(clip, self.clip)
-        super_clip = self.get_super(fallback(super, self.clip))
+        super_clip = self.get_super(super)
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -867,7 +871,7 @@ class MVTools:
         """
 
         clip = fallback(clip, self.clip)
-        super_clip = self.get_super(fallback(super, self.clip))
+        super_clip = self.get_super(super)
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -968,8 +972,79 @@ class MVTools:
         ) | self.sc_detection_args
 
         return self.mvtools.SCDetection(clip, vect, **sc_detection_args)
+    
+    def expand_analysis_data(self, vectors: MotionVectors | MVTools | None = None):
+        """
+        Expands the binary MVTools_MVAnalysisData frame prop into separate frame props for convenience.
 
-    def get_super(self, clip: vs.VideoNode) -> vs.VideoNode:
+        :param vectors:     Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
+                            If None, uses the vectors from this instance.
+        """
+
+        if self.disable_manipmv:
+            raise CustomRuntimeError(
+                f'Motion vector manipulation not supported with {self.mvtools}!', self.expand_analysis_data
+            )
+
+        if isinstance(vectors, MVTools):
+            vectors = vectors.vectors
+        elif vectors is None:
+            vectors = self.vectors
+
+        for i in range(1, self.tr + 1):
+            for direction in MVDirection:
+                vector = vectors.get_mv(direction, i).manipmv.ExpandAnalysisData()
+                vector = vectors.set_mv(direction, i, vector)
+
+    def scale_vectors(self, scale: int | tuple[int, int], vectors: MotionVectors | MVTools | None = None):
+        if self.disable_manipmv:
+            raise CustomRuntimeError(
+                f'Motion vector manipulation not supported with {self.mvtools}!', self.scale_vectors
+            )
+        
+        if isinstance(vectors, MVTools):
+            vectors = vectors.vectors
+        elif vectors is None:
+            vectors = self.vectors
+
+        scalex, scaley = normalize_seq(scale, 2)
+        
+        for i in range(1, self.tr + 1):
+            for direction in MVDirection:
+                vector = vectors.get_mv(direction, i).manipmv.ScaleVect(scalex, scaley)
+                vector = vectors.set_mv(direction, i, vector)
+
+    def show_vector(
+            self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
+            direction: MVDirection = MVDirection.BACK, delta: int = 1
+        ) -> vs.VideoNode:
+        """
+        Draws generated vectors onto a clip.
+
+        :param clip:          The clip to overlay the motion vectors on.
+        :param vectors:       Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
+                              If None, uses the vectors from this instance.
+        :param direction:     Motion vector direction to use.
+        :param delta:         Motion vector delta to use.
+
+        :return:              Clip with motion vectors overlaid.
+        """
+
+        if self.disable_manipmv:
+            raise CustomRuntimeError(f'Motion vector manipulation not supported with {self.mvtools}!', self.show_vector)
+
+        clip = fallback(clip, self.clip)
+
+        if isinstance(vectors, MVTools):
+            vectors = vectors.vectors
+        elif vectors is None:
+            vectors = self.vectors
+
+        vector = vectors.get_mv(direction, delta)
+
+        return clip.manipmv.ShowVect(vector)
+
+    def get_super(self, clip: vs.VideoNode | None = None) -> vs.VideoNode:
         """
         Get the super clips from the specified clip.
 
@@ -980,6 +1055,8 @@ class MVTools:
 
         :return:        VideoNode containing the super clip.
         """
+
+        clip = fallback(clip, self.clip)
 
         try:
             super_clip = clip.std.PropToClip(prop='MSuper')
