@@ -999,16 +999,18 @@ class MVTools:
             '4x4', '8x4', '8x8', '16x2', '16x8', '16x16', '32x16', '32x32', '64x32', '64x64', '128x64', '128x128'
         )
 
+        vector = vectors.get_mv(MVDirection.BACK, 1)
+
+        blksize = vector.get_frame(0).props['Analysis_BlockSize']
+        blksize_new = f'{blksize[0] * scalex}x{blksize[1] * scaley}'
+
+        if blksize_new not in supported_blksize:
+            raise CustomRuntimeError('Unsupported block size!', self.scale_vectors)
+
         for i in range(1, self.tr + 1):
             for direction in MVDirection:
-                vector = vectors.get_mv(direction, i)
+                vector = vector if direction == MVDirection.BACK and i == 1 else vectors.get_mv(direction, i)
 
-                blksize = vector.get_frame(0).props['Analysis_BlockSize']
-                blksize_new = f'{blksize[0] * scalex}x{blksize[1] * scaley}'
-
-                if blksize_new not in supported_blksize:
-                    raise CustomRuntimeError('Unsupported block size!', self.scale_vectors)
-        
                 vector = vector.manipmv.ScaleVect(scalex, scaley)
                 vectors.set_mv(direction, i, vector)
 
