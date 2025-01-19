@@ -972,29 +972,6 @@ class MVTools:
         ) | self.sc_detection_args
 
         return self.mvtools.SCDetection(clip, vect, **sc_detection_args)
-    
-    def expand_analysis_data(self, vectors: MotionVectors | MVTools | None = None):
-        """
-        Expands the binary MVTools_MVAnalysisData frame prop into separate frame props for convenience.
-
-        :param vectors:     Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
-                            If None, uses the vectors from this instance.
-        """
-
-        if self.disable_manipmv:
-            raise CustomRuntimeError(
-                f'Motion vector manipulation not supported with {self.mvtools}!', self.expand_analysis_data
-            )
-
-        if isinstance(vectors, MVTools):
-            vectors = vectors.vectors
-        elif vectors is None:
-            vectors = self.vectors
-
-        for i in range(1, self.tr + 1):
-            for direction in MVDirection:
-                vector = vectors.get_mv(direction, i).manipmv.ExpandAnalysisData()
-                vector = vectors.set_mv(direction, i, vector)
 
     def scale_vectors(self, scale: int | tuple[int, int], vectors: MotionVectors | MVTools | None = None):
         """
@@ -1017,11 +994,23 @@ class MVTools:
             vectors = self.vectors
 
         scalex, scaley = normalize_seq(scale, 2)
-        
+
+        supported_blksize = (
+            '4x4', '8x4', '8x8', '16x2', '16x8', '16x16', '32x16', '32x32', '64x32', '64x64', '128x64', '128x128'
+        )
+
         for i in range(1, self.tr + 1):
             for direction in MVDirection:
-                vector = vectors.get_mv(direction, i).manipmv.ScaleVect(scalex, scaley)
-                vector = vectors.set_mv(direction, i, vector)
+                vector = vectors.get_mv(direction, i)
+
+                blksize = vector.get_frame(0).props['Analysis_BlockSize']
+                blksize_new = f'{blksize[0] * scalex}x{blksize[1] * scaley}'
+
+                if blksize_new not in supported_blksize:
+                    raise CustomRuntimeError('Unsupported block size!', self.scale_vectors)
+        
+                vector = vector.manipmv.ScaleVect(scalex, scaley)
+                vectors.set_mv(direction, i, vector)
 
     def show_vector(
             self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
@@ -1052,6 +1041,29 @@ class MVTools:
         vector = vectors.get_mv(direction, delta)
 
         return clip.manipmv.ShowVect(vector)
+    
+    def expand_analysis_data(self, vectors: MotionVectors | MVTools | None = None):
+        """
+        Expands the binary MVTools_MVAnalysisData frame prop into separate frame props for convenience.
+
+        :param vectors:     Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
+                            If None, uses the vectors from this instance.
+        """
+
+        if self.disable_manipmv:
+            raise CustomRuntimeError(
+                f'Motion vector manipulation not supported with {self.mvtools}!', self.expand_analysis_data
+            )
+
+        if isinstance(vectors, MVTools):
+            vectors = vectors.vectors
+        elif vectors is None:
+            vectors = self.vectors
+
+        for i in range(1, self.tr + 1):
+            for direction in MVDirection:
+                vector = vectors.get_mv(direction, i).manipmv.ExpandAnalysisData()
+                vectors.set_mv(direction, i, vector)
 
     def get_super(self, clip: vs.VideoNode | None = None) -> vs.VideoNode:
         """
