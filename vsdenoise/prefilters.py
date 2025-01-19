@@ -12,7 +12,7 @@ from vsaa import Nnedi3
 from vsexprtools import ExprOp, complexpr_available, norm_expr
 from vskernels import Bicubic, Bilinear, Scaler, ScalerT
 from vsmasktools import retinex
-from vsrgtools import bilateral, blur, gauss_blur, min_blur
+from vsrgtools import bilateral, box_blur, gauss_blur, min_blur
 from vstools import (
     MISSING, ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, MissingT, PlanesT, SingleOrArr,
     SingleOrArrOpt, check_variable, clamp, core, depth, disallow_variable_format, disallow_variable_resolution,
@@ -71,11 +71,11 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
                 return clip
 
             if pref_type.value in {Prefilter.MINBLUR1, Prefilter.MINBLUR2, Prefilter.MINBLUR3}:
-                return min_blur(clip, int(pref_type._name_[-1]), planes)
+                return min_blur(clip, int(pref_type._name_[-1]), planes=planes)
 
             if pref_type == Prefilter.MINBLURFLUX:
                 temp_thr, spat_thr = kwargs.get('temp_thr', 2), kwargs.get('spat_thr', 2)
-                return min_blur(clip, 2, planes).flux.SmoothST(  # type: ignore
+                return min_blur(clip, 2, planes=planes).flux.SmoothST(  # type: ignore
                     scale_delta(temp_thr, 8, clip),
                     scale_delta(spat_thr, 8, clip),
                     planes
@@ -149,7 +149,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
                 downscale = downscaler.scale(clip, clip.width // scale, clip.height // scale)
 
-                boxblur = blur(downscale, kwargs.pop('radius', 1), kwargs.pop('mode', ConvMode.HV), planes)
+                boxblur = box_blur(downscale, kwargs.pop('radius', 1), mode=kwargs.pop('mode', ConvMode.HV), planes=planes)
 
                 return upscaler.scale(boxblur, clip.width, clip.height)
 
@@ -166,7 +166,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
                 return gauss_blur(clip, **(kwargs | dict[str, Any](planes=planes)))
 
             if pref_type in {Prefilter.GAUSSBLUR1, Prefilter.GAUSSBLUR2}:
-                boxblur = blur(clip, kwargs.pop('radius', 1), kwargs.get('mode', ConvMode.HV), planes=planes)
+                boxblur = box_blur(clip, kwargs.pop('radius', 1), mode=kwargs.get('mode', ConvMode.HV), planes=planes)
 
                 if 'sharp' not in kwargs and 'sigma' not in kwargs:
                     kwargs |= dict(sigma=1.75)
