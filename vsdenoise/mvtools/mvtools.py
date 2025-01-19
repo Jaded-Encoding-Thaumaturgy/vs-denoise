@@ -208,10 +208,10 @@ class MVTools:
         if callable(pelclip):
             pelclip = pelclip(clip)
 
-        super_args = KwargsT(
+        super_args = self.super_args | KwargsT(
             hpad=hpad, vpad=vpad, pel=self.pel, levels=levels, chroma=self.chroma,
             sharp=sharp, rfilter=rfilter, pelclip=pelclip
-        ) | self.super_args
+        )
 
         super_clip = self.mvtools.Super(clip, **super_args)
 
@@ -298,16 +298,16 @@ class MVTools:
         blksize, blksizev = normalize_seq(blksize, 2)
         overlap, overlapv = normalize_seq(overlap, 2)
 
-        analyze_args = KwargsT(
+        analyze_args = self.analyze_args | KwargsT(
             blksize=blksize, blksizev=blksizev, levels=levels,
             search=search, searchparam=searchparam, pelsearch=pelsearch,
             lambda_=lambda_, chroma=self.chroma, truemotion=truemotion,
             lsad=lsad, plevel=plevel, global_=global_,
             pnew=pnew, pzero=pzero, pglobal=pglobal,
             overlap=overlap, overlapv=overlapv, divide=divide,
-            badsad=badsad, badrange=badrange, meander=meander,
-            trymany=trymany, fields=self.fieldbased.is_inter, tff=self.fieldbased.is_tff, dct=dct
-        ) | self.analyze_args
+            badsad=badsad, badrange=badrange, meander=meander, trymany=trymany,
+            fields=self.fieldbased.is_inter, tff=self.fieldbased.is_tff, dct=dct
+        )
 
         if self.mvtools is MVToolsPlugin.INTEGER and not any(
             (analyze_args.get('overlap'), analyze_args.get('overlapv'))
@@ -379,12 +379,12 @@ class MVTools:
         blksize, blksizev = normalize_seq(blksize, 2)
         overlap, overlapv = normalize_seq(overlap, 2)
 
-        recalculate_args = KwargsT(
+        recalculate_args = self.recalculate_args | KwargsT(
             blksize=blksize, blksizev=blksizev, search=search, searchparam=searchparam,
             lambda_=lambda_, chroma=self.chroma, truemotion=truemotion, pnew=pnew,
             overlap=overlap, overlapv=overlapv, divide=divide, meander=meander,
             fields=self.fieldbased.is_inter, tff=self.fieldbased.is_tff, dct=dct
-        ) | self.recalculate_args
+        )
 
         if self.mvtools is MVToolsPlugin.INTEGER and not any(
             (recalculate_args.get('overlap'), recalculate_args.get('overlapv'))
@@ -474,10 +474,10 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        compensate_args = dict(
+        compensate_args = self.compensate_args | KwargsT(
             scbehavior=scbehavior, thsad=thsad, time=time, fields=self.fieldbased.is_inter,
             thscd1=thscd1, thscd2=thscd2, tff=self.fieldbased.is_tff
-        ) | self.compensate_args
+        )
 
         comp_back, comp_fwrd = [
             [self.mvtools.Compensate(clip, super_clip, vectors=vect, **compensate_args) for vect in vectors]
@@ -577,10 +577,10 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        flow_args = KwargsT(
+        flow_args = self.flow_args | KwargsT(
             time=time, mode=mode, fields=self.fieldbased.is_inter,
             thscd1=thscd1, thscd2=thscd2, tff=self.fieldbased.is_tff
-        ) | self.flow_args
+        )
 
         flow_back, flow_fwrd = [
             [self.mvtools.Flow(clip, super_clip, vectors=vect, **flow_args) for vect in vectors]
@@ -671,7 +671,7 @@ class MVTools:
 
             degrain_args.update(thsad=thsad, thsadc=thsadc, limit=limit, limitc=limitc)
 
-        degrain_args = degrain_args | self.degrain_args
+        degrain_args = self.degrain_args | degrain_args
 
         if self.mvtools is MVToolsPlugin.FLOAT:
             output = self.mvtools.Degrain()(clip, super_clip, vectors.vmulti, **degrain_args)
@@ -729,9 +729,9 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        flow_interpolate_args = KwargsT(
+        flow_interpolate_args = self.flow_interpolate_args | KwargsT(
             time=time, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2
-        ) | self.flow_interpolate_args
+        )
 
         interpolated = self.mvtools.FlowInter(clip, super_clip, vect_b, vect_f, **flow_interpolate_args)
 
@@ -785,9 +785,9 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        flow_fps_args = KwargsT(
+        flow_fps_args = self.flow_fps_args | KwargsT(
             num=fps.numerator, den=fps.denominator, mask=mask, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2
-        ) | self.flow_fps_args
+        )
 
         return self.mvtools.FlowFPS(clip, super_clip, vect_b, vect_f, **flow_fps_args)
 
@@ -837,9 +837,9 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        block_fps_args = KwargsT(
+        block_fps_args = self.block_fps_args | KwargsT(
             num=fps.numerator, den=fps.denominator, mode=mode, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2
-        ) | self.block_fps_args
+        )
 
         return self.mvtools.BlockFPS(clip, super_clip, vect_b, vect_f, **block_fps_args)
 
@@ -881,9 +881,7 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        flow_blur_args = KwargsT(
-            blur=blur, prec=prec, thscd1=thscd1, thscd2=thscd2
-        ) | self.flow_blur_args
+        flow_blur_args = self.flow_blur_args | KwargsT(blur=blur, prec=prec, thscd1=thscd1, thscd2=thscd2)
 
         return self.mvtools.FlowBlur(clip, super_clip, vect_b, vect_f, **flow_blur_args)
 
@@ -922,13 +920,13 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        vect = self.get_vectors(self.vectors, direction=direction, tr=1)[direction - 1]
+        vect = vectors.get_mv(direction, 1)
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        mask_args = KwargsT(
+        mask_args = self.mask_args | KwargsT(
             ml=ml, gamma=gamma, kind=kind, time=time, ysc=ysc, thscd1=thscd1, thscd2=thscd2
-        ) | self.mask_args
+        )
 
         mask_clip = depth(clip, 8) if self.mvtools is MVToolsPlugin.INTEGER else clip
 
@@ -962,13 +960,11 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        vect = self.get_vectors(self.vectors, direction=direction, tr=1)[direction - 1]
+        vect = vectors.get_mv(direction, 1)
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        sc_detection_args = KwargsT(
-            thscd1=thscd1, thscd2=thscd2
-        ) | self.sc_detection_args
+        sc_detection_args = self.sc_detection_args | KwargsT(thscd1=thscd1, thscd2=thscd2)
 
         return self.mvtools.SCDetection(clip, vect, **sc_detection_args)
 
