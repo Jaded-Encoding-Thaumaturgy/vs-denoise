@@ -177,7 +177,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             # TODO: To remove
             if pref_type.value in {Prefilter.MINBLUR1, Prefilter.MINBLUR2, Prefilter.MINBLUR3}:
                 warnings.warn(
-                    f"{pref_type} This Prefilter is deprecated and will be removed in the a future version."
+                    f"{pref_type} This Prefilter is deprecated and will be removed in a future version."
                     "Use :py:attr:`MINBLUR(radius=...)` instead",
                     DeprecationWarning
                 )
@@ -186,7 +186,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             # TODO: To remove
             if pref_type == Prefilter.MINBLURFLUX:
                 warnings.warn(
-                    f"{pref_type} This Prefilter is deprecated and will be removed in the a future version."
+                    f"{pref_type} This Prefilter is deprecated and will be removed in a future version."
                     "Use :py:attr:`FLUXSMOOTHST(...)` instead",
                     DeprecationWarning
                 )
@@ -200,7 +200,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             # TODO: To remove
             if pref_type == Prefilter.SCALEDBLUR:
                 warnings.warn(
-                    f"{pref_type} This Prefilter is deprecated and will be removed in the a future version."
+                    f"{pref_type} This Prefilter is deprecated and will be removed in a future version."
                     "Use :py:attr:`GAUSS(...)` instead",
                     DeprecationWarning
                 )
@@ -217,7 +217,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             # TODO: To remove
             if pref_type == Prefilter.GAUSSBLUR:
                 warnings.warn(
-                    f"{pref_type} This Prefilter is deprecated and will be removed in the a future version."
+                    f"{pref_type} This Prefilter is deprecated and will be removed in a future version."
                     "Use :py:attr:`GAUSS(...)` instead",
                     DeprecationWarning
                 )
@@ -229,7 +229,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             # TODO: To remove
             if pref_type in {Prefilter.GAUSSBLUR1, Prefilter.GAUSSBLUR2}:
                 warnings.warn(
-                    f"{pref_type} This Prefilter is deprecated and will be removed in the a future version."
+                    f"{pref_type} This Prefilter is deprecated and will be removed in a future version."
                     "Use :py:attr:`GAUSS(...)` instead",
                     DeprecationWarning
                 )
@@ -254,7 +254,7 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
             # TODO: To remove
             if pref_type is Prefilter.BMLATERAL:
                 warnings.warn(
-                    f"{pref_type} This Prefilter is deprecated and will be removed in the a future version.",
+                    f"{pref_type} This Prefilter is deprecated and will be removed in a future version.",
                     DeprecationWarning
                 )
                 sigma = kwargs.pop('sigma', 1.5)
