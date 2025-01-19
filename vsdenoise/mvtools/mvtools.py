@@ -997,6 +997,15 @@ class MVTools:
                 vector = vectors.set_mv(direction, i, vector)
 
     def scale_vectors(self, scale: int | tuple[int, int], vectors: MotionVectors | MVTools | None = None):
+        """
+        Scales image_size, block_size, overlap, padding, and the individual motion_vectors contained in Analyse output
+        by arbitrary and independent x and y factors.
+
+        :param scale:       Factor to scale motion vectors by.
+        :param vectors:     Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
+                            If None, uses the vectors from this instance.
+        """
+
         if self.disable_manipmv:
             raise CustomRuntimeError(
                 f'Motion vector manipulation not supported with {self.mvtools}!', self.scale_vectors
