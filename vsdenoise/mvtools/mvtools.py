@@ -1042,18 +1042,20 @@ class MVTools:
 
     def show_vector(
         self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BACK, delta: int = 1
+        direction: MVDirection = MVDirection.BACK, delta: int = 1, scenechange: bool | None = None
     ) -> vs.VideoNode:
         """
         Draws generated vectors onto a clip.
 
-        :param clip:          The clip to overlay the motion vectors on.
-        :param vectors:       Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
-                              If None, uses the vectors from this instance.
-        :param direction:     Motion vector direction to use.
-        :param delta:         Motion vector delta to use.
+        :param clip:            The clip to overlay the motion vectors on.
+        :param vectors:         Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
+                                If None, uses the vectors from this instance.
+        :param direction:       Motion vector direction to use.
+        :param delta:           Motion vector delta to use.
+        :param scenechange:     Skips drawing vectors if frame props indicate they are from a different scene
+                                than the current frame of the clip.
 
-        :return:              Clip with motion vectors overlaid.
+        :return:                Clip with motion vectors overlaid.
         """
 
         if self.disable_manipmv:
@@ -1068,7 +1070,7 @@ class MVTools:
 
         vect = vectors.get_mv(direction, delta)
 
-        return clip.manipmv.ShowVect(vect)
+        return clip.manipmv.ShowVect(vect, scenechange)
     
     def expand_analysis_data(self, vectors: MotionVectors | MVTools | None = None) -> None:
         """
