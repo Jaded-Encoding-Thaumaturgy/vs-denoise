@@ -418,7 +418,7 @@ class MVTools:
         tr: int | None = None, scbehavior: bool | None = None, thsad: int | None = None,
         time: float | None = None, thscd: int | tuple[int] | None = None,
         func: VSFunction | None = None, interleave: bool = True
-    ) -> tuple[vs.VideoNode, tuple[int, int]]:
+    ) -> tuple[vs.VideoNode]:
         ...
 
     def compensate(
@@ -428,7 +428,7 @@ class MVTools:
         tr: int | None = None, scbehavior: bool | None = None, thsad: int | None = None,
         time: float | None = None, thscd: int | tuple[int] | None = None,
         func: VSFunction | None = None, interleave: bool = True
-    ) -> vs.VideoNode | tuple[vs.VideoNode, tuple[int, int]]:
+    ) -> tuple[vs.VideoNode, tuple[int, int]]:
         """
         Perform motion compensation by moving blocks from reference frames to the current frame according to motion vectors.
         This creates a prediction of the current frame by taking blocks from neighboring frames and moving them along their estimated motion paths.
@@ -522,7 +522,7 @@ class MVTools:
         tr: int | None = None, time: float | None = None, mode: FlowMode | None = None,
         thscd: int | tuple[int | None, int | None] | None = None,
         func: VSFunction | None = None, interleave: bool = True
-    ) -> tuple[vs.VideoNode, tuple[int, int]]:
+    ) -> tuple[vs.VideoNode]:
         ...
 
     def flow(
@@ -532,7 +532,7 @@ class MVTools:
         tr: int | None = None, time: float | None = None, mode: FlowMode | None = None,
         thscd: int | tuple[int | None, int | None] | None = None,
         func: VSFunction | None = None, interleave: bool = True
-    ) -> vs.VideoNode | tuple[vs.VideoNode, tuple[int, int]]:
+    ) -> tuple[vs.VideoNode, tuple[int, int]]:
         """
         Performs motion compensation using pixel-level motion vectors interpolated from block vectors.
 
