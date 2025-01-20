@@ -150,9 +150,6 @@ class MVDirection(CustomIntEnum):
 
     BACK = 1
     """Backwards motion detection."""
-    
-    BOTH = 2
-    """Backwards and forwards motion detection."""
 
 
 class SharpMode(CustomIntEnum):

@@ -403,7 +403,7 @@ class MVTools:
     def compensate(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BOTH,
+        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
         tr: int | None = None, scbehavior: bool | None = None, thsad: int | None = None,
         time: float | None = None, thscd: int | tuple[int | None, int | None] | None = None,
         interleave: Literal[True] = True, temporal_func: None = None
@@ -414,7 +414,7 @@ class MVTools:
     def compensate(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BOTH,
+        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
         tr: int | None = None, scbehavior: bool | None = None, thsad: int | None = None,
         time: float | None = None, thscd: int | tuple[int | None, int | None] | None = None,
         interleave: Literal[True] = True, temporal_func: VSFunction = ...
@@ -425,7 +425,7 @@ class MVTools:
     def compensate(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BOTH,
+        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
         tr: int | None = None, scbehavior: bool | None = None, thsad: int | None = None,
         time: float | None = None, thscd: int | tuple[int | None, int | None] | None = None,
         interleave: Literal[False] = False
@@ -435,7 +435,7 @@ class MVTools:
     def compensate(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BOTH,
+        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
         tr: int | None = None, scbehavior: bool | None = None, thsad: int | None = None,
         time: float | None = None, thscd: int | tuple[int | None, int | None] | None = None,
         interleave: bool = True, temporal_func: VSFunction | None = None
@@ -515,7 +515,7 @@ class MVTools:
     def flow(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BOTH,
+        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
         tr: int | None = None, time: float | None = None, mode: FlowMode | None = None,
         thscd: int | tuple[int | None, int | None] | None = None,
         interleave: Literal[True] = True, temporal_func: None = None
@@ -526,7 +526,7 @@ class MVTools:
     def flow(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BOTH,
+        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
         tr: int | None = None, time: float | None = None, mode: FlowMode | None = None,
         thscd: int | tuple[int | None, int | None] | None = None,
         interleave: Literal[True] = True, temporal_func: VSFunction = ...
@@ -537,7 +537,7 @@ class MVTools:
     def flow(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BOTH,
+        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
         tr: int | None = None, time: float | None = None, mode: FlowMode | None = None,
         thscd: int | tuple[int | None, int | None] | None = None,
         interleave: Literal[False] = False
@@ -547,7 +547,7 @@ class MVTools:
     def flow(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BOTH,
+        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
         tr: int | None = None, time: float | None = None, mode: FlowMode | None = None,
         thscd: int | tuple[int | None, int | None] | None = None,
         interleave: bool = True, temporal_func: VSFunction | None = None
@@ -959,7 +959,7 @@ class MVTools:
 
     def sc_detection(
         self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BOTH, delta: int = 1,
+        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD), delta: int = 1,
         thscd: int | tuple[int | None, int | None] | None = None
     ) -> vs.VideoNode:
         """
@@ -985,12 +985,18 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
+        if not isinstance(direction, tuple):
+            direction_norm = list([direction])
+        else:
+            direction_norm = list(direction)
+
         thscd1, thscd2 = normalize_thscd(thscd)
 
         sc_detection_args = self.sc_detection_args | KwargsT(thscd1=thscd1, thscd2=thscd2)
 
-        for direction in direction:
-            detect = self.mvtools.SCDetection(clip, vectors.get_mv(direction, delta), **sc_detection_args)
+        detect = clip
+        for direction in direction_norm:
+            detect = self.mvtools.SCDetection(detect, vectors.get_mv(direction, delta), **sc_detection_args)
 
         return detect
 
@@ -1118,7 +1124,7 @@ class MVTools:
 
     def get_vectors(
         self, vectors: MotionVectors, *,
-        direction: MVDirection = MVDirection.BOTH,
+        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
         tr: int | None = None
     ) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
         """
@@ -1134,6 +1140,11 @@ class MVTools:
         if not vectors.has_vectors:
             raise CustomRuntimeError('You need to run analyze before getting motion vectors!', self.get_vectors)
 
+        if not isinstance(direction, tuple):
+            direction_norm = list([direction])
+        else:
+            direction_norm = list(direction)
+
         tr = self.tr if tr is None else tr
 
         vectors_backward = list[vs.VideoNode]()
@@ -1143,15 +1154,15 @@ class MVTools:
             vmulti = vectors.vmulti
 
             for i in range(0, tr * 2, 2):
-                if direction in (MVDirection.BACK, MVDirection.BOTH):
+                if MVDirection.BACK in direction_norm:
                     vectors_backward.append(vmulti.std.SelectEvery(tr * 2, i))
-                if direction in (MVDirection.FWRD, MVDirection.BOTH):
+                if MVDirection.FWRD in direction_norm:
                     vectors_forward.append(vmulti.std.SelectEvery(tr * 2, i + 1))
         else:
             for i in range(1, tr + 1):
-                if direction in (MVDirection.BACK, MVDirection.BOTH):
+                if MVDirection.BACK in direction_norm:
                     vectors_backward.append(vectors.get_mv(MVDirection.BACK, i))
-                if direction in (MVDirection.FWRD, MVDirection.BOTH):
+                if MVDirection.FWRD in direction_norm:
                     vectors_forward.append(vectors.get_mv(MVDirection.FWRD, i))
 
         return (vectors_backward, vectors_forward)
