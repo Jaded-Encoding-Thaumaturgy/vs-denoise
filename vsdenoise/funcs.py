@@ -8,30 +8,18 @@ from itertools import count, zip_longest
 from typing import Any, Callable, Iterable, cast
 
 from vskernels import Bilinear, Catrom, Scaler, ScalerT
-from vsrgtools import BlurMatrix, box_blur, RepairMode, contrasharpening, contrasharpening_dehalo
+from vsrgtools import BlurMatrix, box_blur
 from vsscale import Waifu2x
 from vsscale.scale import BaseWaifu2x
 from vstools import (
-    ColorRangeT, CustomIndexError, FunctionUtil, KwargsT, MatrixT, PlanesT, SingleOrArr, VSFunction, depth, expect_bits,
-    fallback, get_h, get_w, join, normalize_planes, to_arr, vs
+    CustomIndexError, KwargsT, PlanesT, depth, expect_bits,
+    get_h, get_w, normalize_planes, vs
 )
 
-from .blockmatch import bmdegrain
-from .bm3d import BM3D, Profile
-from .limit import TemporalLimiter, TemporalLimiterConfig
-from .mvtools import MotionMode, MVTools, MVToolsPreset, MVToolsPresets, SADMode, SearchMode
-from .mvtools.enums import SearchModeBase
-from .mvtools.utils import normalize_thscd
-from .nlm import NLMWeightMode, NLMWeightModeAndRef, nl_means
-from .postprocess import PostProcess, PostProcessConfig
-from .prefilters import PelType, Prefilter
+from .mvtools import MotionMode, MVTools
 
 __all__ = [
     'mlm_degrain',
-
-    'temporal_degrain',
-
-    'schizo_denoise',
 
     'waifu2x_denoise'
 ]
@@ -188,181 +176,8 @@ def mlm_degrain(
     return depth(ref_denoise, bits)
 
 
-def temporal_degrain(
-    clip: vs.VideoNode, tr: int = 1, thSAD: int | None = None,
-    block_size: int | None = None, refine: int = 0,
-    post: PostProcess | PostProcessConfig | None = None,
-    thSAD2: int | None = None, thSCD: int | tuple[int | None, int | None] | None = (None, 50),
-    search_mode: SearchMode | SearchMode.Config = SearchMode.HEXAGON,
-    sad_mode: SADMode | tuple[SADMode, SADMode] = SADMode.SPATIAL.same_recalc,
-    prefilter: Prefilter | vs.VideoNode | None = None,
-    truemotion: bool = False, global_motion: bool = True, chroma_motion: bool = True,
-    limiter: TemporalLimiter | TemporalLimiterConfig | VSFunction = TemporalLimiter.FFT3D,
-    grain_level: int = 4, contra: bool | int | float = False, planes: PlanesT = None,
-    **kwargs: Any
-) -> vs.VideoNode:
-    func = FunctionUtil(clip, temporal_degrain, planes, (vs.GRAY, vs.YUV))
-
-    chroma_motion = chroma_motion and func.chroma
-
-    long_lat, short_lat = max(*(x := (func.clip.width, func.clip.height))), min(*x)
-
-    auto_tune = next(
-        (i for i, (k, j) in enumerate([(1050, 576), (1280, 720), (2048, 1152)]) if long_lat <= k and short_lat <= j), 3
-    )
-
-    thSCD = normalize_thscd(thSCD, ([192, 192, 192, 256, 320, 384][grain_level], 50), temporal_degrain, scale=False)
-
-    if post is None:
-        post = PostProcess.REPAIR
-
-    postConf = post if isinstance(post, PostProcessConfig) else post()
-
-    prefilter = fallback(
-        prefilter, [*([Prefilter.NONE] * 3), *([Prefilter.GAUSSBLUR2] * 3)][grain_level]  # type: ignore
-    )
-
-    if not isinstance(search_mode, SearchModeBase.Config):
-        meAlgPar = 5 if refine and truemotion else 2
-        meSubpel = [4, 2, 2, 1][auto_tune]
-
-        search_mode = search_mode(meAlgPar, meSubpel, search_mode)
-
-    block_size = fallback(block_size, [8, 8, 16, 32][auto_tune])
-
-    motion_lambda = (1000 if truemotion else 100) * (block_size ** 2) // 64
-
-    th_scale = 1.7 if (sad_mode[0] if isinstance(sad_mode, tuple) else sad_mode) is SADMode.SATD else 1.0
-
-    thSAD, thSAD2 = [
-        int((d * 64.0 if x is None else x) * th_scale)
-        for x, d in zip((thSAD, thSAD2), list[tuple[int, int]]([
-            (3, 2), (5, 4), (7, 5), (9, 6), (11, 7), (13, 8)
-        ])[grain_level])
-    ]
-
-    limitVal = [6, 8, 12, 16, 32, 48][[-1, -1, 0, 0, 0, 1][grain_level] + auto_tune + 1]
-
-    if isinstance(limiter, TemporalLimiterConfig):
-        limitConf = limiter
-    elif limiter is TemporalLimiter.FFT3D:
-        ov = 2 * round(limitVal * 2 / [4, 4, 4, 3, 2, 2][grain_level] * 0.5)
-
-        limitConf = limiter(sigma=limitVal, block_size=limitVal * 2, ov=ov)  # type: ignore
-    elif limiter is TemporalLimiter.DFTTEST:
-        limitConf = limiter(sigma_low=limitVal / 2, sigma_high=limitVal)  # type: ignore
-    elif isinstance(limiter, TemporalLimiter):
-        limitConf = limiter()  # type: ignore
-    else:
-        limitConf = TemporalLimiter.CUSTOM(limiter)
-
-    class MotionModeCustom(MotionMode.Config):
-        def block_coherence(self, block_size: int) -> int:
-            return motion_lambda // 4
-
-    motion_ref = MotionMode.from_param(truemotion)
-
-    preset = MVToolsPresets.CUSTOM(
-        tr=tr, refine=refine, prefilter=prefilter(func.work_clip) if isinstance(prefilter, Prefilter) else prefilter,
-        pel=meSubpel, hpad=block_size, vpad=block_size, block_size=block_size, recalculate_args=dict(thsad=thSAD // 2),
-        overlap=property(lambda self: self.block_size // 2), analyze_args=dict(chroma=chroma_motion),
-        search=search_mode, super_args=dict(chroma=chroma_motion), planes=func.norm_planes, motion=MotionModeCustom(
-            truemotion, motion_lambda, motion_ref.sad_limit, 50 if truemotion else 25, motion_ref.plevel, global_motion
-        ), sad_mode=sad_mode,
-    )
-
-    maxMV = MVTools(func.work_clip, **preset(tr=max(tr, postConf.tr), **kwargs)).analyze()
-
-    NR2 = limitConf(
-        func.work_clip, thSAD, thSAD2, thSCD,
-        func.with_planes([1, 2]) if chroma_motion else func, maxMV, preset
-    ) if tr > 0 else func.work_clip
-
-    if postConf.tr > 0:
-        dnWindow = MVTools(NR2, vectors=maxMV, **preset(tr=postConf.tr)).compensate(postConf, thSAD2, thSCD)
-    else:
-        dnWindow = postConf(NR2)
-
-    if contra:
-        if contra is True:
-            contra = 3
-
-        if isinstance(contra, float):
-            sharpened = contrasharpening_dehalo(dnWindow, func.work_clip, contra, 2.5, func.norm_planes)
-        else:
-            sharpened = contrasharpening(dnWindow, func.work_clip, contra, None, 13, func.norm_planes)
-    else:
-        sharpened = dnWindow
-
-    if postConf.tr > 0 and postConf.merge_strength:
-        sharpened = func.work_clip.std.Merge(sharpened, postConf.merge_strength / 100)
-
-    return func.return_clip(sharpened)
-
-
-def schizo_denoise(
-    src: vs.VideoNode, sigma: SingleOrArr[float] = [0.8, 0.3], thSAD: int = 60,
-    tr: SingleOrArr[int] = 2, sr: SingleOrArr[int] = 2, block_size: int = 32,
-    profile: Profile | Profile.Config = Profile.FAST(bm_range=9),
-    preset: MVToolsPreset = MVToolsPresets.FAST,
-    prefilter: vs.VideoNode | Prefilter = Prefilter.DFTTEST,
-    smooth: bool | tuple[bool | int, bool | int] = True,
-    wmode: NLMWeightMode | NLMWeightModeAndRef = NLMWeightMode.WELSCH,
-    contra: int | float | bool = False, aggressive: vs.VideoNode | Prefilter | bool = False,
-    matrix: MatrixT | None = None, range_in: ColorRangeT | None = None,
-    nlm_ref: vs.VideoNode | bool | None = None, **kwargs: Any
-) -> vs.VideoNode:
-    func = FunctionUtil(
-        src, schizo_denoise, None, vs.YUV, range(16, 32), True, matrix=matrix, range_in=range_in
-    )
-
-    ref_smooth, out_smooth = smooth if isinstance(smooth, tuple) else (smooth, False)
-
-    luma_ref = MVTools.denoise(
-        func.work_clip, **preset(
-            thSAD=thSAD, prefilter=prefilter, block_size=block_size, planes=0,
-            overlap=block_size // 2, **kwargs
-        ), range_in=func.color_range
-    )
-
-    if isinstance(aggressive, vs.VideoNode):
-        main_clip, main_ref = luma_ref, aggressive
-    elif isinstance(aggressive, Prefilter):
-        main_clip, main_ref = luma_ref, aggressive(func.work_clip)
-    elif aggressive:
-        main_clip, main_ref = luma_ref, bmdegrain(
-            func.work_clip, [x * 3 for x in to_arr(sigma)], 1, 2,
-            block_size=max(block_size // 2, 8), self_refine=True
-        )
-    else:
-        main_clip, main_ref = func.work_clip, luma_ref
-
-    chroma_ref = nl_means(
-        func.work_clip, sigma, tr, [0, *to_arr(sr)], wmode=wmode, planes=[1, 2],
-        ref=nlm_ref if isinstance(nlm_ref, vs.VideoNode) else (main_ref if nlm_ref else None)  # type: ignore
-    )
-
-    main_clip, main_ref = join(main_clip, chroma_ref), join(main_ref, chroma_ref)
-
-    if ref_smooth:
-        main_ref = main_ref.ttmpsm.TTempSmooth(maxr=1, thresh=1, mdiff=0, strength=ref_smooth, planes=0)
-
-    main = BM3D.denoise(
-        main_clip, sigma, tr, 1, profile, main_ref, matrix, range_in, planes=0
-    )
-
-    if out_smooth:
-        main = main.ttmpsm.TTempSmooth(maxr=1, thresh=1, mdiff=0, strength=out_smooth, planes=0)
-
-    if not contra:
-        return main
-
-    if isinstance(contra, float):
-        return contrasharpening_dehalo(main, func.work_clip, contra, planes=0)
-
-    return contrasharpening(
-        main, func.work_clip, contra, RepairMode(3 if contra is True else contra), planes=0
-    )
+def mv_denoise(clip):
+    pass
 
 
 def waifu2x_denoise(
