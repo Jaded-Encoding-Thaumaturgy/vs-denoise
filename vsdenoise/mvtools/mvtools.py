@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fractions import Fraction
 from itertools import chain
-from typing import Any, overload
+from typing import Any, Literal, overload
 
 from vstools import (
     CustomRuntimeError, ColorRange, FieldBased, FramePropError,
@@ -403,10 +403,10 @@ class MVTools:
     def compensate(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
+        direction: MVDirection = MVDirection.BOTH,
         tr: int | None = None, scbehavior: bool | None = None, thsad: int | None = None,
-        time: float | None = None, thscd: int | tuple[int] | None = None,
-        func: VSFunction | None = None, interleave: bool = True
+        time: float | None = None, thscd: int | tuple[int | None, int | None] | None = None,
+        interleave: Literal[True] = True, temporal_func: None = None
     ) -> vs.VideoNode:
         ...
 
@@ -414,21 +414,32 @@ class MVTools:
     def compensate(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
+        direction: MVDirection = MVDirection.BOTH,
         tr: int | None = None, scbehavior: bool | None = None, thsad: int | None = None,
-        time: float | None = None, thscd: int | tuple[int] | None = None,
-        func: VSFunction | None = None, interleave: bool = True
-    ) -> tuple[vs.VideoNode]:
+        time: float | None = None, thscd: int | tuple[int | None, int | None] | None = None,
+        interleave: Literal[True] = True, temporal_func: VSFunction = ...
+    ) -> tuple[vs.VideoNode, tuple[int, int]]:
+        ...
+
+    @overload
+    def compensate(
+        self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
+        vectors: MotionVectors | MVTools | None = None,
+        direction: MVDirection = MVDirection.BOTH,
+        tr: int | None = None, scbehavior: bool | None = None, thsad: int | None = None,
+        time: float | None = None, thscd: int | tuple[int | None, int | None] | None = None,
+        interleave: Literal[False] = False
+    ) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
         ...
 
     def compensate(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
+        direction: MVDirection = MVDirection.BOTH,
         tr: int | None = None, scbehavior: bool | None = None, thsad: int | None = None,
-        time: float | None = None, thscd: int | tuple[int] | None = None,
-        func: VSFunction | None = None, interleave: bool = True
-    ) -> tuple[vs.VideoNode, tuple[int, int]]:
+        time: float | None = None, thscd: int | tuple[int | None, int | None] | None = None,
+        interleave: bool = True, temporal_func: VSFunction | None = None
+    ) -> vs.VideoNode | tuple[list[vs.VideoNode], list[vs.VideoNode]] | tuple[vs.VideoNode, tuple[int, int]]:
         """
         Perform motion compensation by moving blocks from reference frames to the current frame according to motion vectors.
         This creates a prediction of the current frame by taking blocks from neighboring frames and moving them along their estimated motion paths.
@@ -449,8 +460,8 @@ class MVTools:
         :param thscd:           Scene change detection thresholds.
                                 First value is the block change threshold between frames.
                                 Second value is the number of changed blocks needed for a scene change.
-        :param func:            Temporal function to apply to the motion compensated frames.
         :param interleave:      Whether to interleave the compensated frames with the input.
+        :param temporal_func:   Temporal function to apply to the motion compensated frames.
 
         :return:                Motion compensated frames if func is provided, otherwise returns a tuple containing:
                                - The interleaved compensated frames
@@ -485,10 +496,7 @@ class MVTools:
         ]
 
         if not interleave:
-            comp_clips = (comp_back, comp_fwrd)
-            if not direction == (MVDirection.BACK, MVDirection.FWRD):
-                comp_clips = comp_clips[direction - 1]
-            return comp_clips
+            return (comp_back, comp_fwrd)
 
         comp_clips = [*comp_fwrd, clip, *comp_back]
         n_clips = len(comp_clips)
@@ -496,8 +504,8 @@ class MVTools:
 
         interleaved = core.std.Interleave(comp_clips)
 
-        if func:
-            processed = func(interleaved)
+        if temporal_func:
+            processed = temporal_func(interleaved)
 
             return processed.std.SelectEvery(n_clips, offset)
 
@@ -507,10 +515,10 @@ class MVTools:
     def flow(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
+        direction: MVDirection = MVDirection.BOTH,
         tr: int | None = None, time: float | None = None, mode: FlowMode | None = None,
         thscd: int | tuple[int | None, int | None] | None = None,
-        func: VSFunction | None = None, interleave: bool = True
+        interleave: Literal[True] = True, temporal_func: None = None
     ) -> vs.VideoNode:
         ...
 
@@ -518,21 +526,32 @@ class MVTools:
     def flow(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
+        direction: MVDirection = MVDirection.BOTH,
         tr: int | None = None, time: float | None = None, mode: FlowMode | None = None,
         thscd: int | tuple[int | None, int | None] | None = None,
-        func: VSFunction | None = None, interleave: bool = True
-    ) -> tuple[vs.VideoNode]:
+        interleave: Literal[True] = True, temporal_func: VSFunction = ...
+    ) -> tuple[vs.VideoNode, tuple[int, int]]:
+        ...
+
+    @overload
+    def flow(
+        self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
+        vectors: MotionVectors | MVTools | None = None,
+        direction: MVDirection = MVDirection.BOTH,
+        tr: int | None = None, time: float | None = None, mode: FlowMode | None = None,
+        thscd: int | tuple[int | None, int | None] | None = None,
+        interleave: Literal[False] = False
+    ) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
         ...
 
     def flow(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
+        direction: MVDirection = MVDirection.BOTH,
         tr: int | None = None, time: float | None = None, mode: FlowMode | None = None,
         thscd: int | tuple[int | None, int | None] | None = None,
-        func: VSFunction | None = None, interleave: bool = True
-    ) -> tuple[vs.VideoNode, tuple[int, int]]:
+        interleave: bool = True, temporal_func: VSFunction | None = None
+    ) -> vs.VideoNode | tuple[list[vs.VideoNode], list[vs.VideoNode]] | tuple[vs.VideoNode, tuple[int, int]]:
         """
         Performs motion compensation using pixel-level motion vectors interpolated from block vectors.
 
@@ -554,9 +573,9 @@ class MVTools:
         :param thscd:           Scene change detection thresholds as a tuple of (threshold1, threshold2).
                                 threshold1: SAD difference threshold between frames to consider a block changed
                                 threshold2: Number of changed blocks needed to trigger a scene change
-        :param func:            Optional function to process the motion compensated frames.
-                                Takes the interleaved frames as input and returns processed frames.
         :param interleave:      Whether to interleave the compensated frames with the input.
+        :param temporal_func:   Optional function to process the motion compensated frames.
+                                Takes the interleaved frames as input and returns processed frames.
 
         :return:                Motion compensated frames if func is provided, otherwise returns a tuple containing:
                                - The interleaved compensated frames
@@ -588,10 +607,7 @@ class MVTools:
         ]
 
         if not interleave:
-            flow_clips = (flow_back, flow_fwrd)
-            if not direction == (MVDirection.BACK, MVDirection.FWRD):
-                flow_clips = flow_clips[direction - 1]
-            return flow_clips
+            return (flow_back, flow_fwrd)
 
         flow_clips = [*flow_fwrd, clip, *flow_back]
         n_clips = len(flow_clips)
@@ -599,8 +615,8 @@ class MVTools:
 
         interleaved = core.std.Interleave(flow_clips)
 
-        if func:
-            processed = func(interleaved)
+        if temporal_func:
+            processed = temporal_func(interleaved)
 
             return processed.std.SelectEvery(n_clips, offset)
 
@@ -1096,9 +1112,9 @@ class MVTools:
 
     def get_vectors(
         self, vectors: MotionVectors, *,
-        direction: MVDirection | tuple[MVDirection, MVDirection] = (MVDirection.BACK, MVDirection.FWRD),
+        direction: MVDirection = MVDirection.BOTH,
         tr: int | None = None
-    ) -> list[vs.VideoNode] | tuple[list[vs.VideoNode], list[vs.VideoNode]]:
+    ) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
         """
         Get the backwards and forward vectors.
 
@@ -1112,9 +1128,6 @@ class MVTools:
         if not vectors.has_vectors:
             raise CustomRuntimeError('You need to run analyze before getting motion vectors!', self.get_vectors)
 
-        if not isinstance(direction, tuple):
-            direction = (direction, direction)
-
         tr = self.tr if tr is None else tr
 
         vectors_backward = list[vs.VideoNode]()
@@ -1124,15 +1137,15 @@ class MVTools:
             vmulti = vectors.vmulti
 
             for i in range(0, tr * 2, 2):
-                if MVDirection.BACK in direction:
+                if direction in (MVDirection.BACK, MVDirection.BOTH):
                     vectors_backward.append(vmulti.std.SelectEvery(tr * 2, i))
-                if MVDirection.FWRD in direction:
+                if direction in (MVDirection.FWRD, MVDirection.BOTH):
                     vectors_forward.append(vmulti.std.SelectEvery(tr * 2, i + 1))
         else:
             for i in range(1, tr + 1):
-                if MVDirection.BACK in direction:
+                if direction in (MVDirection.BACK, MVDirection.BOTH):
                     vectors_backward.append(vectors.get_mv(MVDirection.BACK, i))
-                if MVDirection.FWRD in direction:
+                if direction in (MVDirection.FWRD, MVDirection.BOTH):
                     vectors_forward.append(vectors.get_mv(MVDirection.FWRD, i))
 
         return (vectors_backward, vectors_forward)

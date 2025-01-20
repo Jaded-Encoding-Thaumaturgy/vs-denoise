@@ -53,7 +53,7 @@ class MVToolsPlugin(CustomIntEnum):
         return cast(VSFunctionAllArgs, self.namespace.Recalculate)
 
     @property
-    def Compensate(self) -> VSFunctionKwArgs:
+    def Compensate(self) -> VSFunctionAllArgs:
         """Get the Compensate function for motion compensation."""
 
         return cast(VSFunctionKwArgs, self.namespace.Compensate)
@@ -150,6 +150,9 @@ class MVDirection(CustomIntEnum):
 
     BACK = 1
     """Backwards motion detection."""
+    
+    BOTH = 2
+    """Backwards and forwards motion detection."""
 
 
 class SharpMode(CustomIntEnum):
