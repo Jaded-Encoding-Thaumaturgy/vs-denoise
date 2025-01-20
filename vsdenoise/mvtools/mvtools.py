@@ -909,7 +909,7 @@ class MVTools:
 
     def mask(
         self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BACK, ml: float | None = None, gamma: float | None = None,
+        direction: MVDirection = MVDirection.FWRD, delta: int = 1, ml: float | None = None, gamma: float | None = None,
         kind: MaskMode | None = None, time: float | None = None, ysc: int | None = None,
         thscd: int | tuple[int | None, int | None] | None = None
     ) -> vs.VideoNode:
@@ -921,6 +921,7 @@ class MVTools:
         :param vectors:         Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
                                 If None, uses the vectors from this instance.
         :param direction:       Motion vector direction to use.
+        :param delta:           Motion vector delta to use.
         :param ml:              Motion length scale factor. When the vector's length (or other mask value)
                                 is greater than or equal to ml, the output is saturated to 255.
         :param gamma:           Exponent for the relation between input and output values.
@@ -942,7 +943,7 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        vect = vectors.get_mv(direction, 1)
+        vect = vectors.get_mv(direction, delta)
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
@@ -958,7 +959,8 @@ class MVTools:
 
     def sc_detection(
         self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BACK, thscd: int | tuple[int | None, int | None] | None = None
+        direction: MVDirection = MVDirection.BOTH, delta: int = 1,
+        thscd: int | tuple[int | None, int | None] | None = None
     ) -> vs.VideoNode:
         """
         Creates scene detection mask clip from motion vectors data.
@@ -968,6 +970,7 @@ class MVTools:
         :param vectors:         Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
                                 If None, uses the vectors from this instance.
         :param direction:       Motion vector direction to use.
+        :param delta:           Motion vector delta to use.
         :param thscd:           Scene change detection thresholds.
                                 First value is the block change threshold between frames.
                                 Second value is the number of changed blocks needed for a scene change.
@@ -982,13 +985,14 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        vect = vectors.get_mv(direction, 1)
-
         thscd1, thscd2 = normalize_thscd(thscd)
 
         sc_detection_args = self.sc_detection_args | KwargsT(thscd1=thscd1, thscd2=thscd2)
 
-        return self.mvtools.SCDetection(clip, vect, **sc_detection_args)
+        for direction in direction:
+            detect = self.mvtools.SCDetection(clip, vectors.get_mv(direction, delta), **sc_detection_args)
+
+        return detect
 
     def scale_vectors(self, scale: int | tuple[int, int], vectors: MotionVectors | MVTools | None = None) -> None:
         """

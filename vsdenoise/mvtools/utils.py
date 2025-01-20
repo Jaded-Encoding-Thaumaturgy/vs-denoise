@@ -42,7 +42,7 @@ def planes_to_mvtools(input_planes: Sequence[int]) -> int:
 
 
 def normalize_thscd(
-    thscd: int | tuple[int | None, int | None] | None, scale: bool = False
+    thscd: int | tuple[int | None, int | None] | None, scale: bool = True
 ) -> tuple[int, int]:
     """
     Normalize and scale the thscd parameter.
