@@ -801,12 +801,12 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        flow_fps_args = dict[str, Any]()
+        flow_fps_args = dict[str, Any](mask=mask, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2)
 
         if fps is not None:
             flow_fps_args.update(num=fps.numerator, den=fps.denominator)
 
-        flow_fps_args = self.flow_fps_args | KwargsT(mask=mask, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2)
+        flow_fps_args = self.flow_fps_args | flow_fps_args
 
         return self.mvtools.FlowFPS(clip, super_clip, vect_b, vect_f, **flow_fps_args)
 
@@ -856,12 +856,12 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        block_fps_args = dict[str, Any]()
+        block_fps_args = dict[str, Any](mode=mode, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2)
 
         if fps is not None:
             block_fps_args.update(num=fps.numerator, den=fps.denominator)
 
-        block_fps_args = self.block_fps_args | KwargsT(mode=mode, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2)
+        block_fps_args = self.block_fps_args | block_fps_args
 
         return self.mvtools.BlockFPS(clip, super_clip, vect_b, vect_f, **block_fps_args)
 
