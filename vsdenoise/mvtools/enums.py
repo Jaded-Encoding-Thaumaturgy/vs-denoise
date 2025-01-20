@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import IntFlag
 from typing import Any, cast
 
 from vstools import (
@@ -142,14 +143,17 @@ class MVToolsPlugin(CustomIntEnum):
         return MVToolsPlugin.INTEGER
 
 
-class MVDirection(CustomIntEnum):
+class MVDirection(IntFlag):
     """Motion vector analyze direction."""
 
-    FWRD = 0
+    FWRD = 1
     """Forwards motion detection."""
 
-    BACK = 1
+    BACK = 2
     """Backwards motion detection."""
+
+    BOTH = FWRD | BACK
+    """Backwards and forwards motion detection."""
 
 
 class SharpMode(CustomIntEnum):
