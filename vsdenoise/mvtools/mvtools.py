@@ -109,7 +109,6 @@ class MVTools:
                                         Default: 1.
         :param pel:                     Subpixel precision for motion estimation (1=pixel, 2=half-pixel, 4=quarter-pixel).
                                         Default: 1.
-        :param fieldbased:              Whether the clip is interlaced and its field order. Default: None.
         :param planes:                  Which planes to process. Default: None (all planes).
         :param super_args:              Arguments passed to every :py:attr:`MVToolsPlugin.Super` calls.
         :param analyze_args:            Arguments passed to every :py:attr:`MVToolsPlugin.Analyze` calls.
@@ -972,7 +971,6 @@ class MVTools:
                                 If None, the :py:attr:`workclip` attribute is used.
         :param vectors:         Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
                                 If None, uses the vectors from this instance.
-        :param direction:       Motion vector direction to use.
         :param delta:           Motion vector delta to use.
         :param thscd:           Scene change detection thresholds.
                                 First value is the block change threshold between frames.
