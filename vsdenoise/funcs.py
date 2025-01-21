@@ -8,12 +8,12 @@ from typing import Any
 
 from vsscale import Waifu2x
 from vsscale.scale import BaseWaifu2x
-from vstools import (
-    CustomIndexError, vs
-)
+from vstools import CustomIndexError, vs
 
 __all__ = [
     'mlm_degrain',
+
+    'mc_denoise',
 
     'waifu2x_denoise'
 ]
@@ -23,7 +23,7 @@ def mlm_degrain(clip):
     pass
 
 
-def mv_denoise(clip):
+def mc_denoise(clip):
     pass
 
 

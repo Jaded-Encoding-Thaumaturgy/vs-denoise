@@ -5,7 +5,7 @@ from itertools import chain
 from typing import Any, Literal, overload
 
 from vstools import (
-    CustomRuntimeError, ColorRange, FieldBased, FramePropError,
+    CustomRuntimeError, ColorRange, FieldBased,
     InvalidColorFamilyError, KwargsT, PlanesT, VSFunction,
     check_variable, core, depth, disallow_variable_format, get_prop,
     disallow_variable_resolution, fallback, normalize_planes, normalize_seq, vs
@@ -146,6 +146,7 @@ class MVTools:
         self.planes = normalize_planes(clip, planes)
         self.mv_plane = planes_to_mvtools(self.planes)
         self.chroma = self.mv_plane != 0
+        self.analysis_data = None
         self.disable_compensate = False
 
         if self.mvtools is MVToolsPlugin.FLOAT:
@@ -319,7 +320,9 @@ class MVTools:
         else:
             for i in range(1, self.tr + 1):
                 for direction in MVDirection:
-                    vector = self.mvtools.Analyze(super_clip, isb=direction - 1, delta=i, **analyze_args)
+                    vector = self.mvtools.Analyze(
+                        super_clip, isb=direction is MVDirection.BACK, delta=i, **analyze_args
+                    )
                     self.vectors.set_mv(direction, i, vector)
 
     def recalculate(
@@ -960,8 +963,7 @@ class MVTools:
 
     def sc_detection(
         self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BOTH, delta: int = 1,
-        thscd: int | tuple[int | None, int | None] | None = None
+        delta: int = 1, thscd: int | tuple[int | None, int | None] | None = None
     ) -> vs.VideoNode:
         """
         Creates scene detection mask clip from motion vectors data.
@@ -986,14 +988,12 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        direction_norm = [MVDirection.BACK, MVDirection.FWRD] if direction == MVDirection.BOTH else [direction]
-
         thscd1, thscd2 = normalize_thscd(thscd)
 
         sc_detection_args = self.sc_detection_args | KwargsT(thscd1=thscd1, thscd2=thscd2)
 
         detect = clip
-        for direction in direction_norm:
+        for direction in MVDirection:
             detect = self.mvtools.SCDetection(detect, vectors.get_mv(direction, delta), **sc_detection_args)
 
         return detect
@@ -1024,13 +1024,10 @@ class MVTools:
             '4x4', '8x4', '8x8', '16x2', '16x8', '16x16', '32x16', '32x32', '64x32', '64x64', '128x64', '128x128'
         )
 
-        try:
-            vect = vectors.get_mv(MVDirection.BACK, 1)
-            blksize = get_prop(vect, 'Analysis_BlockSize', list)
-        except FramePropError:
+        if not self.analysis_data:
             self.expand_analysis_data(vectors)
-            vect = vectors.get_mv(MVDirection.BACK, 1)
-            blksize = get_prop(vect, 'Analysis_BlockSize', list)
+
+        blksize = get_prop(self.analysis_data, 'Analysis_BlockSize', list)
 
         scaled_blksize = f'{blksize[0] * scalex}x{blksize[1] * scaley}'
 
@@ -1039,9 +1036,7 @@ class MVTools:
 
         for i in range(1, self.tr + 1):
             for direction in MVDirection:
-                vector = vect if direction == MVDirection.BACK and i == 1 else vectors.get_mv(direction, i)
-
-                vector = vector.manipmv.ScaleVect(scalex, scaley)
+                vector = vectors.get_mv(direction, i).manipmv.ScaleVect(scalex, scaley)
                 vectors.set_mv(direction, i, vector)
 
     def show_vector(
@@ -1096,8 +1091,7 @@ class MVTools:
             vectors = self.vectors
 
         vect = vectors.get_mv(MVDirection.BACK, 1)
-        vect = vect.manipmv.ExpandAnalysisData()
-        vectors.set_mv(MVDirection.BACK, 1, vect)
+        self.analysis_data = vect.manipmv.ExpandAnalysisData().get_frame(0)
 
     def get_super(self, clip: vs.VideoNode | None = None) -> vs.VideoNode:
         """
