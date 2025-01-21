@@ -1019,15 +1019,16 @@ class MVTools:
         scalex, scaley = normalize_seq(scale, 2)
 
         supported_blksize = (
-            '4x4', '8x4', '8x8', '16x2', '16x8', '16x16', '32x16', '32x32', '64x32', '64x64', '128x64', '128x128'
+            (4, 4), (8, 4), (8, 8), (16, 2), (16, 8), (16, 16), (32, 16),
+            (32, 32), (64, 32), (64, 64), (128, 64), (128, 128)
         )
 
         if not self.analysis_data:
             self.expand_analysis_data(vectors)
 
-        blksize = self.analysis_data['Analysis_BlockSize']
+        blksize, blksizev = self.analysis_data['Analysis_BlockSize']
 
-        scaled_blksize = f'{blksize[0] * scalex}x{blksize[1] * scaley}'
+        scaled_blksize = (blksize * scalex, blksizev * scaley)
 
         if scaled_blksize not in supported_blksize:
             raise CustomRuntimeError('Unsupported block size!', self.scale_vectors)
