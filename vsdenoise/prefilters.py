@@ -65,7 +65,13 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
         def _run(clip: vs.VideoNode, planes: PlanesT, **kwargs: Any) -> vs.VideoNode:
             assert check_variable(clip, self)
 
+            # TODO: to remove
             if self == Prefilter.AUTO:
+                warnings.warn(
+                    f"{self} This Prefilter is deprecated and will be removed in a future version."
+                    "Use :py:attr:`MINBLUR(radius=3)` instead",
+                    DeprecationWarning
+                )
                 pref_type = Prefilter.MINBLUR
                 kwargs = dict(radius=3) | kwargs
             else:
@@ -291,9 +297,6 @@ class Prefilter(PrefilterBase):
     but can be used standalone as-is.
     """
 
-    AUTO = -2
-    """Automatically decide what prefilter to use."""
-
     NONE = -1
     """Don't do any prefiltering. Returns the clip as-is."""
 
@@ -322,6 +325,13 @@ class Prefilter(PrefilterBase):
     """Classic bilateral filtering or edge-preserving bilateral multi pass filtering."""
 
     # TODO: To remove
+    AUTO = -2
+    """
+    Automatically decide what prefilter to use.
+    This enum is deprecated and will be removed in a future version.
+    Use :py:attr:`MINBLUR(radius=3)` instead
+    """
+
     MINBLUR1 = 0
     """
     Minimum difference of a gaussian/median blur with a radius of 1.
