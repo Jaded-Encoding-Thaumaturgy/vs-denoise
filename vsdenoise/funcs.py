@@ -13,7 +13,7 @@ from vstools import CustomIndexError, vs
 __all__ = [
     'mlm_degrain',
 
-    'mc_denoise',
+    'mc_degrain',
 
     'waifu2x_denoise'
 ]
@@ -23,7 +23,7 @@ def mlm_degrain(clip):
     pass
 
 
-def mc_denoise(clip):
+def mc_degrain(clip):
     pass
 
 

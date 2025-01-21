@@ -1027,7 +1027,7 @@ class MVTools:
         if not self.analysis_data:
             self.expand_analysis_data(vectors)
 
-        blksize = get_prop(self.analysis_data, 'Analysis_BlockSize', list)
+        blksize = self.analysis_data['Analysis_BlockSize']
 
         scaled_blksize = f'{blksize[0] * scalex}x{blksize[1] * scaley}'
 
@@ -1090,8 +1090,21 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
+        props_list = (
+            'Analysis_BlockSize', 'Analysis_Pel', 'Analysis_LevelCount', 'Analysis_CpuFlags', 'Analysis_MotionFlags',
+            'Analysis_FrameSize', 'Analysis_Overlap', 'Analysis_BlockCount', 'Analysis_BitsPerSample',
+            'Analysis_ChromaRatio', 'Analysis_Padding'
+        )
+
         vect = vectors.get_mv(MVDirection.BACK, 1)
-        self.analysis_data = vect.manipmv.ExpandAnalysisData().get_frame(0)
+        clip_props = vect.manipmv.ExpandAnalysisData().get_frame(0)
+
+        analysis_props = dict[str, Any]()
+
+        for i in props_list:
+            analysis_props[i] = get_prop(clip_props, i, int | list)
+
+        self.analysis_data = analysis_props
 
     def get_super(self, clip: vs.VideoNode | None = None) -> vs.VideoNode:
         """
