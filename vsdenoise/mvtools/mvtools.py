@@ -909,7 +909,7 @@ class MVTools:
 
     def mask(
         self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
-        direction: Literal[MVDirection.FWRD] | Literal[MVDirection.BACK] = MVDirection.FWRD,
+        direction: Literal[MVDirection.FWRD] | Literal[MVDirection.BACK] = MVDirection.BACK,
         delta: int = 1, ml: float | None = None, gamma: float | None = None,
         kind: MaskMode | None = None, time: float | None = None, ysc: int | None = None,
         thscd: int | tuple[int | None, int | None] | None = None
