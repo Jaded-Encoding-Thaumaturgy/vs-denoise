@@ -411,6 +411,19 @@ def deblock_qed(
 def mpeg2stinx(
         clip: vs.VideoNode, bobber: VSFunction | None = None, radius: int | tuple[int, int] = 2, scale: float = 0.0
     ) -> vs.VideoNode:
+    """
+    This filter is designed to eliminate certain combing-like compression artifacts that show up all too often
+    in hard-telecined MPEG-2 encodes, and works to a smaller extent on bitrate-starved hard-telecined AVC well.
+    General artifact removal is better accomplished with actual denoisers.
+
+    :param clip:       Clip to process
+    :param bobber:     Callable to use in place of the internal deinterlacing filter.
+    :param radius:     x, y radius of min-max clipping (i.e. repair) to remove artifacts.
+    :param scale:      If specified, temporal limiting is used, where the changes by crossfieldrepair
+                      are limited to scale times the difference between the current frame and its neighbours.
+
+    :return:          Clip with cross-field noise reduced.
+    """
 
     def crossfield_repair(clip: vs.VideoNode, bobbed: vs.VideoNode, sw: int, sh: int) -> vs.VideoNode:
         even, odd = bobbed[::2], bobbed[1::2]
