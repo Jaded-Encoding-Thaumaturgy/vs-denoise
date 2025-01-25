@@ -420,9 +420,9 @@ def mpeg2stinx(
     :param bobber:     Callable to use in place of the internal deinterlacing filter.
     :param radius:     x, y radius of min-max clipping (i.e. repair) to remove artifacts.
     :param scale:      If specified, temporal limiting is used, where the changes by crossfieldrepair
-                      are limited to scale times the difference between the current frame and its neighbours.
+                       are limited to scale times the difference between the current frame and its neighbours.
 
-    :return:          Clip with cross-field noise reduced.
+    :return:           Clip with cross-field noise reduced.
     """
 
     def crossfield_repair(clip: vs.VideoNode, bobbed: vs.VideoNode, sw: int, sh: int) -> vs.VideoNode:
