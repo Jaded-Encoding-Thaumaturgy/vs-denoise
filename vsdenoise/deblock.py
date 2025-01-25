@@ -4,15 +4,15 @@ from pathlib import Path
 from typing import Any, Literal, SupportsFloat, cast
 
 from vsexprtools import expr_func, norm_expr
-from vskernels import Bilinear, Catrom, Kernel, KernelT
+from vskernels import Catrom, Kernel, KernelT
 from vsmasktools import FDoG, GenericMaskT, adg_mask, normalize_mask, Morpho
 from vsrgtools import gauss_blur, MeanMode, repair
 from vsaa import Nnedi3
 from vstools import (
     FunctionUtil, CustomStrEnum, DependencyNotFoundError, UnsupportedFieldBasedError, FrameRangeN, FrameRangesN,
     Matrix, MatrixT, FieldBased, Align, KwargsT, PlanesT, VSFunction, InvalidColorFamilyError, LengthMismatchError,
-    UnsupportedVideoFormatError, check_variable, core, depth, fallback, get_depth, get_nvidia_version, get_y, split,
-    join, padder, get_plane_sizes, normalize_seq, replace_ranges, vs
+    UnsupportedVideoFormatError, check_variable, core, depth, fallback, get_depth, get_nvidia_version, get_y, join,
+    padder, get_plane_sizes, normalize_seq, replace_ranges, vs
 )
 
 __all__ = [
@@ -409,7 +409,7 @@ def deblock_qed(
 
 
 def mpeg2stinx(
-        clip: vs.VideoNode, bobber: VSFunction | None = None, radius: int | tuple[int, int] = 2, scale: float = 0.0
+        clip: vs.VideoNode, bobber: VSFunction | None = None, radius: int | tuple[int, int] = 2, limit: int | float = 0
     ) -> vs.VideoNode:
     """
     This filter is designed to eliminate certain combing-like compression artifacts that show up all too often
@@ -419,8 +419,8 @@ def mpeg2stinx(
     :param clip:       Clip to process
     :param bobber:     Callable to use in place of the internal deinterlacing filter.
     :param radius:     x, y radius of min-max clipping (i.e. repair) to remove artifacts.
-    :param scale:      If specified, temporal limiting is used, where the changes by crossfieldrepair
-                       are limited to scale times the difference between the current frame and its neighbours.
+    :param limit:      If specified, temporal limiting is used, where the changes by crossfieldrepair
+                       are limited to this times the difference between the current frame and its neighbours.
 
     :return:           Clip with cross-field noise reduced.
     """
@@ -443,21 +443,14 @@ def mpeg2stinx(
 
         return repaired.std.SelectEvery(4, (2, 1)).std.DoubleWeave()[::2]
     
-    def temporal_limit(src: vs.VideoNode, flt: vs.VideoNode, ref: vs.VideoNode, scale: float) -> vs.VideoNode:
+    def temporal_limit(src: vs.VideoNode, flt: vs.VideoNode, ref: vs.VideoNode, limit: int | float) -> vs.VideoNode:
         adj = core.std.Interleave([ref[0] + ref, ref[1:]])
 
         diff = norm_expr([core.std.Interleave([src] * 2), adj], 'x y - abs').std.SeparateFields(True)
-        y, u, v = split(Bilinear.resample(diff, ref.format.replace(subsampling_h=0, subsampling_w=0)))
-        diff = Bilinear.resample(join([norm_expr([y, u, v], 'x y z max max')] * 3), ref.format)
-
         diff = norm_expr([diff.std.SelectEvery(4, (0, 1)), diff.std.SelectEvery(4, (2, 3))], 'x y min')
         diff = Morpho.expand(diff, sw=2, sh=1).std.DoubleWeave()[::2]
 
-        return norm_expr(
-            [flt, src, diff],
-            'y z -{scale} * + AVG1! y z {scale} * + AVG2! x AVG1@ AVG2@ min AVG1@ AVG2@ max clip',
-            scale=scale
-        )
+        return norm_expr([flt, src, diff], 'x y z -{limit} * + y z {limit} * + clip', limit=limit)
     
     def default_bob(clip: vs.VideoNode) -> vs.VideoNode:
         bobbed = Nnedi3(field=3).interpolate(clip, double_y=False)
@@ -472,11 +465,11 @@ def mpeg2stinx(
         bobber = default_bob
 
     fixed = crossfield_repair(clip, bobber(clip), sw, sh)
-    if scale:
-        fixed = temporal_limit(clip, fixed, clip, scale)
+    if limit:
+        fixed = temporal_limit(clip, fixed, clip, limit)
 
     fixed2 = crossfield_repair(fixed, bobber(fixed), sw, sh)
-    if scale:
-        fixed2 = temporal_limit(fixed, fixed2, clip, scale)
+    if limit:
+        fixed2 = temporal_limit(fixed, fixed2, clip, limit)
 
     return fixed.std.Merge(fixed2).std.SetFieldBased(0)
