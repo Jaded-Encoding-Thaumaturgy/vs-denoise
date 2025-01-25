@@ -4,19 +4,23 @@ from pathlib import Path
 from typing import Any, Literal, SupportsFloat, cast
 
 from vsexprtools import expr_func, norm_expr
-from vskernels import Catrom, Kernel, KernelT
-from vsmasktools import FDoG, GenericMaskT, adg_mask, normalize_mask
-from vsrgtools import gauss_blur
+from vskernels import Bilinear, Catrom, Kernel, KernelT
+from vsmasktools import FDoG, GenericMaskT, adg_mask, normalize_mask, Morpho
+from vsrgtools import gauss_blur, MeanMode, repair
+from vsaa import Nnedi3
 from vstools import (
-    FunctionUtil, CustomStrEnum, DependencyNotFoundError, FrameRangeN, FrameRangesN, Matrix, MatrixT,
-    Align, KwargsT, PlanesT, InvalidColorFamilyError, LengthMismatchError, UnsupportedVideoFormatError, check_variable,
-    core, depth, fallback, get_depth, get_nvidia_version, get_y, join, padder, get_plane_sizes, replace_ranges, vs
+    FunctionUtil, CustomStrEnum, DependencyNotFoundError, UnsupportedFieldBasedError, FrameRangeN, FrameRangesN,
+    Matrix, MatrixT, FieldBased, Align, KwargsT, PlanesT, VSFunction, InvalidColorFamilyError, LengthMismatchError,
+    UnsupportedVideoFormatError, check_variable, core, depth, fallback, get_depth, get_nvidia_version, get_y, split,
+    join, padder, get_plane_sizes, normalize_seq, replace_ranges, vs
 )
 
 __all__ = [
     'dpir', 'dpir_mask',
 
-    'deblock_qed'
+    'deblock_qed',
+
+    'mpeg2stinx'
 ]
 
 
@@ -402,3 +406,77 @@ def deblock_qed(
         deblocked = p8.CROP(deblocked)
 
     return func.return_clip(deblocked)
+
+
+def mpeg2stinx(
+        clip: vs.VideoNode, bobber: VSFunction | None = None, radius: int | tuple[int, int] = 2, scale: float = 0.0
+    ) -> vs.VideoNode:
+    """
+    This filter is designed to eliminate certain combing-like compression artifacts that show up all too often
+    in hard-telecined MPEG-2 encodes, and works to a smaller extent on bitrate-starved hard-telecined AVC well.
+    General artifact removal is better accomplished with actual denoisers.
+
+    :param clip:       Clip to process
+    :param bobber:     Callable to use in place of the internal deinterlacing filter.
+    :param radius:     x, y radius of min-max clipping (i.e. repair) to remove artifacts.
+    :param scale:      If specified, temporal limiting is used, where the changes by crossfieldrepair
+                      are limited to scale times the difference between the current frame and its neighbours.
+
+    :return:          Clip with cross-field noise reduced.
+    """
+
+    def crossfield_repair(clip: vs.VideoNode, bobbed: vs.VideoNode, sw: int, sh: int) -> vs.VideoNode:
+        even, odd = bobbed[::2], bobbed[1::2]
+
+        if sw == 1 and sh == 1:
+            repair_even, repair_odd = repair(clip, even, 1), repair(clip, odd, 1)
+        else:
+            inpand_even, expand_even = Morpho.inpand(even, sw, sh), Morpho.expand(even, sw, sh)
+            inpand_odd, expand_odd = Morpho.inpand(odd, sw, sh), Morpho.expand(odd, sw, sh)
+
+            repair_even, repair_odd = (
+                MeanMode.MEDIAN([clip, inpand_even, expand_even]),
+                MeanMode.MEDIAN([clip, inpand_odd, expand_odd])
+            )
+
+        repaired = core.std.Interleave([repair_even, repair_odd]).std.SeparateFields(True)
+
+        return repaired.std.SelectEvery(4, (2, 1)).std.DoubleWeave()[::2]
+    
+    def temporal_limit(src: vs.VideoNode, flt: vs.VideoNode, ref: vs.VideoNode, scale: float) -> vs.VideoNode:
+        adj = core.std.Interleave([ref[0] + ref, ref[1:]])
+
+        diff = norm_expr([core.std.Interleave([src] * 2), adj], 'x y - abs').std.SeparateFields(True)
+        y, u, v = split(Bilinear.resample(diff, ref.format.replace(subsampling_h=0, subsampling_w=0)))
+        diff = Bilinear.resample(join([norm_expr([y, u, v], 'x y z max max')] * 3), ref.format)
+
+        diff = norm_expr([diff.std.SelectEvery(4, (0, 1)), diff.std.SelectEvery(4, (2, 3))], 'x y min')
+        diff = Morpho.expand(diff, sw=2, sh=1).std.DoubleWeave()[::2]
+
+        return norm_expr(
+            [flt, src, diff],
+            'y z -{scale} * + AVG1! y z {scale} * + AVG2! x AVG1@ AVG2@ min AVG1@ AVG2@ max clip',
+            scale=scale
+        )
+    
+    def default_bob(clip: vs.VideoNode) -> vs.VideoNode:
+        bobbed = Nnedi3(field=3).interpolate(clip, double_y=False)
+        return clip.bwdif.Bwdif(field=3, edeint=bobbed)
+    
+    if (fb := FieldBased.from_video(clip, False, mpeg2stinx)).is_inter:
+        raise UnsupportedFieldBasedError('Interlaced input is not supported!', mpeg2stinx, fb)
+    
+    sw, sh = normalize_seq(radius, 2)
+    
+    if not bobber:
+        bobber = default_bob
+
+    fixed = crossfield_repair(clip, bobber(clip), sw, sh)
+    if scale:
+        fixed = temporal_limit(clip, fixed, clip, scale)
+
+    fixed2 = crossfield_repair(fixed, bobber(fixed), sw, sh)
+    if scale:
+        fixed2 = temporal_limit(fixed, fixed2, clip, scale)
+
+    return fixed.std.Merge(fixed2).std.SetFieldBased(0)
