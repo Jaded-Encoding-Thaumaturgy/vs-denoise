@@ -12,7 +12,7 @@ from vstools import (
     FunctionUtil, CustomStrEnum, DependencyNotFoundError, UnsupportedFieldBasedError, FrameRangeN, FrameRangesN,
     Matrix, MatrixT, FieldBased, Align, KwargsT, PlanesT, VSFunction, InvalidColorFamilyError, LengthMismatchError,
     UnsupportedVideoFormatError, check_variable, core, depth, fallback, get_depth, get_nvidia_version, get_y, join,
-    padder, get_plane_sizes, normalize_seq, replace_ranges, vs
+    padder, get_plane_sizes, normalize_seq, replace_ranges, vs, shift_clip_multi
 )
 
 __all__ = [
@@ -409,11 +409,12 @@ def deblock_qed(
 
 
 def mpeg2stinx(
-        clip: vs.VideoNode, bobber: VSFunction | None = None, radius: int | tuple[int, int] = 2, limit: int | float = 0
+        clip: vs.VideoNode, bobber: VSFunction | None = None,
+        radius: int | tuple[int, int] = 2, limit: float | None = None
     ) -> vs.VideoNode:
     """
     This filter is designed to eliminate certain combing-like compression artifacts that show up all too often
-    in hard-telecined MPEG-2 encodes, and works to a smaller extent on bitrate-starved hard-telecined AVC well.
+    in hard-telecined MPEG-2 encodes, and works to a smaller extent on bitrate-starved hard-telecined AVC as well.
     General artifact removal is better accomplished with actual denoisers.
 
     :param clip:       Clip to process
@@ -443,10 +444,15 @@ def mpeg2stinx(
 
         return repaired.std.SelectEvery(4, (2, 1)).std.DoubleWeave()[::2]
     
-    def temporal_limit(src: vs.VideoNode, flt: vs.VideoNode, ref: vs.VideoNode, limit: int | float) -> vs.VideoNode:
-        adj = core.std.Interleave([ref[0] + ref, ref[1:]])
+    def temporal_limit(src: vs.VideoNode, flt: vs.VideoNode, ref: vs.VideoNode, limit: float) -> vs.VideoNode:
+        adj = shift_clip_multi(ref)
+        adj.pop(1)
 
-        diff = norm_expr([core.std.Interleave([src] * 2), adj], 'x y - abs').std.SeparateFields(True)
+        diff = norm_expr(
+            [core.std.Interleave([src] * 2), core.std.Interleave(adj)],
+            'x y - abs'
+        ).std.SeparateFields(True)
+
         diff = norm_expr([diff.std.SelectEvery(4, (0, 1)), diff.std.SelectEvery(4, (2, 3))], 'x y min')
         diff = Morpho.expand(diff, sw=2, sh=1).std.DoubleWeave()[::2]
 
@@ -464,12 +470,12 @@ def mpeg2stinx(
     if not bobber:
         bobber = default_bob
 
-    fixed = crossfield_repair(clip, bobber(clip), sw, sh)
-    if limit:
-        fixed = temporal_limit(clip, fixed, clip, limit)
+    fixed1 = crossfield_repair(clip, bobber(clip), sw, sh)
+    if limit is not None:
+        fixed1 = temporal_limit(clip, fixed1, clip, limit)
 
-    fixed2 = crossfield_repair(fixed, bobber(fixed), sw, sh)
-    if limit:
-        fixed2 = temporal_limit(fixed, fixed2, clip, limit)
+    fixed2 = crossfield_repair(fixed1, bobber(fixed1), sw, sh)
+    if limit is not None:
+        fixed2 = temporal_limit(fixed1, fixed2, clip, limit)
 
-    return fixed.std.Merge(fixed2).std.SetFieldBased(0)
+    return fixed1.std.Merge(fixed2).std.SetFieldBased(0)
