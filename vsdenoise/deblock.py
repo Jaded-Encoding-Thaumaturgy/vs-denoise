@@ -410,7 +410,7 @@ def deblock_qed(
 
 def mpeg2stinx(
         clip: vs.VideoNode, bobber: VSFunction | None = None,
-        radius: int | tuple[int, int] = 2, limit: float | None = None
+        radius: int | tuple[int, int] = 2, limit: float | None = 1.0
     ) -> vs.VideoNode:
     """
     This filter is designed to eliminate certain combing-like compression artifacts that show up all too often
