@@ -92,20 +92,6 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
                 temp_thr, spat_thr = kwargs.pop('temp_thr', 2), kwargs.pop('spat_thr', 2)
                 return flux_smooth(clip, temp_thr, spat_thr, **kwargs, planes=planes)
 
-            if pref_type == Prefilter.DFTTEST_SMOOTH:
-                sigma = kwargs.get('sigma', 128.0)
-                sigma2 = kwargs.get('sigma2', sigma / 16)
-                sbsize = kwargs.get('sbsize', 8 if clip.width > 1280 else 6)
-                sosize = kwargs.get('sosize', 6 if clip.width > 1280 else 4)
-
-                kwargs |= dict(
-                    sbsize=sbsize, sosize=sosize, slocation=[
-                        0.0, sigma2, 0.05, sigma, 0.5, sigma, 0.75, sigma2, 1.0, 0.0
-                    ]
-                )
-
-                pref_type = Prefilter.DFTTEST
-
             if pref_type == Prefilter.DFTTEST:
                 peak = get_peak_value(clip)
                 dftt = DFTTest(sloc={0.0: 4, 0.2: 9, 1.0: 15}, tr=0).denoise(clip, **kwargs)
@@ -274,6 +260,33 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
                 return Prefilter.BILATERAL(den, planes, sigmaS=[sigma, sigma / 3], sigmaR=radius / 255)
 
+            # TODO: To remove
+            if pref_type == Prefilter.DFTTEST_SMOOTH:
+                warnings.warn(
+                    f"{pref_type} This Prefilter is deprecated and will be removed in a future version.\n"
+                    "    Use this instead:\n"
+                    "    sigma = 128\n"
+                    "    sigma2 = sigma / 16\n"
+                    "    DFTTEST(\n"
+                    "        sbsize=8 if clip.width > 1280 else 6,\n"
+                    "        sosize=6 if clip.width > 1280 else 4,\n"
+                    "        slocation=[0.0, sigma2, 0.05, sigma, 0.5, sigma, 0.75, sigma2, 1.0, 0.0]\n"
+                    "    )",
+                    DeprecationWarning
+                )
+                sigma = kwargs.get('sigma', 128.0)
+                sigma2 = kwargs.get('sigma2', sigma / 16)
+                sbsize = kwargs.get('sbsize', 8 if clip.width > 1280 else 6)
+                sosize = kwargs.get('sosize', 6 if clip.width > 1280 else 4)
+
+                kwargs |= dict(
+                    sbsize=sbsize, sosize=sosize, slocation=[
+                        0.0, sigma2, 0.05, sigma, 0.5, sigma, 0.75, sigma2, 1.0, 0.0
+                    ]
+                )
+
+                return Prefilter.DFTTEST(clip, planes, **kwargs)
+
             return clip
 
         if clip is MISSING:
@@ -311,9 +324,6 @@ class Prefilter(PrefilterBase):
 
     DFTTEST = 4
     """Denoising in frequency domain with dfttest and an adaptive mask for retaining lineart."""
-
-    DFTTEST_SMOOTH = 12
-    """Denoising like in DFTTEST but with high defaults for lower frequencies."""
 
     NLMEANS = 5
     """Denoising with NLMeans."""
@@ -394,6 +404,23 @@ class Prefilter(PrefilterBase):
     This enum is deprecated and will be removed in a future version.
     """
 
+    DFTTEST_SMOOTH = 12
+    """
+    Denoising like in DFTTEST but with high defaults for lower frequencies.
+    This enum is deprecated and will be removed in a future version.
+    Use this instead:
+    ```py
+    sigma = 128
+    sigma2 = sigma / 16
+
+    DFTTEST(
+        sbsize=8 if clip.width > 1280 else 6,
+        sosize=6 if clip.width > 1280 else 4,
+        slocation=[0.0, sigma2, 0.05, sigma, 0.5, sigma, 0.75, sigma2, 1.0, 0.0]
+    )
+    ```
+    """
+
     if TYPE_CHECKING:
         from .prefilters import Prefilter
 
@@ -429,15 +456,6 @@ class Prefilter(PrefilterBase):
             f0beta: float | None = None, nlocation: SingleOrArrOpt[int] = None, alpha: float | None = None,
             ssx: SingleOrArrOpt[float] = None, ssy: SingleOrArrOpt[float] = None, sst: SingleOrArrOpt[float] = None,
             ssystem: int | None = None, opt: int | None = None
-        ) -> vs.VideoNode:
-            ...
-
-        @overload
-        def __call__(  # type: ignore
-            self: Literal[Prefilter.DFTTEST_SMOOTH], clip: vs.VideoNode, /,
-            planes: PlanesT = None, full_range: bool | float = False, *,
-            sigma: float = 128.0, sigma2: float | None = None, sbsize: int | None = None, sosize: int | None = None,
-            **kwargs: Any
         ) -> vs.VideoNode:
             ...
 
@@ -563,14 +581,6 @@ class Prefilter(PrefilterBase):
             f0beta: float | None = None, nlocation: SingleOrArrOpt[int] = None, alpha: float | None = None,
             ssx: SingleOrArrOpt[float] = None, ssy: SingleOrArrOpt[float] = None, sst: SingleOrArrOpt[float] = None,
             ssystem: int | None = None, opt: int | None = None
-        ) -> PrefilterPartial:
-            ...
-
-        @overload
-        def __call__(  # type: ignore
-            self: Literal[Prefilter.DFTTEST_SMOOTH], *, planes: PlanesT = None, full_range: bool | float = False,
-            sigma: float = 128.0, sigma2: float | None = None, sbsize: int | None = None, sosize: int | None = None,
-            **kwargs: Any
         ) -> PrefilterPartial:
             ...
 
