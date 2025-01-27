@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal, SupportsFloat, cast
+from typing import Any, Literal, Sequence, SupportsFloat, cast
 
 from vsexprtools import expr_func, norm_expr
 from vskernels import Catrom, Kernel, KernelT
@@ -123,7 +123,7 @@ class _dpir(CustomStrEnum):
             return str_clip
 
         if isinstance(strength, vs.VideoNode):
-            strength = _norm_str_clip(strength)  # type: ignore
+            strength = _norm_str_clip(strength)
         elif isinstance(strength, SupportsFloat):
             strength = float(strength)
         else:
@@ -176,11 +176,7 @@ class _dpir(CustomStrEnum):
             overlap_w=overlap_w, overlap_h=overlap_h
         )
 
-        strength_clip = cast(
-            vs.VideoNode, strength if isinstance(
-                strength, vs.VideoNode
-            ) else _get_strength_clip(clip_rgb, strength)  # type: ignore
-        )
+        strength_clip = strength if isinstance(strength, vs.VideoNode) else _get_strength_clip(clip_rgb, strength)
 
         no_dpir_zones = list[FrameRangeN]()
 
@@ -203,9 +199,9 @@ class _dpir(CustomStrEnum):
                 rstr_clip: vs.VideoNode
 
                 if isinstance(zstr, vs.VideoNode):
-                    rstr_clip = _norm_str_clip(zstr)  # type: ignore
+                    rstr_clip = _norm_str_clip(zstr)
                 else:
-                    zstr = float(zstr)  # type: ignore
+                    zstr = float(zstr)
 
                     if zstr not in cache_strength_clips:
                         cache_strength_clips[zstr] = _get_strength_clip(clip_rgb, zstr)
