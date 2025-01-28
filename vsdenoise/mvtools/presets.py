@@ -188,102 +188,45 @@ class MVToolsPresets:
         raise NotImplementedError
 
     @classproperty
-    def SMDE(self) -> MVToolsPreset:
+    def HQ_COHERENCE(self) -> MVToolsPreset:
         return MVToolsPreset(
             pel=2,
             super_args=SuperArgs(
                 sharp=SharpMode.WIENER,
-                rfilter=RFilterMode.CUBIC,
-                # prefilter=Prefilter.NONE,
-                pad=8
             ),
-            analyze_args=AnalyzeArgs(
-                blksize=8,
-                overlap=2,
-                dct=SADMode.SPATIAL,
-                search=SearchMode.HEXAGON,
-                truemotion=MotionMode.COHERENCE,
-            ),
-            recalculate_args=RecalculateArgs(
-                blksize=8,
-                overlap=2,
-                dct=SADMode.SPATIAL,
-                search=SearchMode.HEXAGON,
-                truemotion=MotionMode.COHERENCE,
-            ),
-            degrain_args=DegrainArgs(thsad=300)
-        )
-
-    @classproperty
-    def CMDE(self) -> MVToolsPreset:
-        return MVToolsPreset(
-            pel=1,
-            super_args=SuperArgs(
-                sharp=SharpMode.WIENER,
-                rfilter=RFilterMode.CUBIC,
-                # prefilter=Prefilter.NONE,
-                pad=32
-            ),
-            analyze_args=AnalyzeArgs(
-                blksize=32,
-                overlap=16,
-                dct=SADMode.SPATIAL,
-                search=SearchMode.HEXAGON,
-                truemotion=MotionMode.SAD,
-            ),
-            recalculate_args=RecalculateArgs(
-                blksize=32,
-                overlap=16,
-                dct=SADMode.SPATIAL,
-                search=SearchMode.HEXAGON,
-                truemotion=MotionMode.SAD,
-            ),
-            degrain_args=DegrainArgs(thsad=300)
-        )
-
-    @classproperty
-    def FAST(self) -> MVToolsPreset:
-        return MVToolsPreset(
-            pel=1,
-            super_args=SuperArgs(
-                sharp=SharpMode.WIENER,
-                rfilter=RFilterMode.TRIANGLE,
-                # prefilter=Prefilter.MINBLUR3,
-                pad=32
-            ),
-            analyze_args=AnalyzeArgs(
-                blksize=32,
-                overlap=16,
-                dct=SADMode.SPATIAL,
-                search=SearchMode.DIAMOND,
-                truemotion=MotionMode.SAD,
-            ),
-            recalculate_args=RecalculateArgs(
-                blksize=32,
-                overlap=16,
-                dct=SADMode.SPATIAL,
-                search=SearchMode.DIAMOND,
-                truemotion=MotionMode.SAD,
-            ),
-            degrain_args=DegrainArgs(thsad=60)
-        )
-
-    @classproperty
-    def NOISY(self) -> MVToolsPreset:
-        # prefilter=Prefilter.DFTTEST,
-        return MVToolsPreset(
-            pel=2,
             analyze_args=AnalyzeArgs(
                 blksize=16,
                 overlap=8,
+                search=SearchMode.HEXAGON,
+                dct=SADMode.ADAPTIVE_SPATIAL_MIXED,
+            ),
+            recalculate_args=RecalculateArgs(
+                blksize=8,
+                overlap=4,
+                search=SearchMode.HEXAGON,
+                dct=SADMode.ADAPTIVE_SATD_MIXED,
+            )
+        )
+
+    @classproperty
+    def HQ_SAD(self) -> MVToolsPreset:
+        return MVToolsPreset(
+            pel=2,
+            super_args=SuperArgs(
+                sharp=SharpMode.WIENER,
+            ),
+            analyze_args=AnalyzeArgs(
+                blksize=16,
+                overlap=8,
+                search=SearchMode.HEXAGON,
                 dct=SADMode.ADAPTIVE_SPATIAL_MIXED,
                 truemotion=MotionMode.SAD,
             ),
             recalculate_args=RecalculateArgs(
-                blksize=16,
-                overlap=8,
+                blksize=8,
+                overlap=4,
+                search=SearchMode.HEXAGON,
                 dct=SADMode.ADAPTIVE_SATD_MIXED,
                 truemotion=MotionMode.SAD,
-            ),
-            degrain_args=DegrainArgs(thsad=100)
+            )
         )
