@@ -184,9 +184,6 @@ class MVToolsPreset(MutableMapping[str, Any]):
 class MVToolsPresets:
     """Presets for MVTools analyzing/refining."""
 
-    def __init__(self) -> NoReturn:
-        raise NotImplementedError
-
     @classproperty
     def HQ_COHERENCE(self) -> MVToolsPreset:
         return MVToolsPreset(
