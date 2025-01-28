@@ -165,6 +165,11 @@ class MVToolsPreset(MutableMapping[str, Any]):
     mask_args: MaskArgs | KwargsT | None = None
     sc_detection_args: ScDetectionArgs | KwargsT | None = None
 
+    def __post_init__(self) -> None:
+        for k, v in self.__dict__.copy().items():
+            if v is None:
+                del self.__dict__[k]
+
     def __getitem__(self, key: str) -> Any:
         return self.__dict__.__getitem__(key)
 
