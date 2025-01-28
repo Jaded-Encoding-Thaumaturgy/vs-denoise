@@ -13,8 +13,8 @@ __all__ = [
 
     'MVDirection',
 
-    'SharpMode', 'RFilterMode', 'SearchMode', 'SADMode',
-    'MotionMode', 'PenaltyMode', 'FlowMode', 'MaskMode'
+    'SharpMode', 'RFilterMode', 'SearchMode', 'SADMode', 'MotionMode',
+    'PenaltyMode', 'SmoothMode', 'FlowMode', 'MaskMode'
 ]
 
 
@@ -287,6 +287,16 @@ class PenaltyMode(CustomIntEnum):
 
     QUADRATIC = 2
     """Penalties scale quadratically with hierarchical level size."""
+
+
+class SmoothMode(CustomIntEnum):
+    """This is method for dividing coarse blocks into smaller ones."""
+
+    NEAREST = 0
+    """Use motion of nearest block."""
+
+    BILINEAR = 1
+    """Bilinear interpolation of 4 neighbors."""
 
 
 class FlowMode(CustomIntEnum):

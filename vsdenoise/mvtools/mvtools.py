@@ -13,7 +13,7 @@ from vstools import (
 
 from .enums import (
     MVToolsPlugin, MVDirection, SharpMode, RFilterMode, SearchMode,
-    SADMode, MotionMode, PenaltyMode, FlowMode, MaskMode
+    SADMode, MotionMode, SmoothMode, PenaltyMode, FlowMode, MaskMode
 )
 from .motion import MotionVectors
 from .utils import normalize_thscd, planes_to_mvtools
@@ -150,8 +150,7 @@ class MVTools:
 
         if self.mvtools is MVToolsPlugin.FLOAT:
             self.disable_manipmv = True
-            if tr == 1:
-                self.disable_degrain = True
+            self.disable_degrain = True if tr == 1 else False
         else:
             self.disable_manipmv = False
             self.disable_degrain = False
@@ -326,9 +325,10 @@ class MVTools:
 
     def recalculate(
         self, super: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
-        blksize: int | tuple[int | None, int | None] | None = None, search: SearchMode | None = None,
-        searchparam: int | None = None, lambda_: int | None = None, truemotion: MotionMode | None = None,
-        pnew: int | None = None, overlap: int | tuple[int | None, int | None] | None = None,
+        smooth: SmoothMode | None = None, blksize: int | tuple[int | None, int | None] | None = None,
+        search: SearchMode | None = None, searchparam: int | None = None, lambda_: int | None = None,
+        truemotion: MotionMode | None = None, pnew: int | None = None,
+        overlap: int | tuple[int | None, int | None] | None = None,
         divide: bool | None = None, meander: bool | None = None, dct: SADMode | None = None
     ) -> None:
         """
@@ -348,6 +348,8 @@ class MVTools:
                                 If None, uses the vectors from this instance.
         :param blksize:         Size of blocks for motion estimation. Can be an int or tuple of (width, height).
                                 Larger blocks are less sensitive to noise and faster to process, but will produce less accurate vectors.
+        :param smooth:          This is method for dividing coarse blocks into smaller ones.
+                                Only used with the FLOAT MVTools plugin.
         :param search:          Search algorithm to use at the finest level. See :py:class:`SearchMode` for options.
         :param searchparam:     Additional parameter for the search algorithm. For NSTEP, this is the step size.
                                 For EXHAUSTIVE, EXHAUSTIVE_H, EXHAUSTIVE_V, HEXAGON and UMH, this is the search radius.
@@ -394,6 +396,8 @@ class MVTools:
             self.disable_compensate = True
 
         if self.mvtools is MVToolsPlugin.FLOAT:
+            recalculate_args = recalculate_args | KwargsNotNone(smooth)
+
             vectors.vmulti = self.mvtools.Recalculate(super_clip, vectors=vectors.vmulti, **recalculate_args)
         else:
             for i in range(1, self.tr + 1):
