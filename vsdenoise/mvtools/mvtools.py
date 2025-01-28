@@ -6,7 +6,7 @@ from typing import Any, Literal, overload
 
 from vstools import (
     CustomRuntimeError, ColorRange, FieldBased,
-    InvalidColorFamilyError, KwargsT, PlanesT, VSFunction,
+    InvalidColorFamilyError, KwargsT, KwargsNotNone, PlanesT, VSFunction,
     check_variable, core, depth, disallow_variable_format, get_prop,
     disallow_variable_resolution, fallback, normalize_planes, normalize_seq, vs
 )
@@ -208,7 +208,7 @@ class MVTools:
         if callable(pelclip):
             pelclip = pelclip(clip)
 
-        super_args = self.super_args | KwargsT(
+        super_args = self.super_args | KwargsNotNone(
             hpad=hpad, vpad=vpad, pel=self.pel, levels=levels, chroma=self.chroma,
             sharp=sharp, rfilter=rfilter, pelclip=pelclip
         )
@@ -298,7 +298,7 @@ class MVTools:
         blksize, blksizev = normalize_seq(blksize, 2)
         overlap, overlapv = normalize_seq(overlap, 2)
 
-        analyze_args = self.analyze_args | KwargsT(
+        analyze_args = self.analyze_args | KwargsNotNone(
             blksize=blksize, blksizev=blksizev, levels=levels,
             search=search, searchparam=searchparam, pelsearch=pelsearch,
             lambda_=lambda_, chroma=self.chroma, truemotion=truemotion,
@@ -381,7 +381,7 @@ class MVTools:
         blksize, blksizev = normalize_seq(blksize, 2)
         overlap, overlapv = normalize_seq(overlap, 2)
 
-        recalculate_args = self.recalculate_args | KwargsT(
+        recalculate_args = self.recalculate_args | KwargsNotNone(
             blksize=blksize, blksizev=blksizev, search=search, searchparam=searchparam,
             lambda_=lambda_, chroma=self.chroma, truemotion=truemotion, pnew=pnew,
             overlap=overlap, overlapv=overlapv, divide=divide, meander=meander,
@@ -487,7 +487,7 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        compensate_args = self.compensate_args | KwargsT(
+        compensate_args = self.compensate_args | KwargsNotNone(
             scbehavior=scbehavior, thsad=thsad, time=time, fields=self.fieldbased.is_inter,
             thscd1=thscd1, thscd2=thscd2, tff=self.fieldbased.is_tff
         )
@@ -598,7 +598,7 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        flow_args = self.flow_args | KwargsT(
+        flow_args = self.flow_args | KwargsNotNone(
             time=time, mode=mode, fields=self.fieldbased.is_inter,
             thscd1=thscd1, thscd2=thscd2, tff=self.fieldbased.is_tff
         )
@@ -747,7 +747,7 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        flow_interpolate_args = self.flow_interpolate_args | KwargsT(
+        flow_interpolate_args = self.flow_interpolate_args | KwargsNotNone(
             time=time, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2
         )
 
@@ -905,7 +905,7 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        flow_blur_args = self.flow_blur_args | KwargsT(blur=blur, prec=prec, thscd1=thscd1, thscd2=thscd2)
+        flow_blur_args = self.flow_blur_args | KwargsNotNone(blur=blur, prec=prec, thscd1=thscd1, thscd2=thscd2)
 
         return self.mvtools.FlowBlur(clip, super_clip, vect_b, vect_f, **flow_blur_args)
 
@@ -950,7 +950,7 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        mask_args = self.mask_args | KwargsT(
+        mask_args = self.mask_args | KwargsNotNone(
             ml=ml, gamma=gamma, kind=kind, time=time, ysc=ysc, thscd1=thscd1, thscd2=thscd2
         )
 
@@ -988,7 +988,7 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        sc_detection_args = self.sc_detection_args | KwargsT(thscd1=thscd1, thscd2=thscd2)
+        sc_detection_args = self.sc_detection_args | KwargsNotNone(thscd1=thscd1, thscd2=thscd2)
 
         detect = clip
         for direction in MVDirection:
