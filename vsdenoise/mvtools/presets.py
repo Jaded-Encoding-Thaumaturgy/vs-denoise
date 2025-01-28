@@ -1,8 +1,9 @@
+from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterator, MutableMapping, NoReturn, TypedDict
+from typing import Any, Iterable, Iterator, MutableMapping, Self, TypedDict, overload
 
-from vstools import KwargsT, PlanesT, VSFunction, classproperty, vs
+from vstools import T1, T2, KwargsT, PlanesT, SupportsKeysAndGetItem, VSFunction, classproperty, vs
 
 from .enums import FlowMode, MaskMode, MotionMode, PenaltyMode, RFilterMode, SADMode, SearchMode, SharpMode
 
