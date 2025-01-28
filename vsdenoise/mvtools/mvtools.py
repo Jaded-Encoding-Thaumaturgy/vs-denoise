@@ -689,7 +689,7 @@ class MVTools:
 
             degrain_args.update(thsad=thsad, thsadc=thsadc, limit=limit, limitc=limitc)
 
-        degrain_args = self.degrain_args | degrain_args
+        degrain_args = self.degrain_args | KwargsNotNone(degrain_args)
 
         if self.mvtools is MVToolsPlugin.FLOAT:
             output = self.mvtools.Degrain()(clip, super_clip, vectors.vmulti, **degrain_args)
@@ -803,7 +803,7 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        flow_fps_args = dict[str, Any](mask=mask, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2)
+        flow_fps_args = KwargsNotNone(mask=mask, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2)
 
         if fps is not None:
             flow_fps_args.update(num=fps.numerator, den=fps.denominator)
@@ -858,7 +858,7 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        block_fps_args = dict[str, Any](mode=mode, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2)
+        block_fps_args = KwargsNotNone(mode=mode, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2)
 
         if fps is not None:
             block_fps_args.update(num=fps.numerator, den=fps.denominator)
