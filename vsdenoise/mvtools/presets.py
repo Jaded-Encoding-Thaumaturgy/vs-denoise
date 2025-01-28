@@ -180,6 +180,32 @@ class MVToolsPreset(MutableMapping[str, Any]):
     def __len__(self) -> int:
         return self.__dict__.__len__()
 
+    def __or__(self, value: MutableMapping[str, Any], /) -> MVToolsPreset:
+        return self.__class__(**self.__dict__ | dict(value))
+
+    @overload
+    def __ror__(self, value: MutableMapping[str, Any], /) -> dict[str, Any]:
+        ...
+
+    @overload
+    def __ror__(self, value: MutableMapping[T1, T2], /) -> dict[str | T1, Any | T2]:
+        ...
+
+    def __ror__(self, value: Any, /) -> Any:
+        return self.__class__(**dict(value) | self.__dict__)
+
+    @overload  # type: ignore[misc]
+    def __ior__(self, value: SupportsKeysAndGetItem[str, Any], /) -> Self:
+        ...
+
+    @overload
+    def __ior__(self, value: Iterable[tuple[str, Any]], /) -> Self:
+        ...
+
+    def __ior__(self, value: Any, /) -> Self:  # type: ignore[misc]
+        self.__dict__ |= dict[str, Any](value)
+        return self
+
 
 class MVToolsPresets:
     """Presets for MVTools analyzing/refining."""
