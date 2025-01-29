@@ -150,8 +150,8 @@ class ScDetectionArgs(TypedDict, total=False):
 
 @dataclass(kw_only=True)
 class MVToolsPreset(MutableMapping[str, Any]):
-    tr: int = 1
-    pel: int | None
+    tr: int | None = None
+    pel: int | None = None
     planes: PlanesT | None = None
     super_args: SuperArgs | KwargsT | None = None
     analyze_args: AnalyzeArgs | KwargsT | None = None
