@@ -17,7 +17,7 @@ from vsmasktools import retinex
 from vsrgtools import bilateral, box_blur, flux_smooth, gauss_blur, min_blur
 from vstools import (
     MISSING, ColorRange, ConvMode, CustomEnum, CustomIntEnum, CustomRuntimeError, MissingT, PlanesT,
-    SingleOrArr, SingleOrArrOpt, check_variable, clamp, core, depth, disallow_variable_format,
+    SingleOrArr, check_variable, clamp, core, depth, disallow_variable_format,
     disallow_variable_resolution, get_neutral_value, get_peak_value, get_y, join, normalize_planes,
     normalize_seq, scale_delta, scale_value, split, vs
 )
