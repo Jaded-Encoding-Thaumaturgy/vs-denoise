@@ -15,9 +15,9 @@ from vskernels import Bilinear, Scaler
 from vsmasktools import retinex
 from vsrgtools import bilateral, box_blur, flux_smooth, gauss_blur, min_blur
 from vstools import (
-    MISSING, ColorRange, ConvMode, CustomIntEnum, MissingT, PlanesT, SingleOrArr, check_variable,
-    clamp, core, depth, get_neutral_value, get_peak_value, get_y, join, normalize_planes,
-    normalize_seq, scale_delta, scale_value, split, vs
+    MISSING, ColorRange, ConvMode, CustomIntEnum, MissingT, PlanesT, SingleOrArr,
+    check_variable, clamp, core, depth, get_neutral_value, get_peak_value, get_y,
+    join, normalize_planes, normalize_seq, scale_delta, scale_value, split, vs
 )
 
 from .bm3d import BM3D as BM3DM
