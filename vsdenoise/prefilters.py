@@ -94,14 +94,24 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
             if pref_type == Prefilter.DFTTEST:
                 peak = get_peak_value(clip)
-                dftt = DFTTest(sloc={0.0: 4, 0.2: 9, 1.0: 15}, tr=0).denoise(clip, **kwargs)
+                dftt = DFTTest(sloc={0.0: 4, 0.2: 9, 1.0: 15}, tr=0).denoise(clip, planes=planes, **kwargs)
 
-                i, j = (scale_value(x, 8, clip) for x in (16, 75))
+                pref_mask: vs.VideoNode | Literal[False] | tuple[int, int] | None = kwargs.get("pref_mask", None)
 
-                pref_mask = norm_expr(
-                    get_y(clip),
-                    f'x {i} < {peak} x {j} > 0 {peak} x {i} - {peak} {j} {i} - / * - ? ?'
-                )
+                if pref_mask is False:
+                    return dftt
+
+                lower, upper = 16., 75.
+
+                if isinstance(pref_mask, tuple):
+                    lower, upper = pref_mask
+
+                if not isinstance(pref_mask, vs.VideoNode):
+                    lower, upper = (scale_value(x, 8, clip) for x in (lower, upper))
+                    pref_mask = norm_expr(
+                        get_y(clip),
+                        f'x {lower} < {peak} x {upper} > 0 {peak} x {lower} - {peak} {upper} {lower} - / * - ? ?'
+                    )
 
                 return dftt.std.MaskedMerge(clip, pref_mask, planes)
 
@@ -323,7 +333,7 @@ class Prefilter(PrefilterBase):
     """Perform smoothing using `zsmooth.FluxSmoothST`"""
 
     DFTTEST = 4
-    """Denoising in frequency domain with dfttest and an adaptive mask for retaining lineart."""
+    """Denoising in frequency domain with dfttest and an adaptive mask for retaining details."""
 
     NLMEANS = 5
     """Denoising with NLMeans."""
@@ -447,17 +457,26 @@ class Prefilter(PrefilterBase):
             self: Literal[Prefilter.DFTTEST], clip: vs.VideoNode, /,
             planes: PlanesT = None, full_range: bool | float = False,
             *,
+            pref_mask: vs.VideoNode | Literal[False] | tuple[int, int] = (16, 75),
             tbsize: int = 1, sbsize: int = 12, sosize: int = 6, swin: int = 2,
             slocation: SingleOrArr[float] = [0.0, 4.0, 0.2, 9.0, 1.0, 15.0],
-            ftype: int | None = None, sigma: float | None = None, sigma2: float | None = None,
-            pmin: float | None = None, pmax: float | None = None, smode: int | None = None,
-            tmode: int | None = None, tosize: int | None = None, twin: int | None = None,
-            sbeta: float | None = None, tbeta: float | None = None, zmean: int | None = None,
-            f0beta: float | None = None, nlocation: SingleOrArrOpt[int] = None, alpha: float | None = None,
-            ssx: SingleOrArrOpt[float] = None, ssy: SingleOrArrOpt[float] = None, sst: SingleOrArrOpt[float] = None,
-            ssystem: int | None = None, opt: int | None = None
+            **kwargs: Any
         ) -> vs.VideoNode:
-            ...
+            """
+            2D/3D frequency domain denoiser.
+
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
+            :param full_range:  Whether to return a prefiltered clip in full range.
+            :param pref_mask:   Gradient mask node for details retaining if VideoNode.
+                                Disable masking if False.
+                                Lower/upper bound pixel values if tuple.
+                                Anything below lower bound isn't denoised at all.
+                                Anything above upper bound is fully denoised.
+                                Values between them are a gradient.
+
+            :return:            Denoised clip.
+            """
 
         @overload
         def __call__(  # type: ignore
@@ -572,17 +591,26 @@ class Prefilter(PrefilterBase):
         @overload
         def __call__(  # type: ignore
             self: Literal[Prefilter.DFTTEST], *, planes: PlanesT = None, full_range: bool | float = False,
+            pref_mask: vs.VideoNode | Literal[False] | tuple[int, int] = (16, 75),
             tbsize: int = 1, sbsize: int = 12, sosize: int = 6, swin: int = 2,
             slocation: SingleOrArr[float] = [0.0, 4.0, 0.2, 9.0, 1.0, 15.0],
-            ftype: int | None = None, sigma: float | None = None, sigma2: float | None = None,
-            pmin: float | None = None, pmax: float | None = None, smode: int | None = None,
-            tmode: int | None = None, tosize: int | None = None, twin: int | None = None,
-            sbeta: float | None = None, tbeta: float | None = None, zmean: int | None = None,
-            f0beta: float | None = None, nlocation: SingleOrArrOpt[int] = None, alpha: float | None = None,
-            ssx: SingleOrArrOpt[float] = None, ssy: SingleOrArrOpt[float] = None, sst: SingleOrArrOpt[float] = None,
-            ssystem: int | None = None, opt: int | None = None
+            **kwargs: Any
         ) -> PrefilterPartial:
-            ...
+            """
+            2D/3D frequency domain denoiser.
+
+            :param clip:        Clip to be preprocessed.
+            :param planes:      Planes to be preprocessed.
+            :param full_range:  Whether to return a prefiltered clip in full range.
+            :param pref_mask:   Gradient mask node for details retaining if VideoNode.
+                                Disable masking if False.
+                                Lower/upper bound pixel values if tuple.
+                                Anything below lower bound isn't denoised at all.
+                                Anything above upper bound is fully denoised.
+                                Values between them are a gradient.
+
+            :return:            Partial Prefilter.
+            """
 
         @overload
         def __call__(  # type: ignore
