@@ -71,7 +71,8 @@ class MVTools:
     @disallow_variable_format
     @disallow_variable_resolution
     def __init__(
-        self, clip: vs.VideoNode, vectors: MotionVectors | MVTools | None = None,
+        self, clip: vs.VideoNode, search_clip: vs.VideoNode | VSFunction | None = None,
+        vectors: MotionVectors | MVTools | None = None,
         tr: int = 1, pel: int | None = None, planes: PlanesT = None,
         *,
         # kwargs for mvtools calls
@@ -103,6 +104,7 @@ class MVTools:
         of all pixels of these two blocks, which indicates how correct the motion estimation was.
 
         :param clip:                    The clip to process.
+        :param search_clip:             Optional clip or callable to be used for motion vector gathering only.
         :param vectors:                 Pre-calculated motion vectors from another MVTools instance or custom implementation.
                                         Default: None.
         :param tr:                      The temporal radius. This determines how many frames are analyzed before/after the current frame.
@@ -138,6 +140,7 @@ class MVTools:
         self.mvtools = MVToolsPlugin.from_video(clip)
         self.fieldbased = FieldBased.from_video(clip, False, self.__class__)
         self.clip = clip.std.SeparateFields() if self.fieldbased.is_inter else clip
+        self.search_clip = search_clip(self.clip) if callable(search_clip) else fallback(search_clip, self.clip)
 
         self.tr = tr
         self.pel = pel
@@ -292,7 +295,7 @@ class MVTools:
                                 These vectors describe the estimated motion between frames and can be used for motion compensation.
         """
 
-        super_clip = self.get_super(super)
+        super_clip = self.get_super(fallback(super, self.search_clip))
 
         blksize, blksizev = normalize_seq(blksize, 2)
         overlap, overlapv = normalize_seq(overlap, 2)
@@ -370,7 +373,7 @@ class MVTools:
                                 For more information, see :py:class:`SADMode`.
         """
 
-        super_clip = self.get_super(super)
+        super_clip = self.get_super(fallback(super, self.search_clip))
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
