@@ -483,7 +483,7 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        tr = self.tr if tr is None else tr
+        tr = fallback(tr, self.tr)
 
         vect_b, vect_f = self.get_vectors(self.vectors, direction=direction, tr=tr)
 
@@ -594,7 +594,7 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        tr = self.tr if tr is None else tr
+        tr = fallback(tr, self.tr)
 
         vect_b, vect_f = self.get_vectors(self.vectors, direction=direction, tr=tr)
 
@@ -675,7 +675,7 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        tr = self.tr if tr is None else tr
+        tr = fallback(tr, self.tr)
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
@@ -1147,7 +1147,7 @@ class MVTools:
         if not vectors.has_vectors:
             raise CustomRuntimeError('You need to run analyze before getting motion vectors!', self.get_vectors)
 
-        tr = self.tr if tr is None else tr
+        tr = fallback(tr, self.tr)
 
         vectors_backward = list[vs.VideoNode]()
         vectors_forward = list[vs.VideoNode]()
