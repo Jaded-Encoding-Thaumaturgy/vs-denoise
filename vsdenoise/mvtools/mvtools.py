@@ -145,7 +145,7 @@ class MVTools:
         self.tr = tr
         self.pel = pel
 
-        self.planes = normalize_planes(clip, planes)
+        self.planes = normalize_planes(self.clip, planes)
         self.mv_plane = planes_to_mvtools(self.planes)
         self.chroma = self.mv_plane != 0
         self.analysis_data = None
@@ -202,8 +202,6 @@ class MVTools:
         :return:            The original clip with the super clip attached as a frame property.
         """
 
-        inplace = clip is None
-
         clip = fallback(clip, self.clip)
         hpad, vpad = normalize_seq(pad, 2)
 
@@ -219,8 +217,10 @@ class MVTools:
 
         super_clip = clip.std.ClipToProp(super_clip, prop='MSuper')
 
-        if inplace:
+        if clip == self.clip:
             self.clip = super_clip
+        elif clip == self.search_clip:
+            self.search_clip = super_clip
 
         return super_clip
 
