@@ -396,9 +396,7 @@ class MVTools:
             self.disable_compensate = True
 
         if self.mvtools is MVToolsPlugin.FLOAT:
-            recalculate_args = recalculate_args | KwargsNotNone(smooth)
-
-            vectors.vmulti = self.mvtools.Recalculate(super_clip, vectors=vectors.vmulti, **recalculate_args)
+            vectors.vmulti = self.mvtools.Recalculate(super_clip, vectors=vectors.vmulti, smooth=smooth, **recalculate_args)
         else:
             for i in range(1, self.tr + 1):
                 for direction in MVDirection:
