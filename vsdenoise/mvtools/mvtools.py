@@ -219,7 +219,7 @@ class MVTools:
 
         if clip == self.clip:
             self.clip = super_clip
-        elif clip == self.search_clip:
+        if clip == self.search_clip:
             self.search_clip = super_clip
 
         return super_clip
