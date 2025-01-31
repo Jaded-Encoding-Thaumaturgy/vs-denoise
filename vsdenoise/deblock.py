@@ -423,7 +423,7 @@ def mpeg2stinx(
     :param limit:      If specified, temporal limiting is used, where the changes by crossfieldrepair
                        are limited to this times the difference between the current frame and its neighbours.
 
-    :return:           Clip with cross-field noise reduced.
+    :returns:           Clip with cross-field noise reduced.
     """
 
     def crossfield_repair(clip: vs.VideoNode, bobbed: vs.VideoNode, sw: int, sh: int) -> vs.VideoNode:
