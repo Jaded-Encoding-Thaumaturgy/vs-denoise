@@ -1001,7 +1001,9 @@ class MVTools:
 
         return detect
 
-    def scale_vectors(self, scale: int | tuple[int, int], vectors: MotionVectors | MVTools | None = None) -> None:
+    def scale_vectors(
+            self, scale: int | tuple[int, int], vectors: MotionVectors | MVTools | None = None, strict: bool = True
+        ) -> None:
         """
         Scales image_size, block_size, overlap, padding, and the individual motion_vectors contained in Analyse output
         by arbitrary and independent x and y factors.
@@ -1035,7 +1037,7 @@ class MVTools:
 
         scaled_blksize = (blksize * scalex, blksizev * scaley)
 
-        if scaled_blksize not in supported_blksize:
+        if strict and scaled_blksize not in supported_blksize:
             raise CustomRuntimeError('Unsupported block size!', self.scale_vectors)
 
         for i in range(1, self.tr + 1):

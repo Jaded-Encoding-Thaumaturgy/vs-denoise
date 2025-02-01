@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Iterable, Iterator, MutableMapping, Self, TypedDict, overload
+from functools import partial
 
 from vstools import T1, T2, KwargsT, PlanesT, SupportsKeysAndGetItem, VSFunction, classproperty, vs
 
-from .enums import FlowMode, MaskMode, MotionMode, PenaltyMode, RFilterMode, SADMode, SearchMode, SharpMode
+from .enums import FlowMode, MaskMode, MotionMode, SmoothMode, PenaltyMode, RFilterMode, SADMode, SearchMode, SharpMode
+from ..prefilters import prefilter_to_full_range
 
 
 __all__ = [
@@ -60,6 +62,7 @@ class AnalyzeArgs(TypedDict, total=False):
 
 
 class RecalculateArgs(TypedDict, total=False):
+    smooth: SmoothMode | None
     blksize: int | None
     blksizev: int | None
     search: SearchMode | None
@@ -92,6 +95,7 @@ class FlowArgs(TypedDict, total=False):
 class DegrainArgs(TypedDict, total=False):
     thsad: int | None
     thsadc: int | None
+    thsad2: int | None
     limit: int | None
     limitc: int | None
     thscd1: int | None
@@ -150,6 +154,7 @@ class ScDetectionArgs(TypedDict, total=False):
 
 @dataclass(kw_only=True)
 class MVToolsPreset(MutableMapping[str, Any]):
+    search_clip: VSFunction | None
     tr: int | None = None
     pel: int | None = None
     planes: PlanesT | None = None
@@ -219,6 +224,7 @@ class MVToolsPresets:
     @classproperty
     def HQ_COHERENCE(self) -> MVToolsPreset:
         return MVToolsPreset(
+            search_clip=partial(prefilter_to_full_range, range_conversion=1),
             pel=2,
             super_args=SuperArgs(
                 sharp=SharpMode.WIENER,
@@ -240,6 +246,7 @@ class MVToolsPresets:
     @classproperty
     def HQ_SAD(self) -> MVToolsPreset:
         return MVToolsPreset(
+            search_clip=partial(prefilter_to_full_range, range_conversion=1),
             pel=2,
             super_args=SuperArgs(
                 sharp=SharpMode.WIENER,
