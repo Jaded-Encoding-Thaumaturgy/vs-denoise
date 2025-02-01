@@ -29,7 +29,6 @@ __all__ = [
 
 
 class SuperArgs(TypedDict, total=False):
-    pad: int | tuple[int | None, int | None] | None
     levels: int | None
     sharp: SharpMode | None
     rfilter: RFilterMode | None
@@ -157,6 +156,7 @@ class MVToolsPreset(MutableMapping[str, Any]):
     search_clip: VSFunction | None
     tr: int | None = None
     pel: int | None = None
+    pad: int | tuple[int | None, int | None] | None = None
     planes: PlanesT | None = None
     super_args: SuperArgs | KwargsT | None = None
     analyze_args: AnalyzeArgs | KwargsT | None = None

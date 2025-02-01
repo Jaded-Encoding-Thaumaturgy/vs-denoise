@@ -17,12 +17,20 @@ class MotionVectors:
     vmulti: vs.VideoNode
     """Super-sampled clip used for motion vector analysis."""
 
+    analysis_data: dict[str, Any]
+    """Dictionary containing motion vector analysis data."""
+
+    scale: int | tuple[int, int]
+    """Scale factor of the motion vectors."""
+
     temporal_vectors: dict[MVDirection, dict[int, vs.VideoNode]]
     """Dictionary containing both backward and forward motion vectors."""
 
     def __init__(self) -> None:
         self._init_vects()
-        self.vmulti = None  # type: ignore
+        self.vmulti = None
+        self.analysis_data = None
+        self.scale = (1, 1)
         self.kwargs = dict[str, Any]()
 
     def _init_vects(self) -> None:
@@ -63,6 +71,8 @@ class MotionVectors:
         """Clear all stored motion vectors and reset the instance."""
 
         del self.vmulti
+        del self.analysis_data
+        self.scale = (1, 1)
         self.kwargs.clear()
         self.temporal_vectors.clear()
         self._init_vects()

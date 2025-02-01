@@ -73,7 +73,8 @@ class MVTools:
     def __init__(
         self, clip: vs.VideoNode, search_clip: vs.VideoNode | VSFunction | None = None,
         vectors: MotionVectors | MVTools | None = None,
-        tr: int = 1, pel: int | None = None, planes: PlanesT = None,
+        tr: int = 1, pad: int | tuple[int | None, int | None] | None = None,
+        pel: int | None = None, planes: PlanesT = None,
         *,
         # kwargs for mvtools calls
         super_args: KwargsT | None = None,
@@ -144,11 +145,12 @@ class MVTools:
 
         self.tr = tr
         self.pel = pel
+        self.pad = pad
 
         self.planes = normalize_planes(self.clip, planes)
         self.mv_plane = planes_to_mvtools(self.planes)
         self.chroma = self.mv_plane != 0
-        self.analysis_data = None
+
         self.disable_compensate = False
 
         if self.mvtools is MVToolsPlugin.FLOAT:
@@ -172,9 +174,9 @@ class MVTools:
         self.sc_detection_args = fallback(sc_detection_args, KwargsT())
 
     def super(
-        self, clip: vs.VideoNode | None = None, pad: int | tuple[int | None, int | None] | None = None,
-        levels: int | None = None, sharp: SharpMode | None  = None, rfilter: RFilterMode | None = None,
-        pelclip: vs.VideoNode | VSFunction | None = None
+        self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None, 
+        levels: int | None = None, sharp: SharpMode | None = None,
+        rfilter: RFilterMode | None = None, pelclip: vs.VideoNode | VSFunction | None = None
     ) -> vs.VideoNode:
         """
         Get source clip and prepare special "super" clip with multilevel (hierarchical scaled) frames data.
@@ -203,7 +205,19 @@ class MVTools:
         """
 
         clip = fallback(clip, self.clip)
-        hpad, vpad = normalize_seq(pad, 2)
+
+        if isinstance(vectors, MVTools):
+            vectors = vectors.vectors
+        elif vectors is None:
+            vectors = self.vectors
+
+        scalex, scaley = vectors.scale
+
+        if scalex > 1 or scaley > 1:
+            hpad, vpad = vectors.analysis_data['Analysis_Padding']
+            hpad, vpad = hpad * scalex, vpad * scaley
+        else:
+            hpad, vpad = normalize_seq(self.pad, 2)
 
         if callable(pelclip):
             pelclip = pelclip(clip)
@@ -479,7 +493,7 @@ class MVTools:
             raise CustomRuntimeError('Motion analysis was performed without block overlap!', self.compensate)
 
         clip = fallback(clip, self.clip)
-        super_clip = self.get_super(super)
+        super_clip = self.get_super(fallback(super, clip))
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -590,7 +604,7 @@ class MVTools:
         """
 
         clip = fallback(clip, self.clip)
-        super_clip = self.get_super(super)
+        super_clip = self.get_super(fallback(super, clip))
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -671,7 +685,7 @@ class MVTools:
             raise CustomRuntimeError('Motion analysis was performed with a temporal radius of 1!', self.degrain)
 
         clip = fallback(clip, self.clip)
-        super_clip = self.get_super(super)
+        super_clip = self.get_super(fallback(super, clip))
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -741,7 +755,7 @@ class MVTools:
         """
 
         clip = fallback(clip, self.clip)
-        super_clip = self.get_super(super)
+        super_clip = self.get_super(fallback(super, clip))
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -797,7 +811,7 @@ class MVTools:
         """
 
         clip = fallback(clip, self.clip)
-        super_clip = self.get_super(super)
+        super_clip = self.get_super(fallback(super, clip))
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -852,7 +866,7 @@ class MVTools:
         """
 
         clip = fallback(clip, self.clip)
-        super_clip = self.get_super(super)
+        super_clip = self.get_super(fallback(super, clip))
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -899,7 +913,7 @@ class MVTools:
         """
 
         clip = fallback(clip, self.clip)
-        super_clip = self.get_super(super)
+        super_clip = self.get_super(fallback(super, clip))
 
         if isinstance(vectors, MVTools):
             vectors = vectors.vectors
@@ -1030,20 +1044,23 @@ class MVTools:
             (32, 32), (64, 32), (64, 64), (128, 64), (128, 128)
         )
 
-        if not self.analysis_data:
-            self.expand_analysis_data(vectors)
+        if scalex > 1 and scaley > 1:
+            if not vectors.analysis_data:
+                self.expand_analysis_data(vectors)
 
-        blksize, blksizev = self.analysis_data['Analysis_BlockSize']
+            blksize, blksizev = vectors.analysis_data['Analysis_BlockSize']
+            current_scalex, current_scaley = vectors.scale
 
-        scaled_blksize = (blksize * scalex, blksizev * scaley)
+            scaled_blksize = (blksize * scalex, blksizev * scaley)
+            vectors.scale = (current_scalex * scalex, current_scaley * scaley)
 
-        if strict and scaled_blksize not in supported_blksize:
-            raise CustomRuntimeError('Unsupported block size!', self.scale_vectors)
+            if strict and scaled_blksize not in supported_blksize:
+                raise CustomRuntimeError('Unsupported block size!', self.scale_vectors)
 
-        for i in range(1, self.tr + 1):
-            for direction in MVDirection:
-                vector = vectors.get_mv(direction, i).manipmv.ScaleVect(scalex, scaley)
-                vectors.set_mv(direction, i, vector)
+            for i in range(1, self.tr + 1):
+                for direction in MVDirection:
+                    vector = vectors.get_mv(direction, i).manipmv.ScaleVect(scalex, scaley)
+                    vectors.set_mv(direction, i, vector)
 
     def show_vector(
         self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
@@ -1102,15 +1119,14 @@ class MVTools:
             'Analysis_ChromaRatio', 'Analysis_Padding'
         )
 
-        vect = vectors.get_mv(MVDirection.BACK, 1)
-        clip_props = vect.manipmv.ExpandAnalysisData().get_frame(0)
+        clip_props = vectors.get_mv(MVDirection.BACK, 1).manipmv.ExpandAnalysisData().get_frame(0)
 
         analysis_props = dict[str, Any]()
 
         for i in props_list:
             analysis_props[i] = get_prop(clip_props, i, int | list)
 
-        self.analysis_data = analysis_props
+        vectors.analysis_data = analysis_props
 
     def get_super(self, clip: vs.VideoNode | None = None) -> vs.VideoNode:
         """

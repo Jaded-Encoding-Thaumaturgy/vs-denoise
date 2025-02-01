@@ -9,7 +9,7 @@ from typing import Any, Iterable, Literal, overload
 from vskernels import Bilinear
 from vsscale import Waifu2x
 from vsscale.scale import BaseWaifu2x
-from vstools import CustomIndexError, KwargsNotNone, PlanesT, VSFunction, fallback, mod2, vs
+from vstools import CustomIndexError, KwargsNotNone, PlanesT, VSFunction, fallback, vs
 
 from .mvtools import MotionVectors, MVTools, MVToolsPreset, MVToolsPresets
 
@@ -71,37 +71,45 @@ def mc_degrain(
 
     mfilter = mfilter(clip) if callable(mfilter) else fallback(mfilter, mv.clip)
 
-    den = mv.degrain(mfilter, tr=tr)
+    den = mv.degrain(mfilter, mv.clip, tr=tr)
 
     return (den, mv) if export_globals else den
 
 
 def mlm_degrain(
     clip: vs.VideoNode,
-    factors: Iterable[float] = [2, 3],
+    sizes: Iterable[float] = [4, 8, 16],
     downsampler = Bilinear,
     upsampler = Bilinear,
 ) -> vs.VideoNode:
-
-    factors = sorted(factors, reverse=True)
+    
+    factors = sorted([max(sizes) // i for i in sizes])
     downsampled_clips, residuals = [clip], []
 
-    for index, i in enumerate(factors):
-        base_clip = downsampled_clips[index]
-        ds_clip = Bilinear.scale(base_clip, mod2(clip.width / i), mod2(clip.height / i))
+    for x, i in enumerate(factors[1:]):
+        base_clip = downsampled_clips[x]
+        ds_clip = downsampler.scale(base_clip, clip.width // i, clip.height // i)
 
-        ds_up = Bilinear.scale(ds_clip, base_clip.width, base_clip.height)
-        ds_diff = base_clip.std.MakeDiff(ds_up)
+        ds_up = upsampler.scale(ds_clip, base_clip.width, base_clip.height)
+        ds_diff = ds_up.std.MakeDiff(base_clip)
 
         downsampled_clips.append(ds_clip)
         residuals.append(ds_diff)
 
-    downsampled_clips, residuals = downsampled_clips[::-1], residuals[::-1]
+    residuals = residuals[::-1]
 
-    mv = MVTools(downsampled_clips[0])
-    mv.analyze()
-
+    mv = MVTools(downsampled_clips[-1])
+    mv.analyze(blksize=min(sizes))
     den_base = mv.degrain()
+
+    for x in range(len(factors) - 1):
+        scale = factors[x + 1] // factors[x]
+
+        mv.scale_vectors(scale)
+        base_up = upsampler.scale(den_base, den_base.width * scale, den_base.height * scale)
+
+        den_last = mv.degrain(residuals[x])
+        den_base = base_up.std.MakeDiff(den_last)
 
     return den_base
 
