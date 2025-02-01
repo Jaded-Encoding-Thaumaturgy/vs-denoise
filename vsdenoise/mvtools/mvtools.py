@@ -106,10 +106,12 @@ class MVTools:
 
         :param clip:                    The clip to process.
         :param search_clip:             Optional clip or callable to be used for motion vector gathering only.
-        :param vectors:                 Pre-calculated motion vectors from another MVTools instance or custom implementation.
-                                        Default: None.
+        :param vectors:                 Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
+                                        If None, uses the vectors from this instance.
         :param tr:                      The temporal radius. This determines how many frames are analyzed before/after the current frame.
                                         Default: 1.
+        :param pad:                     How much padding to add to the source frame.
+                                        Small padding is added to help with motion estimation near frame borders.
         :param pel:                     Subpixel precision for motion estimation (1=pixel, 2=half-pixel, 4=quarter-pixel).
                                         Default: 1.
         :param planes:                  Which planes to process. Default: None (all planes).
@@ -186,8 +188,8 @@ class MVTools:
         Source clip is appended to clip's frameprops, :py:attr:`get_super` can be used to extract the super clip if you wish to view it yourself.
 
         :param clip:        The clip to process. If None, the :py:attr:`clip` attribute is used.
-        :param pad:         How much padding to add to the source frame.
-                            Small padding is added to help with motion estimation near frame borders.
+        :param vectors:         Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
+                                If None, uses the vectors from this instance.
         :param levels:      The number of hierarchical levels in super clip frames.
                             More levels are needed for :py:attr:`analyze` to get better vectors,
                             but fewer levels are needed for the actual motion compensation.
