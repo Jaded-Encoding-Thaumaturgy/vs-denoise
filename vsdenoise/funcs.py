@@ -27,7 +27,7 @@ def mc_degrain(
     clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
     mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
     tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
-    export_globals: Literal[False] = ..., planes: PlanesT = None
+    export_globals: Literal[False] = ..., planes: PlanesT = None, **kwargs: Any
 ) -> vs.VideoNode:
     ...
 
@@ -37,7 +37,7 @@ def mc_degrain(
     clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
     mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
     tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
-    export_globals: Literal[True] = ..., planes: PlanesT = None
+    export_globals: Literal[True] = ..., planes: PlanesT = None, **kwargs: Any
 ) -> tuple[vs.VideoNode, MVTools]:
     ...
 
@@ -47,7 +47,7 @@ def mc_degrain(
     clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
     mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
     tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
-    export_globals: bool = ..., planes: PlanesT = None
+    export_globals: bool = ..., planes: PlanesT = None, **kwargs: Any
 ) -> vs.VideoNode | tuple[vs.VideoNode, MVTools]:
     ...
 
@@ -56,10 +56,10 @@ def mc_degrain(
     clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
     mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
     tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
-    export_globals: bool = False, planes: PlanesT = None
+    export_globals: bool = False, planes: PlanesT = None, **kwargs: Any
 ) -> vs.VideoNode | tuple[vs.VideoNode, MVTools]:
 
-    mv_args = preset | KwargsNotNone(search_clip=prefilter, tr=tr)
+    mv_args = preset | kwargs | KwargsNotNone(search_clip=prefilter, tr=tr)
 
     mv = MVTools(clip, vectors=vectors, planes=planes, **mv_args)
 
@@ -77,10 +77,12 @@ def mc_degrain(
 
 
 def mlm_degrain(
-    clip: vs.VideoNode, sizes: Iterable[float] = [4, 8, 16], downsampler: ScalerT = Bilinear,
-    upsampler: ScalerT = Catrom, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
-    export_globals: bool = False, planes: PlanesT = None
+    clip: vs.VideoNode, sizes: Iterable[float] = [8, 16], downsampler: ScalerT = Bilinear,
+    upsampler: ScalerT = Catrom, tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD,
+    refine: bool = True, export_globals: bool = False, planes: PlanesT = None, **kwargs: Any
 ) -> vs.VideoNode:
+    
+    mv_args = preset | kwargs | KwargsNotNone(tr=tr)
     
     min_blksize = min(sizes)
     factors = sorted([max(sizes) // i for i in sizes])
@@ -98,7 +100,7 @@ def mlm_degrain(
 
     residuals = residuals[::-1]
 
-    mv = MVTools(downsampled_clips[-1], planes=planes, **preset)
+    mv = MVTools(downsampled_clips[-1], planes=planes, **mv_args)
 
     mv.analyze(blksize=min_blksize, overlap=min_blksize / 2)
     if refine:
