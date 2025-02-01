@@ -24,39 +24,39 @@ __all__ = [
 
 @overload
 def mc_degrain(
-        clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
-        mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
-        tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
-        export_globals: Literal[False] = ..., planes: PlanesT = None
+    clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
+    mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
+    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
+    export_globals: Literal[False] = ..., planes: PlanesT = None
 ) -> vs.VideoNode:
     ...
 
 
 @overload
 def mc_degrain(
-        clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
-        mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
-        tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
-        export_globals: Literal[True] = ..., planes: PlanesT = None
+    clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
+    mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
+    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
+    export_globals: Literal[True] = ..., planes: PlanesT = None
 ) -> tuple[vs.VideoNode, MVTools]:
     ...
 
 
 @overload
 def mc_degrain(
-        clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
-        mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
-        tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
-        export_globals: bool = ..., planes: PlanesT = None
+    clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
+    mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
+    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
+    export_globals: bool = ..., planes: PlanesT = None
 ) -> vs.VideoNode | tuple[vs.VideoNode, MVTools]:
     ...
 
 
 def mc_degrain(
-        clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
-        mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
-        tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
-        export_globals: bool = False, planes: PlanesT = None
+    clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
+    mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
+    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
+    export_globals: bool = False, planes: PlanesT = None
 ) -> vs.VideoNode | tuple[vs.VideoNode, MVTools]:
 
     mv_args = preset | KwargsNotNone(search_clip=prefilter, tr=tr)
