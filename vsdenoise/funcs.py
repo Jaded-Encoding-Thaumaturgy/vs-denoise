@@ -4,14 +4,14 @@ This module contains general denoising functions built on top of base denoisers.
 
 from __future__ import annotations
 
-from typing import Any, Iterable, overload
+from typing import Any, Iterable, Literal, overload
 
-from .mvtools import MVTools, MVToolsPresets, MotionVectors
-
-from vstools import CustomIndexError, vs, PlanesT, mod2, KwargsNotNone, VSFunction, fallback
+from vskernels import Bilinear
 from vsscale import Waifu2x
 from vsscale.scale import BaseWaifu2x
-from vskernels import Bilinear
+from vstools import CustomIndexError, KwargsNotNone, PlanesT, VSFunction, fallback, mod2, vs
+
+from .mvtools import MotionVectors, MVTools, MVToolsPreset, MVToolsPresets
 
 __all__ = [
     'mc_degrain',
@@ -26,17 +26,38 @@ __all__ = [
 def mc_degrain(
         clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
         mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
-        tr: int = 1, preset: MVToolsPresets = MVToolsPresets.HQ_SAD, refine: bool = True,
-        export_globals: bool = False, planes: PlanesT = None
-    ) -> tuple[MVTools, vs.VideoNode]:
+        tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
+        export_globals: Literal[False] = ..., planes: PlanesT = None
+) -> vs.VideoNode:
     ...
+
+
+@overload
+def mc_degrain(
+        clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
+        mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
+        tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
+        export_globals: Literal[True] = ..., planes: PlanesT = None
+) -> tuple[vs.VideoNode, MVTools]:
+    ...
+
+
+@overload
+def mc_degrain(
+        clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
+        mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
+        tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
+        export_globals: bool = ..., planes: PlanesT = None
+) -> vs.VideoNode | tuple[vs.VideoNode, MVTools]:
+    ...
+
 
 def mc_degrain(
         clip: vs.VideoNode, prefilter: vs.VideoNode | VSFunction | None = None,
         mfilter: vs.VideoNode | VSFunction | None = None, vectors: MotionVectors | MVTools | None = None,
-        tr: int = 1, preset: MVToolsPresets = MVToolsPresets.HQ_SAD, refine: bool = True,
+        tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
         export_globals: bool = False, planes: PlanesT = None
-    ) -> vs.VideoNode:
+) -> vs.VideoNode | tuple[vs.VideoNode, MVTools]:
 
     mv_args = preset | KwargsNotNone(search_clip=prefilter, tr=tr)
 
@@ -56,11 +77,11 @@ def mc_degrain(
 
 
 def mlm_degrain(
-        clip: vs.VideoNode,
-        factors: Iterable[float] | range = [2, 3],
-        downsampler = Bilinear,
-        upsampler = Bilinear,
-    ) -> vs.VideoNode:
+    clip: vs.VideoNode,
+    factors: Iterable[float] = [2, 3],
+    downsampler = Bilinear,
+    upsampler = Bilinear,
+) -> vs.VideoNode:
 
     factors = sorted(factors, reverse=True)
     downsampled_clips, residuals = [clip], []
