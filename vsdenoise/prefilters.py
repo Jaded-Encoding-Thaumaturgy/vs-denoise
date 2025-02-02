@@ -619,7 +619,7 @@ class Prefilter(PrefilterBase):
             simr: SingleOrArr[int] = 2, device_type: DeviceType = DeviceType.AUTO, **kwargs: Any
         ) -> PrefilterPartial:
             """
-            Denoising with NLMeans, then postprocessed to restore low frequencies.
+            Denoising with NLMeans.
 
             :param planes:          Set the clip planes to be processed.
             :param strength:        Controls the strength of the filtering.\n
