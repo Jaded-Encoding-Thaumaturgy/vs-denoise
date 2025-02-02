@@ -147,7 +147,7 @@ class MVTools:
 
         self.tr = tr
         self.pel = pel
-        self.pad = pad
+        self.pad = normalize_seq(pad, 2)
 
         self.planes = normalize_planes(self.clip, planes)
         self.mv_plane = planes_to_mvtools(self.planes)
@@ -219,7 +219,7 @@ class MVTools:
             hpad, vpad = vectors.analysis_data['Analysis_Padding']
             hpad, vpad = hpad * scalex, vpad * scaley
         else:
-            hpad, vpad = normalize_seq(self.pad, 2)
+            hpad, vpad = self.pad
 
         if callable(pelclip):
             pelclip = pelclip(clip)
