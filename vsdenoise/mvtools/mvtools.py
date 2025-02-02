@@ -824,7 +824,7 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        flow_fps_args = KwargsNotNone(mask=mask, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2)
+        flow_fps_args: dict[str, Any] = KwargsNotNone(mask=mask, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2)
 
         if fps is not None:
             flow_fps_args.update(num=fps.numerator, den=fps.denominator)
@@ -879,7 +879,7 @@ class MVTools:
 
         thscd1, thscd2 = normalize_thscd(thscd)
 
-        block_fps_args = KwargsNotNone(mode=mode, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2)
+        block_fps_args: dict[str, Any] = KwargsNotNone(mode=mode, ml=ml, blend=blend, thscd1=thscd1, thscd2=thscd2)
 
         if fps is not None:
             block_fps_args.update(num=fps.numerator, den=fps.denominator)
@@ -1126,7 +1126,7 @@ class MVTools:
         analysis_props = dict[str, Any]()
 
         for i in props_list:
-            analysis_props[i] = get_prop(clip_props, i, int | list)
+            analysis_props[i] = get_prop(clip_props, i, int | list[int])  # type: ignore[call-overload]
 
         vectors.analysis_data = analysis_props
 

@@ -20,7 +20,7 @@ class MotionVectors:
     analysis_data: dict[str, Any]
     """Dictionary containing motion vector analysis data."""
 
-    scale: int | tuple[int, int]
+    scale: tuple[int, int]
     """Scale factor of the motion vectors."""
 
     temporal_vectors: dict[MVDirection, dict[int, vs.VideoNode]]
@@ -28,8 +28,7 @@ class MotionVectors:
 
     def __init__(self) -> None:
         self._init_vects()
-        self.vmulti = None
-        self.analysis_data = None
+        self.analysis_data = dict()
         self.scale = (1, 1)
         self.kwargs = dict[str, Any]()
 

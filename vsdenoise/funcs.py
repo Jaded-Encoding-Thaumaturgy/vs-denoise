@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Literal, overload
 
-from vskernels import ScalerT, Bilinear, Catrom
+from vskernels import Scaler, ScalerT, Bilinear, Catrom
 from vsscale import Waifu2x
 from vsscale.scale import BaseWaifu2x
 from vstools import CustomIndexError, KwargsNotNone, PlanesT, VSFunction, fallback, vs
@@ -116,11 +116,15 @@ def mlm_degrain(
     refine: bool = True, export_globals: bool = False,
     planes: PlanesT = None, **kwargs: Any
 ) -> vs.VideoNode | tuple[vs.VideoNode, MVTools]:
+
+    downsampler = Scaler.ensure_obj(downsampler)
+    upsampler = Scaler.ensure_obj(upsampler)
+
     mv_args = preset | kwargs | KwargsNotNone(tr=tr)
     
     min_blksize = min(sizes)
     factors = sorted([max(sizes) // i for i in sizes])
-    downsampled_clips, residuals = [clip], []
+    downsampled_clips, residuals = [clip], list[vs.VideoNode]()
 
     for x, i in enumerate(factors[1:]):
         base_clip = downsampled_clips[x]
@@ -136,9 +140,9 @@ def mlm_degrain(
 
     mv = MVTools(downsampled_clips[-1], planes=planes, **mv_args)
 
-    mv.analyze(blksize=min_blksize, overlap=min_blksize / 2)
+    mv.analyze(blksize=min_blksize, overlap=min_blksize // 2)
     if refine:
-        mv.recalculate(blksize=min_blksize / 2, overlap=min_blksize / 4)
+        mv.recalculate(blksize=min_blksize // 2, overlap=min_blksize // 4)
 
     den_base = mv.degrain()
 
