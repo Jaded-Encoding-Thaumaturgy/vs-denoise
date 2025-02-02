@@ -20,8 +20,8 @@ class MotionVectors:
     analysis_data: dict[str, Any]
     """Dictionary containing motion vector analysis data."""
 
-    scale: tuple[int, int]
-    """Scale factor of the motion vectors."""
+    scaled: bool
+    """Whether motion vectors have been scaled."""
 
     temporal_vectors: dict[MVDirection, dict[int, vs.VideoNode]]
     """Dictionary containing both backward and forward motion vectors."""
@@ -29,7 +29,7 @@ class MotionVectors:
     def __init__(self) -> None:
         self._init_vects()
         self.analysis_data = dict()
-        self.scale = (1, 1)
+        self.scaled = False
         self.kwargs = dict[str, Any]()
 
     def _init_vects(self) -> None:
@@ -70,8 +70,8 @@ class MotionVectors:
         """Clear all stored motion vectors and reset the instance."""
 
         del self.vmulti
-        del self.analysis_data
-        self.scale = (1, 1)
+        self.analysis_data = dict()
+        self.scaled = False
         self.kwargs.clear()
         self.temporal_vectors.clear()
         self._init_vects()

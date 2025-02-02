@@ -213,11 +213,10 @@ class MVTools:
         elif vectors is None:
             vectors = self.vectors
 
-        scalex, scaley = vectors.scale
+        if vectors.scaled:
+            self.expand_analysis_data(vectors)
 
-        if scalex > 1 or scaley > 1:
             hpad, vpad = vectors.analysis_data['Analysis_Padding']
-            hpad, vpad = hpad * scalex, vpad * scaley
         else:
             hpad, vpad = self.pad
 
@@ -341,6 +340,8 @@ class MVTools:
                         super_clip, isb=direction is MVDirection.BACK, delta=i, **analyze_args
                     )
                     self.vectors.set_mv(direction, i, vector)
+                    
+            self.vectors.analysis_data = dict()
 
     def recalculate(
         self, super: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
@@ -421,6 +422,8 @@ class MVTools:
                 for direction in MVDirection:
                     vector = self.mvtools.Recalculate(super_clip, vectors.get_mv(direction, i), **recalculate_args)
                     vectors.set_mv(direction, i, vector)
+
+            vectors.analysis_data = dict()
 
     @overload
     def compensate(
@@ -1048,14 +1051,11 @@ class MVTools:
         )
 
         if scalex > 1 and scaley > 1:
-            if not vectors.analysis_data:
-                self.expand_analysis_data(vectors)
+            self.expand_analysis_data(vectors)
 
             blksize, blksizev = vectors.analysis_data['Analysis_BlockSize']
-            current_scalex, current_scaley = vectors.scale
 
             scaled_blksize = (blksize * scalex, blksizev * scaley)
-            vectors.scale = (current_scalex * scalex, current_scaley * scaley)
 
             if strict and scaled_blksize not in supported_blksize:
                 raise CustomRuntimeError('Unsupported block size!', self.scale_vectors)
@@ -1064,6 +1064,9 @@ class MVTools:
                 for direction in MVDirection:
                     vector = vectors.get_mv(direction, i).manipmv.ScaleVect(scalex, scaley)
                     vectors.set_mv(direction, i, vector)
+
+            vectors.analysis_data = dict()
+            vectors.scaled = True
 
     def show_vector(
         self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
@@ -1122,14 +1125,16 @@ class MVTools:
             'Analysis_ChromaRatio', 'Analysis_Padding'
         )
 
-        clip_props = vectors.get_mv(MVDirection.BACK, 1).manipmv.ExpandAnalysisData().get_frame(0)
+        if not vectors.analysis_data:
+            clip_props = vectors.get_mv(MVDirection.BACK, 1).manipmv.ExpandAnalysisData().get_frame(0)
 
-        analysis_props = dict[str, Any]()
+            analysis_props = dict[str, Any]()
 
-        for i in props_list:
-            analysis_props[i] = get_prop(clip_props, i, int | list[int])  # type: ignore[call-overload]
+            for i in props_list:
+                analysis_props[i] = get_prop(clip_props, i, int | list)
 
-        vectors.analysis_data = analysis_props
+            clip_props.close()
+            vectors.analysis_data = analysis_props
 
     def get_super(self, clip: vs.VideoNode | None = None) -> vs.VideoNode:
         """
