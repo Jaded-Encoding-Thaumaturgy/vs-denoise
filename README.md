@@ -27,18 +27,12 @@ pip install git+https://github.com/Jaded-Encoding-Thaumaturgy/vs-denoise.git
 ## Example usage
 
 ```py
-from vsdenoise import MVTools, SADMode, MotionMode, Prefilter, BM3DCuda, Profile, nl_means
+from vsdenoise import MVToolsPresets Prefilter, mc_degrain, BM3DCuda, Profile, nl_means
 
 clip = ...
 
-ref = MVTools.denoise(
-    clip, thSAD=100, block_size=32, overlap=16,
-    motion=MotionMode.HIGH_SAD,
-    prefilter=Prefilter.DFTTEST,
-    sad_mode=(
-        SADMode.ADAPTIVE_SPATIAL_MIXED,
-        SADMode.ADAPTIVE_SATD_MIXED,
-    )
+ref = mc_degrain(
+    clip, prefilter=Prefilter.DFTTEST, preset=MVToolsPresets.HQ_SAD
 )
 
 denoise = BM3DCuda.denoise(
