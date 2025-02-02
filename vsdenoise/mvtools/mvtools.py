@@ -188,8 +188,8 @@ class MVTools:
         Source clip is appended to clip's frameprops, :py:attr:`get_super` can be used to extract the super clip if you wish to view it yourself.
 
         :param clip:        The clip to process. If None, the :py:attr:`clip` attribute is used.
-        :param vectors:         Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
-                                If None, uses the vectors from this instance.
+        :param vectors:     Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
+                            If None, uses the vectors from this instance.
         :param levels:      The number of hierarchical levels in super clip frames.
                             More levels are needed for :py:attr:`analyze` to get better vectors,
                             but fewer levels are needed for the actual motion compensation.
