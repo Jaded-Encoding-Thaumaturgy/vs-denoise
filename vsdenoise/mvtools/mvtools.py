@@ -648,7 +648,8 @@ class MVTools:
     def degrain(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
         vectors: MotionVectors | MVTools | None = None, tr: int | None = None,
-        thsad: int | tuple[int] | None = None, thsad2: int | tuple[int | None, int | None] | None = None,
+        thsad: int | tuple[int | None, int | None] | None = None,
+        thsad2: int | tuple[int | None, int | None] | None = None,
         limit: int | tuple[int | None, int | None] | None = None,
         thscd: int | tuple[int | None, int | None] | None = None,
     ) -> vs.VideoNode:

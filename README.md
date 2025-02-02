@@ -32,7 +32,7 @@ from vsdenoise import MVToolsPresets Prefilter, mc_degrain, BM3DCuda, Profile, n
 clip = ...
 
 ref = mc_degrain(
-    clip, prefilter=Prefilter.DFTTEST, preset=MVToolsPresets.HQ_SAD
+    clip, prefilter=Prefilter.DFTTEST, preset=MVToolsPresets.HQ_SAD, thsad=100
 )
 
 denoise = BM3DCuda.denoise(
