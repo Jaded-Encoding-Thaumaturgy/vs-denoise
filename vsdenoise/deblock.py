@@ -444,15 +444,11 @@ def mpeg2stinx(
 
         return repaired.std.SelectEvery(4, (2, 1)).std.DoubleWeave()[::2]
     
-    def temporal_limit(src: vs.VideoNode, flt: vs.VideoNode, ref: vs.VideoNode, limit: float) -> vs.VideoNode:
-        adj = shift_clip_multi(ref)
-        adj.pop(1)
+    def temporal_limit(src: vs.VideoNode, flt: vs.VideoNode, limit: float) -> vs.VideoNode:
+        if limit is None:
+            return flt
 
-        diff = norm_expr(
-            [core.std.Interleave([src] * 2), core.std.Interleave(adj)],
-            'x y - abs'
-        ).std.SeparateFields(True)
-
+        diff = norm_expr([core.std.Interleave([src] * 2), adj], 'x y - abs').std.SeparateFields(True)
         diff = norm_expr([diff.std.SelectEvery(4, (0, 1)), diff.std.SelectEvery(4, (2, 3))], 'x y min')
         diff = Morpho.expand(diff, sw=2, sh=1).std.DoubleWeave()[::2]
 
@@ -470,12 +466,15 @@ def mpeg2stinx(
     if not bobber:
         bobber = default_bob
 
-    fixed1 = crossfield_repair(clip, bobber(clip), sw, sh)
     if limit is not None:
-        fixed1 = temporal_limit(clip, fixed1, clip, limit)
+        adj = shift_clip_multi(clip)
+        adj.pop(1)
+        adj = core.std.Interleave(adj)
+
+    fixed1 = crossfield_repair(clip, bobber(clip), sw, sh)
+    fixed1 = temporal_limit(clip, fixed1, limit)
 
     fixed2 = crossfield_repair(fixed1, bobber(fixed1), sw, sh)
-    if limit is not None:
-        fixed2 = temporal_limit(fixed1, fixed2, clip, limit)
+    fixed2 = temporal_limit(fixed1, fixed2, limit)
 
     return fixed1.std.Merge(fixed2).std.SetFieldBased(0)
