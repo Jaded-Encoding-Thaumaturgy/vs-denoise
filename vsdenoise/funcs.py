@@ -96,7 +96,7 @@ def mc_degrain(
 def mlm_degrain(
     clip: vs.VideoNode, sizes: Iterable[int] = [8, 16, 32],
     downsampler: ScalerT = Bilinear, upsampler: ScalerT = Catrom,
-    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
+    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD,
     thsad: int | tuple[int | None, int | None] | None = None,
     limit: int | tuple[int | None, int | None] | None = None,
     thscd: int | tuple[int | None, int | None] | None = None,
@@ -109,7 +109,7 @@ def mlm_degrain(
 def mlm_degrain(
     clip: vs.VideoNode, sizes: Iterable[int] = [8, 16, 32],
     downsampler: ScalerT = Bilinear, upsampler: ScalerT = Catrom,
-    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True, 
+    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD,
     thsad: int | tuple[int | None, int | None] | None = None,
     limit: int | tuple[int | None, int | None] | None = None,
     thscd: int | tuple[int | None, int | None] | None = None,
@@ -122,7 +122,7 @@ def mlm_degrain(
 def mlm_degrain(
     clip: vs.VideoNode, sizes: Iterable[int] = [8, 16, 32],
     downsampler: ScalerT = Bilinear, upsampler: ScalerT = Catrom,
-    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True, 
+    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD,
     thsad: int | tuple[int | None, int | None] | None = None,
     limit: int | tuple[int | None, int | None] | None = None,
     thscd: int | tuple[int | None, int | None] | None = None,
