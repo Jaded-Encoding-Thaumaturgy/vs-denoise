@@ -341,7 +341,7 @@ class MVTools:
                     )
                     self.vectors.set_mv(direction, i, vector)
                     
-            self.vectors.analysis_data = dict()
+            self.vectors.analysis_data.clear()
 
     def recalculate(
         self, super: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
@@ -423,7 +423,7 @@ class MVTools:
                     vector = self.mvtools.Recalculate(super_clip, vectors.get_mv(direction, i), **recalculate_args)
                     vectors.set_mv(direction, i, vector)
 
-            vectors.analysis_data = dict()
+            vectors.analysis_data.clear()
 
     @overload
     def compensate(
@@ -1061,16 +1061,16 @@ class MVTools:
 
             if strict and scaled_blksize not in supported_blksize:
                 raise CustomRuntimeError('Unsupported block size!', self.scale_vectors)
-            
-            self.clip = self.clip.std.RemoveFrameProps('MSuper')
-            self.search_clip = self.search_clip.std.RemoveFrameProps('MSuper')
 
             for i in range(1, self.tr + 1):
                 for direction in MVDirection:
                     vector = vectors.get_mv(direction, i).manipmv.ScaleVect(scalex, scaley)
                     vectors.set_mv(direction, i, vector)
 
-            vectors.analysis_data = dict()
+            self.clip = self.clip.std.RemoveFrameProps('MSuper')
+            self.search_clip = self.search_clip.std.RemoveFrameProps('MSuper')
+
+            vectors.analysis_data.clear()
             vectors.scaled = True
 
     def show_vector(

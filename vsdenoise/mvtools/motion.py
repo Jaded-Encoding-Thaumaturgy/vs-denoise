@@ -70,7 +70,7 @@ class MotionVectors:
         """Clear all stored motion vectors and reset the instance."""
 
         del self.vmulti
-        self.analysis_data = dict()
+        self.analysis_data.clear()
         self.scaled = False
         self.kwargs.clear()
         self.temporal_vectors.clear()
