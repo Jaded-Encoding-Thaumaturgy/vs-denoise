@@ -7,7 +7,7 @@ from typing import Any, Literal, overload
 from vstools import (
     CustomRuntimeError, ColorRange, FieldBased,
     InvalidColorFamilyError, KwargsT, KwargsNotNone, PlanesT, VSFunction,
-    check_variable, core, depth, disallow_variable_format, get_prop,
+    check_variable, core, depth, disallow_variable_format, get_prop, scale_delta,
     disallow_variable_resolution, fallback, normalize_planes, normalize_seq, vs
 )
 
@@ -711,6 +711,8 @@ class MVTools:
 
             thsad, thsadc = normalize_seq(thsad, 2)
             limit, limitc = normalize_seq(limit, 2)
+
+            limit, limitc = [None if i is None else scale_delta(i, 8, clip) for i in (limit, limitc)]
 
             degrain_args.update(thsad=thsad, thsadc=thsadc, limit=limit, limitc=limitc)
 
