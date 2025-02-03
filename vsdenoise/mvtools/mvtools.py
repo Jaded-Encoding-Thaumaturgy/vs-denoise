@@ -1061,6 +1061,9 @@ class MVTools:
 
             if strict and scaled_blksize not in supported_blksize:
                 raise CustomRuntimeError('Unsupported block size!', self.scale_vectors)
+            
+            self.clip = self.clip.std.RemoveFrameProps('MSuper')
+            self.search_clip = self.search_clip.std.RemoveFrameProps('MSuper')
 
             for i in range(1, self.tr + 1):
                 for direction in MVDirection:
@@ -1069,9 +1072,6 @@ class MVTools:
 
             vectors.analysis_data = dict()
             vectors.scaled = True
-
-            self.clip = self.clip.std.RemoveFrameProps('MSuper')
-            self.search_clip = self.search_clip.std.RemoveFrameProps('MSuper')
 
     def show_vector(
         self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
@@ -1131,15 +1131,13 @@ class MVTools:
         )
 
         if not vectors.analysis_data:
-            clip_props = vectors.get_mv(MVDirection.BACK, 1).manipmv.ExpandAnalysisData().get_frame(0)
-
             analysis_props = dict[str, Any]()
 
-            for i in props_list:
-                analysis_props[i] = get_prop(clip_props, i, int | list)
+            with vectors.get_mv(MVDirection.BACK, 1).manipmv.ExpandAnalysisData().get_frame(0) as clip_props:
+                for i in props_list:
+                    analysis_props[i] = get_prop(clip_props, i, int | list)
 
             vectors.analysis_data = analysis_props
-            clip_props.close()
 
     def get_super(self, clip: vs.VideoNode | None = None) -> vs.VideoNode:
         """
