@@ -142,16 +142,23 @@ class MVTools:
 
         self.mvtools = MVToolsPlugin.from_video(clip)
         self.fieldbased = FieldBased.from_video(clip, False, self.__class__)
-        self.clip = clip.std.SeparateFields() if self.fieldbased.is_inter else clip
-        self.search_clip = search_clip(self.clip) if callable(search_clip) else fallback(search_clip, self.clip)
+        self.clip = clip.std.SeparateFields(self.fieldbased.is_tff) if self.fieldbased.is_inter else clip
+
+        self.planes = normalize_planes(self.clip, planes)
+        self.mv_plane = planes_to_mvtools(self.planes)
+        self.chroma = self.mv_plane != 0
 
         self.tr = tr
         self.pel = pel
         self.pad = normalize_seq(pad, 2)
 
-        self.planes = normalize_planes(self.clip, planes)
-        self.mv_plane = planes_to_mvtools(self.planes)
-        self.chroma = self.mv_plane != 0
+        if callable(search_clip):
+            try:
+                self.search_clip = search_clip(self.clip, planes=self.planes)
+            except TypeError:
+                self.search_clip = search_clip(self.clip)
+        else:
+            self.search_clip = fallback(search_clip, self.clip)
 
         self.disable_compensate = False
 
@@ -232,9 +239,9 @@ class MVTools:
 
         super_clip = clip.std.ClipToProp(super_clip, prop='MSuper')
 
-        if clip == self.clip:
+        if clip is self.clip:
             self.clip = super_clip
-        if clip == self.search_clip:
+        if clip is self.search_clip:
             self.search_clip = super_clip
 
         return super_clip
