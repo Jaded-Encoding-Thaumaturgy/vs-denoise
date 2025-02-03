@@ -94,7 +94,7 @@ def mc_degrain(
 
 @overload
 def mlm_degrain(
-    clip: vs.VideoNode, sizes: Iterable[int] = [8, 16],
+    clip: vs.VideoNode, sizes: Iterable[int] = [8, 16, 32],
     downsampler: ScalerT = Bilinear, upsampler: ScalerT = Catrom,
     tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
     thsad: int | tuple[int | None, int | None] | None = None,
@@ -107,7 +107,7 @@ def mlm_degrain(
 
 @overload
 def mlm_degrain(
-    clip: vs.VideoNode, sizes: Iterable[int] = [8, 16],
+    clip: vs.VideoNode, sizes: Iterable[int] = [8, 16, 32],
     downsampler: ScalerT = Bilinear, upsampler: ScalerT = Catrom,
     tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True, 
     thsad: int | tuple[int | None, int | None] | None = None,
@@ -120,7 +120,7 @@ def mlm_degrain(
 
 @overload
 def mlm_degrain(
-    clip: vs.VideoNode, sizes: Iterable[int] = [8, 16],
+    clip: vs.VideoNode, sizes: Iterable[int] = [8, 16, 32],
     downsampler: ScalerT = Bilinear, upsampler: ScalerT = Catrom,
     tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True, 
     thsad: int | tuple[int | None, int | None] | None = None,
@@ -132,9 +132,9 @@ def mlm_degrain(
 
 
 def mlm_degrain(
-    clip: vs.VideoNode, sizes: Iterable[int] = [8, 16],
+    clip: vs.VideoNode, sizes: Iterable[int] = [8, 16, 32],
     downsampler: ScalerT = Bilinear, upsampler: ScalerT = Catrom,
-    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True, 
+    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD,
     thsad: int | tuple[int | None, int | None] | None = None,
     limit: int | tuple[int | None, int | None] | None = None,
     thscd: int | tuple[int | None, int | None] | None = None,
@@ -146,8 +146,8 @@ def mlm_degrain(
 
     mv_args = preset | kwargs | KwargsNotNone(tr=tr)
     
-    min_blksize = min(sizes)
-    factors = sorted([max(sizes) // i for i in sizes])
+    sizes = sorted(sizes)
+    factors = sorted([sizes[-1] // i for i in sizes])
     downsampled_clips, residuals = [clip], list[vs.VideoNode]()
 
     for x, i in enumerate(factors[1:]):
@@ -160,21 +160,21 @@ def mlm_degrain(
         downsampled_clips.append(ds_clip)
         residuals.append(ds_diff)
 
-    residuals = residuals[::-1]
+    downsampled_clips, residuals = downsampled_clips[::-1], residuals[::-1]
 
-    mv = MVTools(downsampled_clips[-1], planes=planes, **mv_args)
+    mv = MVTools(downsampled_clips[0], planes=planes, **mv_args)
 
-    mv.analyze(blksize=min_blksize, overlap=min_blksize // 2)
-    if refine:
-        mv.recalculate(blksize=min_blksize // 2, overlap=min_blksize // 4)
+    mv.analyze(blksize=sizes[0], overlap=sizes[0] // 2)
+    mv.recalculate(blksize=sizes[0] // 2, overlap=sizes[0] // 4)
 
     den_base = mv.degrain(thsad=thsad, limit=limit, thscd=thscd)
 
     for x in range(len(factors) - 1):
         scale = factors[x + 1] // factors[x]
+        base_up = upsampler.scale(den_base, den_base.width * scale, den_base.height * scale)
 
         mv.scale_vectors(scale)
-        base_up = upsampler.scale(den_base, den_base.width * scale, den_base.height * scale)
+        mv.recalculate(downsampled_clips[x + 1], blksize=sizes[x], overlap=sizes[x] // 2)
 
         den_last = mv.degrain(residuals[x], thsad=thsad, limit=limit, thscd=thscd)
         den_base = base_up.std.MakeDiff(den_last)

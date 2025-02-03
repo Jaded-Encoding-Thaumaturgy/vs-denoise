@@ -1068,6 +1068,9 @@ class MVTools:
             vectors.analysis_data = dict()
             vectors.scaled = True
 
+            self.clip = self.clip.std.RemoveFrameProps('MSuper')
+            self.search_clip = self.search_clip.std.RemoveFrameProps('MSuper')
+
     def show_vector(
         self, clip: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
         direction: Literal[MVDirection.FWRD] | Literal[MVDirection.BACK] = MVDirection.BACK,
@@ -1133,8 +1136,8 @@ class MVTools:
             for i in props_list:
                 analysis_props[i] = get_prop(clip_props, i, int | list)
 
-            clip_props.close()
             vectors.analysis_data = analysis_props
+            clip_props.close()
 
     def get_super(self, clip: vs.VideoNode | None = None) -> vs.VideoNode:
         """
