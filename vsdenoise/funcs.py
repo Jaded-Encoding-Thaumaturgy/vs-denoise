@@ -73,15 +73,15 @@ def mc_degrain(
 
     mv_args = preset | kwargs | KwargsNotNone(search_clip=prefilter, tr=tr)
 
-    if thsad_recalc is None:
-        thsad_recalc = (thsad if isinstance(thsad, int) else thsad[0]) // 2
-
     mv = MVTools(clip, vectors=vectors, planes=planes, **mv_args)
 
     if not vectors:
         mv.analyze()
 
         if refine:
+            if thsad_recalc is None:
+                thsad_recalc = (thsad if isinstance(thsad, int) else thsad[0]) // 2
+
             mv.recalculate(thsad=thsad_recalc)
 
     mfilter = mfilter(clip) if callable(mfilter) else fallback(mfilter, mv.clip)
@@ -144,8 +144,6 @@ def mlm_degrain(
     upsampler = Scaler.ensure_obj(upsampler)
 
     mv_args = preset | kwargs | KwargsNotNone(tr=tr)
-
-    thsad_recalc = thsad if isinstance(thsad, int) else thsad[0]
     
     sizes = sorted(sizes)
     factors = sorted([sizes[-1] // i for i in sizes])
@@ -173,11 +171,18 @@ def mlm_degrain(
     for x in range(len(factors) - 1):
         scale = factors[x + 1] // factors[x]
         base_up = upsampler.scale(den_base, den_base.width * scale, den_base.height * scale)
-
         mv.scale_vectors(scale)
-        mv.recalculate(downsampled_clips[x + 1], thsad=thsad_recalc // scale, blksize=sizes[x], overlap=sizes[x] // 2)
 
-        den_last = mv.degrain(residuals[x], thsad=thsad * factors[x], limit=limit, thscd=thscd)
+        if isinstance(thsad, int):
+            thsad_recalc = thsad // scale
+            thsad_degrain = thsad * factors[x]
+        else:
+            thsad_recalc = thsad[0] // scale
+            thsad_degrain = [i * factors[x] for i in thsad]
+
+        mv.recalculate(downsampled_clips[x + 1], thsad=thsad_recalc, blksize=sizes[x], overlap=sizes[x] // 2)
+        den_last = mv.degrain(residuals[x], thsad=thsad_degrain, limit=limit, thscd=thscd)
+
         den_base = base_up.std.MakeDiff(den_last)
 
     return (den_base, mv) if export_globals else den_base
