@@ -8,8 +8,7 @@ from itertools import count, zip_longest
 from typing import Any, Callable, Iterable, cast
 
 from vskernels import Bilinear, Catrom, Scaler, ScalerT
-from vsrgtools import RemoveGrainMode, RepairMode, contrasharpening, contrasharpening_dehalo, removegrain
-from vsrgtools.util import norm_rmode_planes
+from vsrgtools import BlurMatrix, box_blur, RepairMode, contrasharpening, contrasharpening_dehalo
 from vsscale import Waifu2x
 from vsscale.scale import BaseWaifu2x
 from vstools import (
@@ -134,9 +133,8 @@ def mlm_degrain(
 
         if do_soft and idx in {0, last_idx}:
             if soften is True:
-                softened = removegrain(clip, norm_rmode_planes(
-                    clip, RemoveGrainMode.SQUARE_BLUR if clip.width < 1200 else RemoveGrainMode.BOX_BLUR, planes
-                ))
+                blur_kernel = BlurMatrix.BINOMIAL if clip.width < 1200 else box_blur
+                softened = blur_kernel(clip, planes=planes)
             elif callable(soften):
                 try:
                     softened = soften(clip, planes=planes)
