@@ -9,7 +9,7 @@ from typing import Any, Iterable, Literal, overload
 from vskernels import Scaler, ScalerT, Bilinear, Catrom
 from vsscale import Waifu2x
 from vsscale.scale import BaseWaifu2x
-from vstools import CustomIndexError, KwargsNotNone, PlanesT, VSFunction, fallback, vs
+from vstools import CustomIndexError, KwargsNotNone, PlanesT, VSFunction, fallback, vs, normalize_seq, mod2
 
 from .mvtools import MotionVectors, MVTools, MVToolsPreset, MVToolsPresets
 
@@ -26,7 +26,8 @@ __all__ = [
 def mc_degrain(
     clip: vs.VideoNode, vectors: MotionVectors | MVTools | None = None,
     prefilter: vs.VideoNode | VSFunction | None = None, mfilter: vs.VideoNode | VSFunction | None = None,
-    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
+    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD,
+    blksize: int | tuple[int, int] = 16, refine: int = 1,
     thsad: int | tuple[int, int] = 400, thsad2: int | tuple[int | None, int | None] | None = None,
     thsad_recalc: int | None = None, limit: int | tuple[int | None, int | None] | None = None,
     thscd: int | tuple[int | None, int | None] | None = None, export_globals: Literal[False] = ...,
@@ -39,7 +40,8 @@ def mc_degrain(
 def mc_degrain(
     clip: vs.VideoNode, vectors: MotionVectors | MVTools | None = None,
     prefilter: vs.VideoNode | VSFunction | None = None, mfilter: vs.VideoNode | VSFunction | None = None,
-    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True, 
+    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD,
+    blksize: int | tuple[int, int] = 16, refine: int = 1,
     thsad: int | tuple[int, int] = 400, thsad2: int | tuple[int | None, int | None] | None = None,
     thsad_recalc: int | None = None, limit: int | tuple[int | None, int | None] | None = None,
     thscd: int | tuple[int | None, int | None] | None = None, export_globals: Literal[True] = ...,
@@ -52,7 +54,8 @@ def mc_degrain(
 def mc_degrain(
     clip: vs.VideoNode, vectors: MotionVectors | MVTools | None = None,
     prefilter: vs.VideoNode | VSFunction | None = None, mfilter: vs.VideoNode | VSFunction | None = None,
-    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
+    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD,
+    blksize: int | tuple[int, int] = 16, refine: int = 1,
     thsad: int | tuple[int, int] = 400, thsad2: int | tuple[int | None, int | None] | None = None,
     thsad_recalc: int | None = None, limit: int | tuple[int | None, int | None] | None = None,
     thscd: int | tuple[int | None, int | None] | None = None, export_globals: bool = ...,
@@ -64,7 +67,8 @@ def mc_degrain(
 def mc_degrain(
     clip: vs.VideoNode, vectors: MotionVectors | MVTools | None = None,
     prefilter: vs.VideoNode | VSFunction | None = None, mfilter: vs.VideoNode | VSFunction | None = None,
-    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD, refine: bool = True,
+    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD,
+    blksize: int | tuple[int, int] = 16, refine: int = 1,
     thsad: int | tuple[int, int] = 400, thsad2: int | tuple[int | None, int | None] | None = None,
     thsad_recalc: int | None = None, limit: int | tuple[int | None, int | None] | None = None,
     thscd: int | tuple[int | None, int | None] | None = None, export_globals: bool = False,
@@ -73,16 +77,25 @@ def mc_degrain(
 
     mv_args = preset | kwargs | KwargsNotNone(search_clip=prefilter, tr=tr)
 
+    blksize = normalize_seq(blksize, 2)
+    thsad = normalize_seq(thsad, 2)
+
     mv = MVTools(clip, vectors=vectors, planes=planes, **mv_args)
 
+    mv.super(mv.search_clip, rfilter=4)
+
     if not vectors:
-        mv.analyze()
+        mv.analyze(blksize=blksize, overlap=[i // 2 for i in blksize])
 
         if refine:
             if thsad_recalc is None:
-                thsad_recalc = (thsad if isinstance(thsad, int) else thsad[0]) // 2
+                thsad_recalc = thsad[0] // 2
 
-            mv.recalculate(thsad=thsad_recalc)
+            for _ in range(refine):
+                blksize = [i // 2 for i in blksize]
+                overlap = [i // 2 for i in blksize]
+
+                mv.recalculate(thsad=thsad_recalc, blksize=blksize, overlap=overlap)
 
     mfilter = mfilter(clip) if callable(mfilter) else fallback(mfilter, mv.clip)
 
@@ -91,67 +104,30 @@ def mc_degrain(
     return (den, mv) if export_globals else den
 
 
-@overload
 def mlm_degrain(
-    clip: vs.VideoNode, sizes: Iterable[int] = [8, 16, 32],
+    clip: vs.VideoNode, factors: Iterable[int] = [1 / 4, 1 / 3, 1 / 2],
     downsampler: ScalerT = Bilinear, upsampler: ScalerT = Catrom,
     tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD,
+    blksize: int | tuple[int, int] = 16, refine: int = 1,
     thsad: int | tuple[int, int] = 400,
     limit: int | tuple[int | None, int | None] | None = None,
     thscd: int | tuple[int | None, int | None] | None = None,
-    export_globals: Literal[False] = ..., planes: PlanesT = None, **kwargs: Any
-) -> vs.VideoNode:
-    ...
-
-
-@overload
-def mlm_degrain(
-    clip: vs.VideoNode, sizes: Iterable[int] = [8, 16, 32],
-    downsampler: ScalerT = Bilinear, upsampler: ScalerT = Catrom,
-    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD,
-    thsad: int | tuple[int, int] = 400,
-    limit: int | tuple[int | None, int | None] | None = None,
-    thscd: int | tuple[int | None, int | None] | None = None,
-    export_globals: Literal[True] = ..., planes: PlanesT = None, **kwargs: Any
-) -> tuple[vs.VideoNode, MVTools]:
-    ...
-
-
-@overload
-def mlm_degrain(
-    clip: vs.VideoNode, sizes: Iterable[int] = [8, 16, 32],
-    downsampler: ScalerT = Bilinear, upsampler: ScalerT = Catrom,
-    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD,
-    thsad: int | tuple[int, int] = 400,
-    limit: int | tuple[int | None, int | None] | None = None,
-    thscd: int | tuple[int | None, int | None] | None = None,
-    export_globals: bool = ..., planes: PlanesT = None, **kwargs: Any
-) -> vs.VideoNode | tuple[vs.VideoNode, MVTools]:
-    ...
-
-
-def mlm_degrain(
-    clip: vs.VideoNode, sizes: Iterable[int] = [8, 16, 32],
-    downsampler: ScalerT = Bilinear, upsampler: ScalerT = Catrom,
-    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD,
-    thsad: int | tuple[int, int] = 400,
-    limit: int | tuple[int | None, int | None] | None = None,
-    thscd: int | tuple[int | None, int | None] | None = None,
-    export_globals: bool = False, planes: PlanesT = None, **kwargs: Any
+    planes: PlanesT = None, **kwargs: Any
 ) -> vs.VideoNode | tuple[vs.VideoNode, MVTools]:
 
     downsampler = Scaler.ensure_obj(downsampler)
     upsampler = Scaler.ensure_obj(upsampler)
 
-    mv_args = preset | kwargs | KwargsNotNone(tr=tr)
+    mv_args = dict(
+        tr=tr, preset=preset, blksize=blksize, refine=refine, limit=limit, thscd=thscd, planes=planes
+    ) | kwargs
     
-    sizes = sorted(sizes)
-    factors = sorted([sizes[-1] // i for i in sizes])
+    factors = sorted(factors, reverse=True)
     downsampled_clips, residuals = [clip], list[vs.VideoNode]()
 
     for x, i in enumerate(factors[1:]):
         base_clip = downsampled_clips[x]
-        ds_clip = downsampler.scale(base_clip, clip.width // i, clip.height // i)
+        ds_clip = downsampler.scale(base_clip, mod2(clip.width * i), mod2(clip.height * i))
 
         ds_up = upsampler.scale(ds_clip, base_clip.width, base_clip.height)
         ds_diff = ds_up.std.MakeDiff(base_clip)
@@ -161,31 +137,15 @@ def mlm_degrain(
 
     downsampled_clips, residuals = downsampled_clips[::-1], residuals[::-1]
 
-    mv = MVTools(downsampled_clips[0], planes=planes, **mv_args)
-
-    mv.analyze(blksize=sizes[0], overlap=sizes[0] // 2)
-    mv.recalculate(blksize=sizes[0] // 2, overlap=sizes[0] // 4)
-
-    den_base = mv.degrain(thsad=thsad, limit=limit, thscd=thscd)
+    den_base = mc_degrain(downsampled_clips[0], thsad=thsad, **mv_args)
 
     for x in range(len(factors) - 1):
-        scale = factors[x + 1] // factors[x]
-        base_up = upsampler.scale(den_base, den_base.width * scale, den_base.height * scale)
-        mv.scale_vectors(scale)
-
-        if isinstance(thsad, int):
-            thsad_recalc = thsad // scale
-            thsad_degrain = thsad * factors[x]
-        else:
-            thsad_recalc = thsad[0] // scale
-            thsad_degrain = [i * factors[x] for i in thsad]
-
-        mv.recalculate(downsampled_clips[x + 1], thsad=thsad_recalc, blksize=sizes[x], overlap=sizes[x] // 2)
-        den_last = mv.degrain(residuals[x], thsad=thsad_degrain, limit=limit, thscd=thscd)
-
+        next_base = downsampled_clips[x + 1]
+        base_up = upsampler.scale(den_base, next_base.width, next_base.height)
+        den_last = mc_degrain(residuals[x], prefilter=downsampled_clips[x + 1], thsad=thsad / factors[x + 1], **mv_args)
         den_base = base_up.std.MakeDiff(den_last)
 
-    return (den_base, mv) if export_globals else den_base
+    return den_base
 
 
 def waifu2x_denoise(
