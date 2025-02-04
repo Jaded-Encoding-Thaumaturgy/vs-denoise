@@ -61,6 +61,7 @@ class AnalyzeArgs(TypedDict, total=False):
 
 class RecalculateArgs(TypedDict, total=False):
     smooth: SmoothMode | None
+    thsad: int | None
     blksize: int | None
     blksizev: int | None
     search: SearchMode | None
@@ -78,6 +79,7 @@ class RecalculateArgs(TypedDict, total=False):
 class CompensateArgs(TypedDict, total=False):
     scbehavior: bool | None
     thsad: int | None
+    thsad2: int | None
     time: float | None
     thscd1: int | None
     thscd2: int | None

@@ -352,10 +352,10 @@ class MVTools:
 
     def recalculate(
         self, super: vs.VideoNode | None = None, vectors: MotionVectors | MVTools | None = None,
-        smooth: SmoothMode | None = None, blksize: int | tuple[int | None, int | None] | None = None,
-        search: SearchMode | None = None, searchparam: int | None = None, lambda_: int | None = None,
-        truemotion: MotionMode | None = None, pnew: int | None = None,
-        overlap: int | tuple[int | None, int | None] | None = None,
+        thsad: int | None = None, smooth: SmoothMode | None = None,
+        blksize: int | tuple[int | None, int | None] | None = None, search: SearchMode | None = None,
+        searchparam: int | None = None, lambda_: int | None = None, truemotion: MotionMode | None = None,
+        pnew: int | None = None, overlap: int | tuple[int | None, int | None] | None = None,
         divide: bool | None = None, meander: bool | None = None, dct: SADMode | None = None
     ) -> None:
         """
@@ -373,6 +373,8 @@ class MVTools:
                                 If None, super will be obtained from clip.
         :param vectors:         Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
                                 If None, uses the vectors from this instance.
+        :param thsad:           Only bad quality new vectors with a SAD above thid will be re-estimated by search.
+                                thsad value is scaled to 8x8 block size.
         :param blksize:         Size of blocks for motion estimation. Can be an int or tuple of (width, height).
                                 Larger blocks are less sensitive to noise and faster to process, but will produce less accurate vectors.
         :param smooth:          This is method for dividing coarse blocks into smaller ones.
@@ -411,10 +413,9 @@ class MVTools:
         overlap, overlapv = normalize_seq(overlap, 2)
 
         recalculate_args = self.recalculate_args | KwargsNotNone(
-            blksize=blksize, blksizev=blksizev, search=search, searchparam=searchparam,
-            lambda_=lambda_, chroma=self.chroma, truemotion=truemotion, pnew=pnew,
-            overlap=overlap, overlapv=overlapv, divide=divide, meander=meander,
-            fields=self.fieldbased.is_inter, tff=self.fieldbased.is_tff, dct=dct
+            thsad=thsad, smooth=smooth, blksize=blksize, blksizev=blksizev, search=search, searchparam=searchparam,
+            lambda_=lambda_, chroma=self.chroma, truemotion=truemotion, pnew=pnew, overlap=overlap, overlapv=overlapv,
+            divide=divide, meander=meander, fields=self.fieldbased.is_inter, tff=self.fieldbased.is_tff, dct=dct
         )
 
         if self.mvtools is MVToolsPlugin.INTEGER and not any(
@@ -423,7 +424,7 @@ class MVTools:
             self.disable_compensate = True
 
         if self.mvtools is MVToolsPlugin.FLOAT:
-            vectors.vmulti = self.mvtools.Recalculate(super_clip, vectors=vectors.vmulti, smooth=smooth, **recalculate_args)
+            vectors.vmulti = self.mvtools.Recalculate(super_clip, vectors=vectors.vmulti, **recalculate_args)
         else:
             for i in range(1, self.tr + 1):
                 for direction in MVDirection:
@@ -435,9 +436,9 @@ class MVTools:
     @overload
     def compensate(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
-        vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BOTH,
-        tr: int | None = None, scbehavior: bool | None = None, thsad: int | None = None,
+        vectors: MotionVectors | MVTools | None = None, direction: MVDirection = MVDirection.BOTH,
+        tr: int | None = None, scbehavior: bool | None = None,
+        thsad: int | None = None, thsad2: int | None = None,
         time: float | None = None, thscd: int | tuple[int | None, int | None] | None = None,
         interleave: Literal[True] = True, temporal_func: None = None
     ) -> vs.VideoNode:
@@ -446,9 +447,9 @@ class MVTools:
     @overload
     def compensate(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
-        vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BOTH,
-        tr: int | None = None, scbehavior: bool | None = None, thsad: int | None = None,
+        vectors: MotionVectors | MVTools | None = None, direction: MVDirection = MVDirection.BOTH,
+        tr: int | None = None, scbehavior: bool | None = None,
+        thsad: int | None = None, thsad2: int | None = None,
         time: float | None = None, thscd: int | tuple[int | None, int | None] | None = None,
         interleave: Literal[True] = True, temporal_func: VSFunction = ...
     ) -> tuple[vs.VideoNode, tuple[int, int]]:
@@ -457,9 +458,9 @@ class MVTools:
     @overload
     def compensate(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
-        vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BOTH,
-        tr: int | None = None, scbehavior: bool | None = None, thsad: int | None = None,
+        vectors: MotionVectors | MVTools | None = None, direction: MVDirection = MVDirection.BOTH,
+        tr: int | None = None, scbehavior: bool | None = None,
+        thsad: int | None = None, thsad2: int | None = None,
         time: float | None = None, thscd: int | tuple[int | None, int | None] | None = None,
         interleave: Literal[False] = False
     ) -> tuple[list[vs.VideoNode], list[vs.VideoNode]]:
@@ -467,9 +468,9 @@ class MVTools:
 
     def compensate(
         self, clip: vs.VideoNode | None = None, super: vs.VideoNode | None = None,
-        vectors: MotionVectors | MVTools | None = None,
-        direction: MVDirection = MVDirection.BOTH,
-        tr: int | None = None, scbehavior: bool | None = None, thsad: int | None = None,
+        vectors: MotionVectors | MVTools | None = None, direction: MVDirection = MVDirection.BOTH,
+        tr: int | None = None, scbehavior: bool | None = None,
+        thsad: int | None = None, thsad2: int | None = None,
         time: float | None = None, thscd: int | tuple[int | None, int | None] | None = None,
         interleave: bool = True, temporal_func: VSFunction | None = None
     ) -> vs.VideoNode | tuple[list[vs.VideoNode], list[vs.VideoNode]] | tuple[vs.VideoNode, tuple[int, int]]:
@@ -488,6 +489,10 @@ class MVTools:
                                 If True, the frame is left unchanged. If False, the reference frame is copied.
         :param thsad:           SAD threshold for safe compensation.
                                 If block SAD is above thsad, the source block is used instead of the compensated block.
+        :param thsad2:          Define the SAD soft threshold for the furthest frames.
+                                The actual SAD threshold for each reference frame is interpolated between thsad (close frames)
+                                and thsad2 (far frames).
+                                Only used with the FLOAT MVTools plugin.
         :param time:            Time position between frames as a percentage (0.0-100.0).
                                 Controls the interpolation position between frames.
         :param thscd:           Scene change detection thresholds.
@@ -519,7 +524,7 @@ class MVTools:
         thscd1, thscd2 = normalize_thscd(thscd)
 
         compensate_args = self.compensate_args | KwargsNotNone(
-            scbehavior=scbehavior, thsad=thsad, time=time, fields=self.fieldbased.is_inter,
+            scbehavior=scbehavior, thsad=thsad, thsad2=thsad2, time=time, fields=self.fieldbased.is_inter,
             thscd1=thscd1, thscd2=thscd2, tff=self.fieldbased.is_tff
         )
 
