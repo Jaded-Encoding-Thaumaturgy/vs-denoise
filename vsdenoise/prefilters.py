@@ -770,7 +770,7 @@ class MultiPrefilter(PrefBase):  # type: ignore
         return clip
 
 
-def prefilter_to_full_range(clip: vs.VideoNode, range_conversion: float, planes: PlanesT = None) -> vs.VideoNode:
+def prefilter_to_full_range(clip: vs.VideoNode, range_conversion: float = 5.0, planes: PlanesT = None) -> vs.VideoNode:
     """
     Convert a limited range clip to full range.\n
     Useful for expanding prefiltered clip's ranges to give motion estimation additional information to work with.

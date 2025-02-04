@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Iterable, Iterator, MutableMapping, Self, TypedDict, overload
-from functools import partial
 
 from vstools import T1, T2, KwargsT, PlanesT, SupportsKeysAndGetItem, VSFunction, classproperty, vs
 
@@ -224,7 +223,7 @@ class MVToolsPresets:
     @classproperty
     def HQ_COHERENCE(self) -> MVToolsPreset:
         return MVToolsPreset(
-            search_clip=partial(prefilter_to_full_range, range_conversion=1),
+            search_clip=prefilter_to_full_range,
             pel=2,
             super_args=SuperArgs(
                 sharp=SharpMode.WIENER,
@@ -246,7 +245,7 @@ class MVToolsPresets:
     @classproperty
     def HQ_SAD(self) -> MVToolsPreset:
         return MVToolsPreset(
-            search_clip=partial(prefilter_to_full_range, range_conversion=1),
+            search_clip=prefilter_to_full_range,
             pel=2,
             super_args=SuperArgs(
                 sharp=SharpMode.WIENER,
