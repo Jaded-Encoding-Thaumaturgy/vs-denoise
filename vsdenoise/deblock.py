@@ -129,10 +129,7 @@ class _dpir(CustomStrEnum):
         else:
             clip_rgb = kernel.resample(clip_upsample, vs.RGBH if fp16 else vs.RGBS, matrix_in=targ_matrix)
 
-        try:
-            clip_rgb = limiter(clip_rgb, func=func)
-        except vs.Error:
-            clip_rgb = norm_expr(clip_rgb, 'x 0 1 clamp')
+        clip_rgb = limiter(clip_rgb, func=func)
 
         if overlap is None:
             overlap_w = overlap_h = 0
