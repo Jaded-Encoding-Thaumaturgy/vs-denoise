@@ -3,16 +3,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal, SupportsFloat, cast
 
+from vsaa import Nnedi3
 from vsexprtools import expr_func, norm_expr
 from vskernels import Catrom, Kernel, KernelT
-from vsmasktools import FDoG, GenericMaskT, adg_mask, normalize_mask, Morpho
-from vsrgtools import gauss_blur, MeanMode, repair
-from vsaa import Nnedi3
+from vsmasktools import FDoG, GenericMaskT, Morpho, adg_mask, normalize_mask
+from vsrgtools import MeanMode, gauss_blur, repair
 from vstools import (
-    FunctionUtil, CustomStrEnum, DependencyNotFoundError, UnsupportedFieldBasedError, FrameRangeN, FrameRangesN,
-    Matrix, MatrixT, FieldBased, Align, KwargsT, PlanesT, VSFunction, InvalidColorFamilyError, LengthMismatchError,
-    UnsupportedVideoFormatError, check_variable, core, depth, fallback, get_depth, get_nvidia_version, get_y, join,
-    padder, get_plane_sizes, normalize_seq, replace_ranges, vs, shift_clip_multi
+    Align, CustomStrEnum, DependencyNotFoundError, FieldBased, FrameRangeN, FrameRangesN,
+    FunctionUtil, InvalidColorFamilyError, KwargsT, LengthMismatchError, Matrix, MatrixT, PlanesT,
+    UnsupportedFieldBasedError, UnsupportedVideoFormatError, VSFunction, check_variable, core,
+    depth, fallback, get_depth, get_nvidia_version, get_plane_sizes, get_y, join, limiter,
+    normalize_seq, padder, replace_ranges, shift_clip_multi, vs
 )
 
 __all__ = [
@@ -129,7 +130,7 @@ class _dpir(CustomStrEnum):
             clip_rgb = kernel.resample(clip_upsample, vs.RGBH if fp16 else vs.RGBS, matrix_in=targ_matrix)
 
         try:
-            clip_rgb = clip_rgb.std.Limiter()
+            clip_rgb = limiter(clip_rgb, func=func)
         except vs.Error:
             clip_rgb = norm_expr(clip_rgb, 'x 0 1 clamp')
 
