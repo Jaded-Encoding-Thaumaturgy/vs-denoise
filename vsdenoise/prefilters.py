@@ -24,7 +24,7 @@ from vstools import (
 
 from .bm3d import BM3D as BM3DM
 from .bm3d import BM3DCPU, AbstractBM3D, BM3DCuda, BM3DCudaRTC, Profile
-from .fft import DFTTest
+from .fft import DFTTest, SLocT
 from .nlm import DeviceType, nl_means
 
 __all__ = [
@@ -94,9 +94,11 @@ class PrefilterBase(CustomIntEnum, metaclass=PrefilterMeta):
 
             if pref_type == Prefilter.DFTTEST:
                 peak = get_peak_value(clip)
-                dftt = DFTTest(sloc={0.0: 4, 0.2: 9, 1.0: 15}, tr=0).denoise(clip, planes=planes, **kwargs)
+                pref_mask: vs.VideoNode | Literal[False] | tuple[int, int] | None = kwargs.pop("pref_mask", None)
 
-                pref_mask: vs.VideoNode | Literal[False] | tuple[int, int] | None = kwargs.get("pref_mask", None)
+                dftt = DFTTest(sloc={0.0: 4, 0.2: 9, 1.0: 15}, tr=0).denoise(
+                    clip, kwargs.pop("sloc", None), planes=planes, **kwargs
+                )
 
                 if pref_mask is False:
                     return dftt
@@ -457,9 +459,9 @@ class Prefilter(PrefilterBase):
             self: Literal[Prefilter.DFTTEST], clip: vs.VideoNode, /,
             planes: PlanesT = None, full_range: bool | float = False,
             *,
+            sloc: SLocT | None = {0.0: 4.0, 0.2: 9.0, 1.0: 15.0},
             pref_mask: vs.VideoNode | Literal[False] | tuple[int, int] = (16, 75),
             tbsize: int = 1, sbsize: int = 12, sosize: int = 6, swin: int = 2,
-            slocation: SingleOrArr[float] = [0.0, 4.0, 0.2, 9.0, 1.0, 15.0],
             **kwargs: Any
         ) -> vs.VideoNode:
             """
@@ -590,10 +592,11 @@ class Prefilter(PrefilterBase):
 
         @overload
         def __call__(  # type: ignore
-            self: Literal[Prefilter.DFTTEST], *, planes: PlanesT = None, full_range: bool | float = False,
+            self: Literal[Prefilter.DFTTEST], *,
+            planes: PlanesT = None, full_range: bool | float = False,
+            sloc: SLocT | None = {0.0: 4.0, 0.2: 9.0, 1.0: 15.0},
             pref_mask: vs.VideoNode | Literal[False] | tuple[int, int] = (16, 75),
             tbsize: int = 1, sbsize: int = 12, sosize: int = 6, swin: int = 2,
-            slocation: SingleOrArr[float] = [0.0, 4.0, 0.2, 9.0, 1.0, 15.0],
             **kwargs: Any
         ) -> PrefilterPartial:
             """
