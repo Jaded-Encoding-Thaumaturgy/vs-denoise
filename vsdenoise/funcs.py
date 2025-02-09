@@ -4,19 +4,16 @@ This module contains general denoising functions built on top of base denoisers.
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Literal, overload
+from typing import Any, Literal, overload
 
-from vskernels import Scaler, ScalerT, Bilinear, Catrom
 from vsscale import Waifu2x
 from vsscale.scale import BaseWaifu2x
-from vstools import CustomIndexError, KwargsNotNone, PlanesT, VSFunction, fallback, vs, normalize_seq, mod2
+from vstools import CustomIndexError, KwargsNotNone, PlanesT, VSFunction, fallback, normalize_seq, vs
 
 from .mvtools import MotionVectors, MVTools, MVToolsPreset, MVToolsPresets
 
 __all__ = [
     'mc_degrain',
-
-    'mlm_degrain',
 
     'waifu2x_denoise'
 ]
@@ -102,50 +99,6 @@ def mc_degrain(
     den = mv.degrain(mfilter, mv.clip, None, tr, thsad, thsad2, limit, thscd)
 
     return (den, mv) if export_globals else den
-
-
-def mlm_degrain(
-    clip: vs.VideoNode, factors: Iterable[int] = [1 / 4, 1 / 3, 1 / 2],
-    downsampler: ScalerT = Bilinear, upsampler: ScalerT = Catrom,
-    tr: int = 1, preset: MVToolsPreset = MVToolsPresets.HQ_SAD,
-    blksize: int | tuple[int, int] = 16, refine: int = 1,
-    thsad: int | tuple[int, int] = 400,
-    limit: int | tuple[int | None, int | None] | None = None,
-    thscd: int | tuple[int | None, int | None] | None = None,
-    planes: PlanesT = None, **kwargs: Any
-) -> vs.VideoNode | tuple[vs.VideoNode, MVTools]:
-
-    downsampler = Scaler.ensure_obj(downsampler)
-    upsampler = Scaler.ensure_obj(upsampler)
-
-    mv_args = dict(
-        tr=tr, preset=preset, blksize=blksize, refine=refine, limit=limit, thscd=thscd, planes=planes
-    ) | kwargs
-    
-    factors = sorted(factors, reverse=True)
-    downsampled_clips, residuals = [clip], list[vs.VideoNode]()
-
-    for x, i in enumerate(factors[1:]):
-        base_clip = downsampled_clips[x]
-        ds_clip = downsampler.scale(base_clip, mod2(clip.width * i), mod2(clip.height * i))
-
-        ds_up = upsampler.scale(ds_clip, base_clip.width, base_clip.height)
-        ds_diff = ds_up.std.MakeDiff(base_clip)
-
-        downsampled_clips.append(ds_clip)
-        residuals.append(ds_diff)
-
-    downsampled_clips, residuals = downsampled_clips[::-1], residuals[::-1]
-
-    den_base = mc_degrain(downsampled_clips[0], thsad=thsad, **mv_args)
-
-    for x in range(len(factors) - 1):
-        next_base = downsampled_clips[x + 1]
-        base_up = upsampler.scale(den_base, next_base.width, next_base.height)
-        den_last = mc_degrain(residuals[x], prefilter=downsampled_clips[x + 1], thsad=thsad / factors[x + 1], **mv_args)
-        den_base = base_up.std.MakeDiff(den_last)
-
-    return den_base
 
 
 def waifu2x_denoise(
