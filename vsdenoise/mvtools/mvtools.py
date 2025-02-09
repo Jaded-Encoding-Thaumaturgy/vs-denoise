@@ -5,15 +5,15 @@ from itertools import chain
 from typing import Any, Literal, overload
 
 from vstools import (
-    CustomRuntimeError, ColorRange, FieldBased,
-    InvalidColorFamilyError, KwargsT, KwargsNotNone, PlanesT, VSFunction,
-    check_variable, core, depth, disallow_variable_format, get_prop, scale_delta,
-    disallow_variable_resolution, fallback, normalize_planes, normalize_seq, vs
+    ColorRange, CustomRuntimeError, FieldBased, GenericVSFunction, InvalidColorFamilyError,
+    KwargsNotNone, KwargsT, PlanesT, VSFunction, check_variable, core, depth,
+    disallow_variable_format, disallow_variable_resolution, fallback, get_prop, normalize_planes,
+    normalize_seq, scale_delta, vs
 )
 
 from .enums import (
-    MVToolsPlugin, MVDirection, SharpMode, RFilterMode, SearchMode,
-    SADMode, MotionMode, SmoothMode, PenaltyMode, FlowMode, MaskMode
+    FlowMode, MaskMode, MotionMode, MVDirection, MVToolsPlugin, PenaltyMode, RFilterMode, SADMode,
+    SearchMode, SharpMode, SmoothMode
 )
 from .motion import MotionVectors
 from .utils import normalize_thscd, planes_to_mvtools
@@ -71,7 +71,7 @@ class MVTools:
     @disallow_variable_format
     @disallow_variable_resolution
     def __init__(
-        self, clip: vs.VideoNode, search_clip: vs.VideoNode | VSFunction | None = None,
+        self, clip: vs.VideoNode, search_clip: vs.VideoNode | GenericVSFunction | None = None,
         vectors: MotionVectors | MVTools | None = None,
         tr: int = 1, pad: int | tuple[int | None, int | None] | None = None,
         pel: int | None = None, planes: PlanesT = None,
