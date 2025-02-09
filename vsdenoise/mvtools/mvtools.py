@@ -724,7 +724,11 @@ class MVTools:
             thsad, thsadc = normalize_seq(thsad, 2)
             limit, limitc = normalize_seq(limit, 2)
 
-            limit, limitc = [None if i is None else scale_delta(i, 8, clip) for i in (limit, limitc)]
+            if limit is not None:
+                limit = scale_delta(limit, 8, clip)  # type: ignore[assignment]
+
+            if limitc is not None:
+                limitc = scale_delta(limitc, 8, clip)  # type: ignore[assignment]
 
             degrain_args.update(thsad=thsad, thsadc=thsadc, limit=limit, limitc=limitc)
 
@@ -1147,7 +1151,7 @@ class MVTools:
 
             with vectors.get_mv(MVDirection.BACK, 1).manipmv.ExpandAnalysisData().get_frame(0) as clip_props:
                 for i in props_list:
-                    analysis_props[i] = get_prop(clip_props, i, int | list)
+                    analysis_props[i] = get_prop(clip_props, i, int | list)  # type: ignore
 
             vectors.analysis_data = analysis_props
 

@@ -8,8 +8,9 @@ from typing import Any, Literal, overload
 
 from vsscale import Waifu2x
 from vsscale.scale import BaseWaifu2x
-from vstools import CustomIndexError, KwargsNotNone, PlanesT, VSFunction, fallback, normalize_seq, vs
+from vstools import CustomIndexError, KwargsNotNone, PlanesT, VSFunction, fallback, vs
 
+from .mvtools import MotionVectors, MVTools, MVToolsPreset, MVToolsPresets, RFilterMode
 from .prefilters import PrefilterPartial
 
 __all__ = [
@@ -74,23 +75,26 @@ def mc_degrain(
 
     mv_args = preset | kwargs | KwargsNotNone(search_clip=prefilter, tr=tr)
 
-    blksize = normalize_seq(blksize, 2)
-    thsad = normalize_seq(thsad, 2)
+    blksize = blksize if isinstance(blksize, tuple) else (blksize, blksize)
+    thsad = thsad if isinstance(thsad, tuple) else (thsad, thsad)
 
     mv = MVTools(clip, vectors=vectors, planes=planes, **mv_args)
 
-    mv.super(mv.search_clip, rfilter=4)
+    mv.super(mv.search_clip, rfilter=RFilterMode.CUBIC)
+
+    def _floor_div_tuple(x: tuple[int, int], div: int = 2) -> tuple[int, int]:
+        return (x[0] // div, x[1] // div)
 
     if not vectors:
-        mv.analyze(blksize=blksize, overlap=[i // 2 for i in blksize])
+        mv.analyze(blksize=blksize, overlap=_floor_div_tuple(blksize))
 
         if refine:
             if thsad_recalc is None:
                 thsad_recalc = thsad[0] // 2
 
             for _ in range(refine):
-                blksize = [i // 2 for i in blksize]
-                overlap = [i // 2 for i in blksize]
+                blksize = _floor_div_tuple(blksize)
+                overlap = _floor_div_tuple(blksize)
 
                 mv.recalculate(thsad=thsad_recalc, blksize=blksize, overlap=overlap)
 
