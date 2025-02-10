@@ -79,7 +79,7 @@ def mc_degrain(
 
     mv_args = preset | kwargs | KwargsNotNone(search_clip=prefilter, tr=tr)
 
-    rfilter_srch, rfilter_render = normalize_seq(rfilter)
+    rfilter_srch, rfilter_render = normalize_seq(rfilter, 2)
     blksize = blksize if isinstance(blksize, tuple) else (blksize, blksize)
     thsad = thsad if isinstance(thsad, tuple) else (thsad, thsad)
 
