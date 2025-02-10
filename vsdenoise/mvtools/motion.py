@@ -47,10 +47,10 @@ class MotionVectors:
         """
         Retrieve a specific motion vector.
 
-        :param direction:       Direction of the motion vector (forward or backward).
-        :param delta:           Frame distance for the motion vector.
+        :param direction:    Direction of the motion vector (forward or backward).
+        :param delta:        Frame distance for the motion vector.
 
-        :return:                The requested motion vector clip.
+        :return:             The requested motion vector clip.
         """
 
         return self.temporal_vectors[direction][delta]
@@ -59,9 +59,9 @@ class MotionVectors:
         """
         Store a motion vector.
 
-        :param direction:       Direction of the motion vector (forward or backward).
-        :param delta:           Frame distance for the motion vector.
-        :param vect:            Motion vector clip to store.
+        :param direction:    Direction of the motion vector (forward or backward).
+        :param delta:        Frame distance for the motion vector.
+        :param vect:         Motion vector clip to store.
         """
 
         self.temporal_vectors[direction][delta] = vector
