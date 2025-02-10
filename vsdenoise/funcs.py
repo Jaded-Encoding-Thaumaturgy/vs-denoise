@@ -76,12 +76,51 @@ def mc_degrain(
     thscd: int | tuple[int | None, int | None] | None = None, export_globals: bool = False,
     planes: PlanesT = None, **kwargs: Any
 ) -> vs.VideoNode | tuple[vs.VideoNode, MVTools]:
+    """
+    Perform temporal denoising using motion compensation.
+
+    Motion compensated blocks from previous and next frames are averaged with the current frame.
+    The weighting factors for each block depend on their SAD from the current frame.
+
+    :param clip:               The clip to process.
+    :param vectors:            Motion vectors to use. Can be a MotionVectors object or another MVTools instance.
+    :param prefilter:          Filter or clip to use when performing motion vector search.
+    :param mfilter:            Filter or clip to use where degrain couldn't find a matching block.
+    :param preset:             MVTools preset defining base values for the MVTools object.
+    :param tr:                 The temporal radius. This determines how many frames are analyzed before/after the current frame.
+    :param rfilter:            Hierarchical levels smoothing and reducing (halving) filter.
+    :param blksize:            Size of a block. Larger blocks are less sensitive to noise, are faster, but also less accurate.
+    :param refine:             Number of times to recalculate motion vectors with halved block size.
+    :param thsad:              Defines the soft threshold of block sum absolute differences.
+                               Blocks with SAD above this threshold have zero weight for averaging (denoising).
+                               Blocks with low SAD have highest weight.
+                               The remaining weight is taken from pixels of source clip.
+    :param thsad2:             Define the SAD soft threshold for the furthest frames.
+                               The actual SAD threshold for each reference frame is interpolated between thsad (close frames)
+                               and thsad2 (far frames).
+                               Only used with the FLOAT MVTools plugin.
+    :param thsad_recalc:       Only bad quality new vectors with a SAD above thid will be re-estimated by search.
+                               thsad value is scaled to 8x8 block size.
+    :param limit:              Maximum allowed change in pixel values.
+    :param thscd:              Scene change detection thresholds:
+                               - First value: SAD threshold for considering a block changed between frames.
+                               - Second value: Number of changed blocks needed to trigger a scene change.
+    :param export_globals:     Whether to return the MVTools object.
+    :param planes:             Which planes to process. Default: None (all planes).
+
+    :return:                   Motion compensated and temporally filtered clip with reduced noise.
+    """
+    def _floor_div_tuple(x: tuple[int, int], div: int = 2) -> tuple[int, int]:
+        return (x[0] // div, x[1] // div)
 
     mv_args = preset | kwargs | KwargsNotNone(search_clip=prefilter, tr=tr)
 
     rfilter_srch, rfilter_render = normalize_seq(rfilter, 2)
+
     blksize = blksize if isinstance(blksize, tuple) else (blksize, blksize)
     thsad = thsad if isinstance(thsad, tuple) else (thsad, thsad)
+
+    mfilter = mfilter(clip) if callable(mfilter) else fallback(mfilter, clip)
 
     mv = MVTools(clip, vectors=vectors, planes=planes, **mv_args)
 
@@ -89,9 +128,6 @@ def mc_degrain(
         mv.super(mv.clip, rfilter=rfilter_render)
 
     mv.super(mv.search_clip, rfilter=rfilter_srch)
-
-    def _floor_div_tuple(x: tuple[int, int], div: int = 2) -> tuple[int, int]:
-        return (x[0] // div, x[1] // div)
 
     if not vectors:
         mv.analyze(blksize=blksize, overlap=_floor_div_tuple(blksize))
@@ -105,8 +141,6 @@ def mc_degrain(
                 overlap = _floor_div_tuple(blksize)
 
                 mv.recalculate(thsad=thsad_recalc, blksize=blksize, overlap=overlap)
-
-    mfilter = mfilter(clip) if callable(mfilter) else fallback(mfilter, mv.clip)
 
     den = mv.degrain(mfilter, mv.clip, None, tr, thsad, thsad2, limit, thscd)
 

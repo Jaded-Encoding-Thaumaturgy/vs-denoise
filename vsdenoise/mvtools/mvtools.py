@@ -502,8 +502,8 @@ class MVTools:
         :param temporal_func:   Temporal function to apply to the motion compensated frames.
 
         :return:                Motion compensated frames if func is provided, otherwise returns a tuple containing:
-                               - The interleaved compensated frames
-                               - A tuple of (total_frames, center_offset) for manual frame selection
+                                - The interleaved compensated frames.
+                                - A tuple of (total_frames, center_offset) for manual frame selection.
         """
 
         if self.disable_compensate:
@@ -616,8 +616,8 @@ class MVTools:
                                 Takes the interleaved frames as input and returns processed frames.
 
         :return:                Motion compensated frames if func is provided, otherwise returns a tuple containing:
-                               - The interleaved compensated frames
-                               - A tuple of (total_frames, center_offset) for manual frame selection
+                                - The interleaved compensated frames.
+                                - A tuple of (total_frames, center_offset) for manual frame selection.
         """
 
         clip = fallback(clip, self.clip)
@@ -691,10 +691,8 @@ class MVTools:
                                 Only used with the FLOAT MVTools plugin.
         :param limit:           Maximum allowed change in pixel values.
         :param thscd:           Scene change detection thresholds:
-                                - First value: SAD threshold for considering a block changed between frames
-                                - Second value: Number of changed blocks needed to trigger a scene change
-        :param vectors:         Pre-calculated motion vectors from another MVTools instance or custom implementation.
-                                If None, the :py:attr:`vectors` attribute is used.
+                                - First value: SAD threshold for considering a block changed between frames.
+                                - Second value: Number of changed blocks needed to trigger a scene change.
 
         :return:                Motion compensated and temporally filtered clip with reduced noise.
         """
