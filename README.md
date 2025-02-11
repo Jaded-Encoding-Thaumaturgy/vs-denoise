@@ -27,7 +27,7 @@ pip install git+https://github.com/Jaded-Encoding-Thaumaturgy/vs-denoise.git
 ## Example usage
 
 ```py
-from vsdenoise import MVToolsPresets Prefilter, mc_degrain, BM3DCuda, Profile, nl_means
+from vsdenoise import MVToolsPresets, Prefilter, mc_degrain, BM3DCuda, Profile, nl_means
 
 clip = ...
 
