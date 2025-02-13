@@ -1,5 +1,9 @@
 # vs-denoise
 
+> [!CAUTION]
+> This package is deprecated!
+> Please use https://github.com/Jaded-Encoding-Thaumaturgy/vs-jetpack instead.
+
 ### VapourSynth denoising, regression, and motion-compensation functions
 
 <br>
@@ -9,20 +13,9 @@ Wrappers for denoising, regression, and motion-compensation-related plugins and 
 For support you can check out the [JET Discord server](https://discord.gg/XTpc6Fa9eB). <br><br>
 
 ## How to install
+**This package is deprecated!**
 
-Install `vsdenoise` with the following command:
-
-```sh
-pip install vsdenoise
-```
-
-Or if you want the latest git version, install it with this command:
-
-```sh
-pip install git+https://github.com/Jaded-Encoding-Thaumaturgy/vs-denoise.git
-```
-
-<br><br>
+Please install https://pypi.org/p/vsjetpack instead.
 
 ## Example usage
 
