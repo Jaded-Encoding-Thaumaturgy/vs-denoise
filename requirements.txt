@@ -1,8 +1,1 @@
-VapourSynth>=68
-vstools>=3.4.1
-vskernels>=3.4.2
-vsexprtools>=1.8.1
-vsrgtools>=1.9.0
-vsmasktools>=1.4.1
-vsaa>=1.12.1
-vsscale>=2.3.1
+vsjetpack
